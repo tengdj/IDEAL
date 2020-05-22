@@ -6,13 +6,13 @@ INCFLAGS	= -I /usr/include -I ./src
 LIBS		= -L/usr/lib/x86_64-linux-gnu -lgeos -lspatialindex -lboost_program_options -lpthread
 CPPFLAGS	= -g
 
-all:	resque_2d polygon
+all:	partitioner polygon
 
-resque_2d:	src/resque_2d.o src/MyPolygon.o
-	$(CXX) -o $@ $^ $(LIBS) 
+partitioner:	src/partitioner.o src/MyPolygon.o
+	$(CXX) -o build/$@ $^ $(LIBS) 
 
 polygon:	src/MyPolygon.o src/Parser.o
-	$(CXX) -o $@ $^ $(LIBS) 
+	$(CXX) -o build/$@ $^ $(LIBS) 
 	
 %.o:	%.cpp
 	$(CXX) -c $(CFLAGS) $(CXXFLAGS) $(CPPFLAGS) -o $@ $<

@@ -34,3 +34,8 @@
 data/
 *.wkt
 build/
+
+.cproject
+.project
+.settings/
+
