@@ -21,7 +21,7 @@ enum PartitionStatus{
 	IN = 2
 };
 
-const char *direction_str = "lrtb";
+const static char *direction_str = "lrtb";
 
 enum Direction{
 	LEFT = 0,

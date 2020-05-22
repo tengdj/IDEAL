@@ -10,7 +10,12 @@
 
 
 
-int main(){
+int main(int argc, char **argv){
+	int dim = 20;
+	if(argc>1){
+		dim = atoi(argv[1]);
+	}
+
 	string input_line;
 	getline(cin, input_line);
 	vector<string> result;
@@ -18,7 +23,7 @@ int main(){
 	MyMultiPolygon *mpoly = new MyMultiPolygon(result[0].c_str());
 	MyPolygon *poly = mpoly->get_polygon(0);
 	MyPolygon *mbb = poly->getMBB();
-	vector<MyPolygon *> parts = poly->partition(10, 10);
+	vector<MyPolygon *> parts = poly->partition(dim, dim);
 	MyMultiPolygon *mypolys = new MyMultiPolygon();
 	mypolys->insert_polygon(poly->clone());
 	mypolys->insert_polygon(parts);

@@ -264,7 +264,6 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 		partitions.push_back(v);
 	}
 	for(int i=0;i<num_boundary_vertices()-1;i++){
-
 		double x1 = get_vertex_x(i);
 		double y1 = get_vertex_y(i);
 		double x2 = get_vertex_x(i+1);
@@ -336,47 +335,63 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 				}
 			}
 		}else{
-
-			// todo: logic is wrong
+			// solve the line function
 			double a = (y1-y2)/(x1-x2);
 			double b = (x1*y2-x2*y1)/(x1-x2);
-			// cross with vertical lines
-			if(cur_startx<cur_endx){//left to right
-				for(int x=cur_startx;x<cur_endx;x++){
-					double xval = ((double)x+1)*step_x+start_x;
-					double yval = xval*a+b;
-					int y = (yval-start_y)/step_y;
-					partitions[x][y].leave(yval,RIGHT);
-					partitions[x+1][y].enter(yval,LEFT);
-				}
-			}else{//right to left
 
-				for(int x=cur_startx;x>cur_endx;x--){
-					double xval = (double)x*step_x+start_x;
+			int x = cur_startx;
+			int y = cur_starty;
+			cout<<x<<" "<<y<<endl;
+			cout<<cur_endx<<" "<<cur_endy<<endl;
+			while(x!=cur_endx||y!=cur_endy){
+				printf("a=%f b=%f\n",a,b);
+				bool passed = false;
+				//check horizontally
+				if(x!=cur_endx){
+					double xval = 0;
+					if(cur_startx<cur_endx){
+						xval = ((double)x+1)*step_x+start_x;
+					}else{
+						xval = (double)x*step_x+start_x;
+					}
 					double yval = xval*a+b;
-					int y = (yval-start_y)/step_y;
-					partitions[x][y].leave(yval,LEFT);
-					partitions[x-1][y].enter(yval, RIGHT);
+					int cur_y = (yval-start_y)/step_y;
+					printf("1-%f %d\n",(yval-start_y)/step_y,cur_y);
+					if(cur_y==y){
+						passed = true;
+						// left to right
+						if(cur_startx<cur_endx){
+							partitions[x++][y].leave(yval,RIGHT);
+							partitions[x][y].enter(yval,LEFT);
+						}else{//right to left
+							partitions[x--][y].leave(yval,LEFT);
+							partitions[x][y].enter(yval,RIGHT);
+						}
+					}
 				}
-			}
-
-			// cross with horizontal lines
-			if(cur_starty<cur_endy){//bottom up
-				for(int y=cur_starty;y<cur_endy;y++){
-					float yval = ((double)y+1)*step_y+start_y;
+				//check vertically
+				if(y!=cur_endy){
+					float yval = 0;
+					if(cur_starty<cur_endy){
+						yval = (y+1)*step_y+start_y;
+					}else{
+						yval = y*step_y+start_y;
+					}
 					float xval = (yval-b)/a;
-					int x = (xval-start_x)/step_x;
-					partitions[x][y].leave(xval, TOP);
-					partitions[x][y+1].enter(xval, BOTTOM);
+					int cur_x = (xval-start_x)/step_x;
+					printf("2-%f %d %d\n",(xval-start_x)/step_x,cur_x,x);
+					if(cur_x==x){
+						passed = true;
+						if(cur_starty<cur_endy){// bottom up
+							partitions[x][y++].leave(xval, TOP);
+							partitions[x][y].enter(xval, BOTTOM);
+						}else{// top down
+							partitions[x][y--].leave(xval, BOTTOM);
+							partitions[x][y].enter(xval, TOP);
+						}
+					}
 				}
-			}else{//top down
-				for(int y=cur_starty;y>cur_endy;y--){
-					float yval = (double)y*step_y+start_y;
-					float xval = (yval-b)/a;
-					int x = (xval-start_x)/step_x;
-					partitions[x][y].leave(xval, BOTTOM);
-					partitions[x][y-1].enter(xval, TOP);
-				}
+				assert(passed);
 			}
 		}
 	}
@@ -388,24 +403,25 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 			if(partitions[i][j].top){
 				partitions[i][j+1].bottom = true;
 				if(partitions[i][j+1].status==OUT){
-					//partitions[i][j+1].setin();
+					partitions[i][j+1].setin();
 				}
 			}else if(partitions[i][j+1].bottom){
 				partitions[i][j].top = true;
 				if(partitions[i][j].status==OUT){
-					//partitions[i][j].setin();
+					partitions[i][j].setin();
 				}
+
 			}
 			// left to right
 			if(partitions[i][j].right){
-				partitions[i][j+1].left = true;
-				if(partitions[i][j+1].status==OUT){
-					//partitions[i][j+1].setin();
+				partitions[i+1][j].left = true;
+				if(partitions[i+1][j].status==OUT){
+					partitions[i+1][j].setin();
 				}
-			}else if(partitions[i][j+1].left){
+			}else if(partitions[i+1][j].left){
 				partitions[i][j].right = true;
 				if(partitions[i][j].status==OUT){
-					//partitions[i][j].setin();
+					partitions[i][j].setin();
 				}
 			}
 		}
@@ -416,21 +432,22 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 
 	for(int i=0;i<dimx;i++){
 		for(int j=0;j<dimy;j++){
-			if(partitions[i][j].status==BORDER||partitions[i][j].status==IN){
-				cout<<i<<" "<<j;
-				if(partitions[i][j].top){
-					cout<<" t";
-				}
-				if(partitions[i][j].bottom){
-					cout<<" b";
-				}
-				if(partitions[i][j].left){
-					cout<<" l";
-				}
-				if(partitions[i][j].right){
-					cout<<" r";
-				}
-				cout<<endl;
+			if(partitions[i][j].status==BORDER||
+					partitions[i][j].status==IN){
+//				cout<<i<<" "<<j;
+//				if(partitions[i][j].top){
+//					cout<<" t";
+//				}
+//				if(partitions[i][j].bottom){
+//					cout<<" b";
+//				}
+//				if(partitions[i][j].left){
+//					cout<<" l";
+//				}
+//				if(partitions[i][j].right){
+//					cout<<" r";
+//				}
+//				cout<<endl;
 				MyPolygon *m = gen_box(start_x+i*step_x,start_y+j*step_y,start_x+(i+1)*step_x,start_y+(j+1)*step_y);
 				parts.push_back(m);
 			}
