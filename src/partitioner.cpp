@@ -35,7 +35,9 @@ pthread_mutex_t line_lock;
 pthread_mutex_t output_lock;
 bool stop = false;
 
-MyPolygon *max_poly = NULL;
+pthread_mutex_t max_poly_lock;
+vector<MyPolygon *> max_polys;
+int max_num_polygs = 100;
 long total_num_vertices = 0;
 long total_num_polygons = 0;
 
@@ -104,7 +106,7 @@ void *process_wkt(void *args){
 }
 
 
-int main(int argc, char** argv) {
+int collect_stats(int argc, char** argv) {
 	int num_threads = get_num_threads();
 	if(argc>=2){
 		num_threads = atoi(argv[1]);
@@ -167,7 +169,7 @@ int main(int argc, char** argv) {
 
 
 	if(max_poly){
-		//max_poly->print();
+		max_poly->print();
 		cout<<max_poly->num_boundary_vertices()<<endl;
 		delete max_poly;
 	}
@@ -186,4 +188,9 @@ int main(int argc, char** argv) {
 
 	pthread_exit(NULL);
 	return true;
+}
+
+
+int main(int argc, char **argv){
+	collect_stats(argc, argv);
 }

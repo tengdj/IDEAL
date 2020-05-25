@@ -76,6 +76,7 @@ MyPolygon *MyPolygon::clone(){
 	for(double *t:internal_polygons){
 		polygon->internal_polygons.push_back(copy_vertices(t));
 	}
+	polygon->getMBB();
 	return polygon;
 }
 
@@ -97,6 +98,7 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 		skip_space(wkt, offset);
 	}
 	assert(wkt[offset++]==')');
+	polygon->getMBB();
 	return polygon;
 }
 
@@ -116,139 +118,412 @@ MyPolygon::~MyPolygon(){
 }
 
 
-void Pixel::process_enter_leave(Direction enter_d, double enter_val, Direction leave_d, double leave_val){
-	// totally 16 possible combinations
-	if(enter_d==LEFT&&leave_d==LEFT){
-		left = true;
-		if(leave_val>enter_val){
-			right = true;
-			top = true;
-			bottom = true;
+bool Pixel::overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2){
+
+	if(enter2.direction==LEFT&&leave2.direction==LEFT){
+		if(enter2.vertex<leave2.vertex){
+			if(enter1.direction==LEFT&&enter1.vertex>leave2.vertex){
+				if(leave1.direction==LEFT){
+					if(leave1.vertex<enter2.vertex){
+						return true;
+					}
+				}else{
+					return true;
+				}
+			}
+			if(enter1.direction==RIGHT&&leave1.direction==LEFT&&leave1.vertex<enter2.vertex){
+				return true;
+			}
+			if(enter1.direction==TOP&&leave1.direction==BOTTOM){
+				return true;
+			}
+			if(enter1.direction==TOP&&leave1.direction==LEFT&&leave1.vertex<enter2.vertex){
+				return true;
+			}
+
 		}
-	}else if(enter_d==LEFT&&leave_d==TOP){
-		left = true;
-		right = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==LEFT&&leave_d==RIGHT){
-		left = true;
-		right = true;
-		bottom = true;
-	}else if(enter_d==LEFT&&leave_d==BOTTOM){
-		left = true;
-		bottom = true;
-	}else if(enter_d==TOP&&leave_d==LEFT){
-		left = true;
-		top = true;
-	}else if(enter_d==TOP&&leave_d==TOP){
-		top = true;
-		if(leave_val>enter_val){
-			left = true;
-			right = true;
-			bottom = true;
+		return false;
+	}else if(enter2.direction==LEFT&&leave2.direction==TOP){
+		// right bottom
+		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
+				leave1.vertex<enter2.vertex){
+			return true;
 		}
-	}else if(enter_d==TOP&&leave_d==RIGHT){
-		left = true;
-		right = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==TOP&&leave_d==BOTTOM){
-		left = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==RIGHT&&leave_d==LEFT){
-		left = true;
-		right = true;
-		top = true;
-	}else if(enter_d==RIGHT&&leave_d==TOP){
-		right = true;
-		top = true;
-	}else if(enter_d==RIGHT&&leave_d==RIGHT){
-		right = true;
-		if(leave_val<enter_val){
-			left = true;
-			top = true;
-			bottom = true;
+		if(enter1.direction==TOP&&leave1.direction==LEFT&&
+				leave1.vertex<enter2.vertex&&enter1.vertex>leave2.vertex){
+			return true;
 		}
-	}else if(enter_d==RIGHT&&leave_d==BOTTOM){
-		left = true;
-		right = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==BOTTOM&&leave_d==LEFT){
-		left = true;
-		right = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==BOTTOM&&leave_d==TOP){
-		right = true;
-		top = true;
-		bottom = true;
-	}else if(enter_d==BOTTOM&&leave_d==RIGHT){
-		right = true;
-		bottom = true;
-	}else if(enter_d==BOTTOM&&leave_d==BOTTOM){
-		bottom = true;
-		if(leave_val<enter_val){
-			left = true;
-			right = true;
-			top = true;
+		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
+				enter1.vertex>leave2.vertex){
+			return true;
 		}
+		return false;
+	}else if(enter2.direction==LEFT&&leave2.direction==RIGHT){
+		// bottom
+		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
+				enter1.vertex<leave2.vertex&&leave1.vertex<enter2.vertex){
+			return true;
+		}
+		return false;
+
+	}else if(enter2.direction==LEFT&&leave2.direction==BOTTOM){
+		return false;
+	}else if(enter2.direction==TOP&&leave2.direction==LEFT){
+		return false;
+	}else if(enter2.direction==TOP&&leave2.direction==TOP){
+		if(enter2.vertex<leave2.vertex){
+			if(enter1.direction==TOP&&enter1.vertex>leave2.vertex){
+				if(leave1.direction==TOP){
+					if(leave1.vertex<enter2.vertex){
+						return true;
+					}
+				}else{
+					return true;
+				}
+			}
+			if(enter1.direction==BOTTOM&&leave1.direction==TOP&&leave1.vertex<enter2.vertex){
+				return true;
+			}
+			if(enter1.direction==RIGHT&&leave1.direction==LEFT){
+				return true;
+			}
+			if(enter1.direction==RIGHT&&leave1.direction==TOP&&leave1.vertex<enter2.vertex){
+				return true;
+			}
+		}
+		return false;
+	}else if(enter2.direction==TOP&&leave2.direction==RIGHT){
+		//left bottom
+		if(enter1.direction==RIGHT&&leave1.direction==TOP&&
+				leave1.vertex<enter2.vertex&&enter1.vertex<leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
+				enter1.vertex<leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
+				leave1.vertex<enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==TOP&&leave2.direction==BOTTOM){
+		// left
+		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
+				enter1.vertex<leave2.vertex&&leave1.vertex<enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==RIGHT&&leave2.direction==LEFT){
+		// top
+		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
+				enter1.vertex>leave2.vertex&&leave1.vertex>enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==RIGHT&&leave2.direction==TOP){
+		return false;
+	}else if(enter2.direction==RIGHT&&leave2.direction==RIGHT){
+		if(enter2.vertex>leave2.vertex){
+			if(enter1.direction==RIGHT&&enter1.vertex<leave2.vertex){
+				if(leave1.direction==RIGHT){
+					if(leave1.vertex>enter2.vertex){
+						return true;
+					}
+				}else{
+					return true;
+				}
+			}
+			if(enter1.direction==LEFT&&leave1.direction==RIGHT&&leave1.vertex>enter2.vertex){
+				return true;
+			}
+			if(enter1.direction==BOTTOM&&leave1.direction==TOP){
+				return true;
+			}
+			if(enter1.direction==BOTTOM&&leave1.direction==RIGHT&&leave1.vertex>enter2.vertex){
+				return true;
+			}
+		}
+		return false;
+	}else if(enter2.direction==RIGHT&&leave2.direction==BOTTOM){
+		// left top
+		if(enter1.direction==BOTTOM&&leave1.direction==RIGHT&&
+				leave1.vertex>enter2.vertex&&enter1.vertex<leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
+				enter1.vertex<leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
+				leave1.vertex>enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==BOTTOM&&leave2.direction==LEFT){
+		// right top
+		if(enter1.direction==LEFT&&leave1.direction==BOTTOM&&
+				leave1.vertex>enter2.vertex&&enter1.vertex>leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
+				enter1.vertex>leave2.vertex){
+			return true;
+		}
+		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
+				leave1.vertex>enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==BOTTOM&&leave2.direction==TOP){
+		// right
+		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
+				enter1.vertex>leave2.vertex&&leave1.vertex>enter2.vertex){
+			return true;
+		}
+		return false;
+	}else if(enter2.direction==BOTTOM&&leave2.direction==RIGHT){
+		return false;
+	}else if(enter2.direction==BOTTOM&&leave2.direction==BOTTOM){
+		if(enter2.vertex>leave2.vertex){
+			if(enter1.direction==BOTTOM&&enter1.vertex<leave2.vertex){
+				if(leave1.direction==BOTTOM){
+					if(leave1.vertex>enter2.vertex){
+						return true;
+					}
+				}else{
+					return true;
+				}
+			}
+			if(enter1.direction==TOP&&leave1.direction==BOTTOM&&leave1.vertex>enter2.vertex){
+				return true;
+			}
+			if(enter1.direction==LEFT&&leave1.direction==RIGHT){
+				return true;
+			}
+			if(enter1.direction==LEFT&&leave1.direction==BOTTOM&&leave1.vertex>enter2.vertex){
+				return true;
+			}
+		}
+		return false;
 	}else{
 		assert(false);
+		return false;
 	}
+
 }
 
+void Pixel::process_enter_leave(){
+//	if(id[0]==16&&id[1]==18){
+//		cout<<"teng: "<<crosses.size()<<endl;
+//		for(cross_info &ci:crosses){
+//			cout<<" "<<direction_str[ci.direction];
+//		}
+//		cout<<endl;
+//		for(cross_info &ci:crosses){
+//			printf(" %f",ci.vertex);
+//		}
+//		cout<<endl;
+//	}
+	if(crosses.size()==0){
+		return;
+	}
+	assert(crosses.size()%2==0);
+	// the first pixel is left first and then entered last.
+	if(crosses[0].type==LEAVE){
+		cross_info ci = crosses[crosses.size()-1];
+		assert(ci.type==ENTER);
+		crosses.insert(crosses.begin(), ci);
+		crosses.pop_back();
+	}
+	// in the first round, mark all the crossed boundary as
+	// BORDER edge
+	for(int i=0;i<crosses.size()-1;i+=2){
+		Direction enter_d= crosses[i].direction;
+		Direction leave_d = crosses[i+1].direction;
+		double enter_val = crosses[i].vertex;
+		double leave_val = crosses[i+1].vertex;
+		border[enter_d] = BORDER;
+		border[leave_d] = BORDER;
+	}
+	// determining if any boundary is inside the polygon
+	for(int i=0;i<crosses.size()-1;i+=2){
+		Direction enter_d= crosses[i].direction;
+		Direction leave_d = crosses[i+1].direction;
+		double enter_val = crosses[i].vertex;
+		double leave_val = crosses[i+1].vertex;
+
+		// check
+		bool overwritten = false;
+		for(int j=0;j<crosses.size()-1;j+=2){
+			if(j==i){
+				continue;
+			}
+			if(overwrites(crosses[j],crosses[j+1],crosses[i],crosses[i+1])){
+				overwritten = true;
+				break;
+			}
+		}
+		if(overwritten){
+			continue;
+		}
+
+		// totally 16 possible combinations
+		if(enter_d==LEFT&&leave_d==LEFT){
+			if(leave_val>enter_val){
+				if(border[RIGHT]==OUT){
+					border[RIGHT]=IN;
+				}
+				if(border[TOP]==OUT){
+					border[TOP]=IN;
+				}
+				if(border[BOTTOM]==OUT){
+					border[BOTTOM]=IN;
+				}
+			}
+		}else if(enter_d==LEFT&&leave_d==TOP){
+			if(border[RIGHT]==OUT){
+				border[RIGHT]=IN;
+			}
+			if(border[BOTTOM]==OUT){
+				border[BOTTOM]=IN;
+			}
+		}else if(enter_d==LEFT&&leave_d==RIGHT){
+			if(border[BOTTOM]==OUT){
+				border[BOTTOM]=IN;
+			}
+		}else if(enter_d==LEFT&&leave_d==BOTTOM){
+
+		}else if(enter_d==TOP&&leave_d==LEFT){
+
+		}else if(enter_d==TOP&&leave_d==TOP){
+			if(leave_val>enter_val){
+				if(border[RIGHT]==OUT){
+					border[RIGHT]=IN;
+				}
+				if(border[LEFT]==OUT){
+					border[LEFT]=IN;
+				}
+				if(border[BOTTOM]==OUT){
+					border[BOTTOM]=IN;
+				}
+			}
+		}else if(enter_d==TOP&&leave_d==RIGHT){
+			if(border[LEFT]==OUT){
+				border[LEFT]=IN;
+			}
+			if(border[BOTTOM]==OUT){
+				border[BOTTOM]=IN;
+			}
+		}else if(enter_d==TOP&&leave_d==BOTTOM){
+			if(border[LEFT]==OUT){
+				border[LEFT]=IN;
+			}
+		}else if(enter_d==RIGHT&&leave_d==LEFT){
+			if(border[TOP]==OUT){
+				border[TOP]=IN;
+			}
+		}else if(enter_d==RIGHT&&leave_d==TOP){
+
+		}else if(enter_d==RIGHT&&leave_d==RIGHT){
+			if(leave_val<enter_val){
+				if(border[TOP]==OUT){
+					border[TOP]=IN;
+				}
+				if(border[LEFT]==OUT){
+					border[LEFT]=IN;
+				}
+				if(border[BOTTOM]==OUT){
+					border[BOTTOM]=IN;
+				}
+			}
+		}else if(enter_d==RIGHT&&leave_d==BOTTOM){
+			if(border[LEFT]==OUT){
+				border[LEFT]=IN;
+			}
+			if(border[TOP]==OUT){
+				border[TOP]=IN;
+			}
+		}else if(enter_d==BOTTOM&&leave_d==LEFT){
+			if(border[RIGHT]==OUT){
+				border[RIGHT]=IN;
+			}
+			if(border[TOP]==OUT){
+				border[TOP]=IN;
+			}
+		}else if(enter_d==BOTTOM&&leave_d==TOP){
+			if(border[RIGHT]==OUT){
+				border[RIGHT]=IN;
+			}
+		}else if(enter_d==BOTTOM&&leave_d==RIGHT){
+
+		}else if(enter_d==BOTTOM&&leave_d==BOTTOM){
+			if(leave_val<enter_val){
+				if(border[TOP]==OUT){
+					border[TOP]=IN;
+				}
+				if(border[LEFT]==OUT){
+					border[LEFT]=IN;
+				}
+				if(border[RIGHT]==OUT){
+					border[RIGHT]=IN;
+				}
+			}
+		}else{
+			assert(false);
+		}
+	}
+	this->status = BORDER;
+}
+
+bool print_debug = false;
+
 void Pixel::enter(double val, Direction d){
-	if(true){
+	if(print_debug){
 		cout<<direction_str[d];
 		cout<<" enter "<<id[0]<<" "<<id[1]<<endl;
 	}
-	// one Pixel cannot be entered continuously twice
-	assert(!entered);
-	entered = true;
-	if(leaved){
-		process_enter_leave(d,val,in_direction, in_vertex);
-	}else{
-		in_vertex = val;
-		in_direction = d;
-	}
-	this->status = BORDER;
+	cross_info ci;
+	ci.type = ENTER;
+	ci.vertex = val;
+	ci.direction = d;
+	crosses.push_back(ci);
 }
 
 
 
 void Pixel::leave(double val, Direction d){
-	if(true){
+	if(print_debug){
 		cout<<direction_str[d];
 		cout<<" leave "<<id[0]<<" "<<id[1]<<endl;
 	}
-
-	//one Pixel cannot be left continuously twice
-	assert(!leaved);
-	leaved = true;
-	if(entered){
-		process_enter_leave(in_direction, in_vertex, d, val);
-	}else{
-		in_vertex = val;
-		in_direction = d;
-	}
-	this->status = BORDER;
+	cross_info ci;
+	ci.type = LEAVE;
+	ci.vertex = val;
+	ci.direction = d;
+	crosses.push_back(ci);
 }
 
-vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
+vector<vector<Pixel>> MyPolygon::partition(const int dimx, const int dimy){
+	assert(dimx>0&&dimy>0);
 
-	assert(dimx>0);
-	assert(dimy>0);
-	vector<MyPolygon *> parts;
+	if(partitions.size()==dimx){
+		if(partitions[0].size()==dimy){
+			return partitions;
+		}
+	}
+	for(vector<Pixel> &rows:partitions){
+		rows.clear();
+	}
+	partitions.clear();
+
 	getMBB();
-	const double start_x = mbb->boundary[1];
-	const double start_y = mbb->boundary[2];
-	const double end_x = mbb->boundary[5];
-	const double end_y = mbb->boundary[6];
-	const double step_x = (end_x-start_x)/dimx;
-	const double step_y = (end_y-start_y)/dimy;
-	vector<vector<Pixel>> partitions;
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
+	const double end_x = mbb->high[0];
+	const double end_y = mbb->high[1];
+	step_x = (end_x-start_x)/dimx;
+	step_y = (end_y-start_y)/dimy;
 	for(double i=0;i<=dimx;i++){
 		vector<Pixel> v;
 		for(double j=0;j<=dimy;j++){
@@ -264,10 +539,10 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 		partitions.push_back(v);
 	}
 	for(int i=0;i<num_boundary_vertices()-1;i++){
-		double x1 = get_vertex_x(i);
-		double y1 = get_vertex_y(i);
-		double x2 = get_vertex_x(i+1);
-		double y2 = get_vertex_y(i+1);
+		double x1 = getx(i);
+		double y1 = gety(i);
+		double x2 = getx(i+1);
+		double y2 = gety(i+1);
 
 		int cur_startx = (x1-start_x)/step_x;
 		int cur_endx = (x2-start_x)/step_x;
@@ -297,12 +572,6 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 		partitions[cur_startx][cur_starty].status = BORDER;
 		partitions[cur_endx][cur_endy].status = BORDER;
 
-//		if(cur_endx==0&&cur_endy==2){
-//			printf("%f %f %f %f\n",y1,cur_startx*step_x+start_x,x1,(x1-start_x)/step_x);
-//			printf("%f %f %f %f\n",y2, cur_endx*step_x+start_x,x2,(x2-start_x)/step_x);
-//		}
-
-
 		//in the same pixel
 		if(cur_startx==cur_endx&&cur_starty==cur_endy){
 			continue;
@@ -328,7 +597,7 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 					partitions[cur_startx][y].leave(x1, TOP);
 					partitions[cur_startx][y+1].enter(x1, BOTTOM);
 				}
-			}else { //top down
+			}else { //border[bottom] down
 				for(int y=cur_starty;y>cur_endy;y--){
 					partitions[cur_startx][y].leave(x1, BOTTOM);
 					partitions[cur_startx][y-1].enter(x1, TOP);
@@ -341,10 +610,7 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 
 			int x = cur_startx;
 			int y = cur_starty;
-			cout<<x<<" "<<y<<endl;
-			cout<<cur_endx<<" "<<cur_endy<<endl;
 			while(x!=cur_endx||y!=cur_endy){
-				printf("a=%f b=%f\n",a,b);
 				bool passed = false;
 				//check horizontally
 				if(x!=cur_endx){
@@ -356,7 +622,6 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 					}
 					double yval = xval*a+b;
 					int cur_y = (yval-start_y)/step_y;
-					printf("1-%f %d\n",(yval-start_y)/step_y,cur_y);
 					if(cur_y==y){
 						passed = true;
 						// left to right
@@ -371,15 +636,14 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 				}
 				//check vertically
 				if(y!=cur_endy){
-					float yval = 0;
+					double yval = 0;
 					if(cur_starty<cur_endy){
 						yval = (y+1)*step_y+start_y;
 					}else{
 						yval = y*step_y+start_y;
 					}
-					float xval = (yval-b)/a;
+					double xval = (yval-b)/a;
 					int cur_x = (xval-start_x)/step_x;
-					printf("2-%f %d %d\n",(xval-start_x)/step_x,cur_x,x);
 					if(cur_x==x){
 						passed = true;
 						if(cur_starty<cur_endy){// bottom up
@@ -396,65 +660,120 @@ vector<MyPolygon *> MyPolygon::partition(const int dimx, const int dimy){
 		}
 	}
 
-	//spread the in/out with border information
+	for(vector<Pixel> &parts:partitions){
+		for(Pixel &p:parts){
+			p.process_enter_leave();
+		}
+	}
+
+	//spread the in/out with edge information
 	for(int i=0;i<dimx;i++){
 		for(int j=0;j<dimy;j++){
 			// bottom up
-			if(partitions[i][j].top){
-				partitions[i][j+1].bottom = true;
-				if(partitions[i][j+1].status==OUT){
-					partitions[i][j+1].setin();
-				}
-			}else if(partitions[i][j+1].bottom){
-				partitions[i][j].top = true;
-				if(partitions[i][j].status==OUT){
-					partitions[i][j].setin();
-				}
-
+			if(partitions[i][j].border[TOP]==IN&&partitions[i][j+1].status==OUT){
+				partitions[i][j+1].setin();
+			}else if(partitions[i][j+1].border[BOTTOM]==IN&&partitions[i][j].status==OUT){
+				partitions[i][j].setin();
 			}
 			// left to right
-			if(partitions[i][j].right){
-				partitions[i+1][j].left = true;
-				if(partitions[i+1][j].status==OUT){
-					partitions[i+1][j].setin();
-				}
-			}else if(partitions[i+1][j].left){
-				partitions[i][j].right = true;
-				if(partitions[i][j].status==OUT){
-					partitions[i][j].setin();
-				}
+			if(partitions[i][j].border[RIGHT]==IN&&partitions[i+1][j].status==OUT){
+				partitions[i+1][j].setin();
+			}else if(partitions[i+1][j].border[LEFT]==IN&&partitions[i][j].status==OUT){
+				partitions[i][j].setin();
 			}
 		}
 	}
-
-
-
-
-	for(int i=0;i<dimx;i++){
-		for(int j=0;j<dimy;j++){
-			if(partitions[i][j].status==BORDER||
-					partitions[i][j].status==IN){
-//				cout<<i<<" "<<j;
-//				if(partitions[i][j].top){
-//					cout<<" t";
-//				}
-//				if(partitions[i][j].bottom){
-//					cout<<" b";
-//				}
-//				if(partitions[i][j].left){
-//					cout<<" l";
-//				}
-//				if(partitions[i][j].right){
-//					cout<<" r";
-//				}
-//				cout<<endl;
-				MyPolygon *m = gen_box(start_x+i*step_x,start_y+j*step_y,start_x+(i+1)*step_x,start_y+(j+1)*step_y);
-				parts.push_back(m);
-			}
-		}
-	}
-	return parts;
+	partitioned = true;
+	return partitions;
 }
+
+vector<vector<Pixel>> MyPolygon::decode(char *data){
+	assert(data);
+	vector<vector<Pixel>> partitions;
+
+	int dimx = data[0];
+	int dimy = data[1];
+	if(dimx==0||dimy==0||dimx>255||dimy>255){
+		return partitions;
+	}
+	double *meta = (double *)(data+2);
+	double start_x = meta[0], start_y = meta[1], step_x = meta[2], step_y = meta[3];
+
+	int index = 2+4*8;
+	for(int i=0;i<dimx;i++){
+		char cur = data[index++];
+		int shift = 0;
+		vector<Pixel> row;
+		for(int j=0;j<dimy;j++){
+			Pixel p;
+
+			p.status = (PartitionStatus)((cur>>shift)&3);
+			p.id[0] = i;
+			p.id[1] = j;
+			p.low[0] = i*step_x+start_x;
+			p.low[1] = j*step_y+start_y;
+			p.high[0] = (i+1)*step_x+start_x;
+			p.high[1] = (j+1)*step_y+start_y;
+			row.push_back(p);
+			if(shift==6){
+				cur = data[index++];
+				shift=0;
+			}else{
+				shift+=2;
+			}
+		}
+		partitions.push_back(row);
+	}
+
+	return partitions;
+}
+
+char *MyPolygon::encode(vector<vector<Pixel>> partitions){
+	int dimx = partitions.size();
+	if(dimx==0){
+		return NULL;
+	}
+	int dimy = partitions[0].size();
+	if(dimy==0){
+		return NULL;
+	}
+	for(vector<Pixel> &rows:partitions){
+		 if(rows.size()!=dimy){
+			 return NULL;
+		 }
+	}
+	assert(dimx<=255&&dimy<=255);
+
+	char *data = new char[((dimy+3)/4*dimx)+2+4*8];
+	data[0] = (char)dimx;
+	data[1] = (char)dimy;
+	double *meta = (double *)(data+2);
+	meta[0] = partitions[0][0].low[0];
+	meta[1] = partitions[0][0].low[1];
+	meta[2] = partitions[0][0].high[0]-partitions[0][0].low[0];
+	meta[3] = partitions[0][0].high[1]-partitions[0][0].low[1];
+	int index = 2+4*8;
+	for(int i=0;i<dimx;i++){
+		char cur = 0;
+		int shift = 0;
+		for(int j=0;j<dimy;j++){
+			cur |= ((uint8_t)partitions[i][j].status)<<shift;
+			if(shift==6){
+				data[index++]=cur;
+				cur = 0;
+				shift=0;
+			}else{
+				shift+=2;
+			}
+		}
+		if(shift>0){
+			data[index++]=cur;
+		}
+	}
+	return data;
+}
+
+
 
 MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_y){
 	MyPolygon *mbb = new MyPolygon();
@@ -473,8 +792,49 @@ MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_
 	return mbb;
 }
 
+bool MyPolygon::contain(Point &p,bool use_partition){
 
-MyPolygon *MyPolygon::getMBB(){
+	if(!mbb){
+		getMBB();
+	}
+	if(mbb->low[0]>p.x||mbb->low[1]>p.y||
+			mbb->high[0]<p.x||mbb->high[1]<p.y){
+		return false;
+	}
+
+	if(partitioned&&use_partition){
+		int part_x = this->get_pixel_x(p.x);
+		int part_y = this->get_pixel_y(p.y);
+		if(partitions[part_x][part_y].status==IN){
+			return true;
+		}
+		if(partitions[part_x][part_y].status==OUT){
+			return true;
+		}
+	}
+
+	int nvert = (int)(*this->boundary);
+	bool ret = false;
+	for (int i = 0, j = nvert-1; i < nvert; j = i++) {
+		// segment i->j intersect with line y=p.y
+		if ( ((gety(i)>p.y) != (gety(j)>p.y))){
+			double a = (getx(j)-getx(i)) / (gety(j)-gety(i));
+			if(p.x - getx(i) < a * (p.y-gety(i))){
+				ret = !ret;
+			}
+		}
+	}
+	return ret;
+}
+
+
+MyPolygon *Pixel::to_polygon(){
+	return 	MyPolygon::gen_box(low[0],low[1],high[0],high[1]);
+};
+
+
+
+Pixel *MyPolygon::getMBB(){
 	if(this->mbb){
 		return mbb;
 	}
@@ -499,7 +859,11 @@ MyPolygon *MyPolygon::getMBB(){
 		}
 		cur_b++;
 	}
-	mbb = gen_box(min_x,min_y,max_x,max_y);
+	mbb = new Pixel();
+	mbb->low[0] = min_x;
+	mbb->low[1] = min_y;
+	mbb->high[0] = max_x;
+	mbb->high[1] = max_y;
 	return mbb;
 }
 
@@ -517,20 +881,22 @@ void MyPolygon::print_without_head(){
 		cur_b++;
 	}
 	cout<<")";
-	for(double *iboundary:this->internal_polygons){
-		cout<<", (";
-		cur_b = iboundary;
-		cur_b++;
-		for(int i=0;i<iboundary[0];i++){
-			if(i!=0){
-				cout<<",";
+	if(false){
+		for(double *iboundary:this->internal_polygons){
+			cout<<", (";
+			cur_b = iboundary;
+			cur_b++;
+			for(int i=0;i<iboundary[0];i++){
+				if(i!=0){
+					cout<<",";
+				}
+				printf("%f ",*cur_b);
+				cur_b++;
+				printf("%f",*cur_b);
+				cur_b++;
 			}
-			printf("%f ",*cur_b);
-			cur_b++;
-			printf("%f",*cur_b);
-			cur_b++;
+			cout<<")";
 		}
-		cout<<")";
 	}
 	cout<<")";
 }
@@ -544,29 +910,38 @@ void MyPolygon::print(){
 MyMultiPolygon::MyMultiPolygon(const char *wkt){
 	size_t offset = 0;
 	// read the symbol MULTIPOLYGON
-	while(wkt[offset]!='M'){
+	while(wkt[offset]!='M'&&wkt[offset]!='P'){
 		offset++;
 	}
-	for(int i=0;i<strlen(multipolygon_char);i++){
-		assert(wkt[offset++]==multipolygon_char[i]);
-	}
-	skip_space(wkt,offset);
-	// read the left parenthesis
-	assert(wkt[offset++]=='(');
-
-	// read the first polygon
-	polygons.push_back(MyPolygon::read_polygon(wkt,offset));
-	skip_space(wkt, offset);
-	// read the rest polygons
-	while(wkt[offset]==','){
-		offset++;
-		MyPolygon *in = MyPolygon::read_polygon(wkt,offset);
-		assert(in);
-		polygons.push_back(in);
+	bool is_multiple = (wkt[offset]=='M');
+	if(is_multiple){
+		for(int i=0;i<strlen(multipolygon_char);i++){
+			assert(wkt[offset++]==multipolygon_char[i]);
+		}
+		skip_space(wkt,offset);
+		// read the left parenthesis
+		assert(wkt[offset++]=='(');
+	}else {
+		for(int i=0;i<strlen(polygon_char);i++){
+			assert(wkt[offset++]==polygon_char[i]);
+		}
 		skip_space(wkt,offset);
 	}
-	// read the right parenthesis
-	assert(wkt[offset++]==')');
+	// read the first polygon
+	polygons.push_back(MyPolygon::read_polygon(wkt,offset));
+	if(is_multiple){
+		skip_space(wkt, offset);
+		// read the rest polygons
+		while(wkt[offset]==','){
+			offset++;
+			MyPolygon *in = MyPolygon::read_polygon(wkt,offset);
+			assert(in);
+			polygons.push_back(in);
+			skip_space(wkt,offset);
+		}
+		// read the right parenthesis
+		assert(wkt[offset++]==')');
+	}
 }
 
 MyMultiPolygon::~MyMultiPolygon(){

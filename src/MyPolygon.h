@@ -10,9 +10,11 @@
 
 #include <vector>
 #include <string>
+#include <stdint.h>
 #include "util.h"
 using namespace std;
 const static char *multipolygon_char = "MULTIPOLYGON";
+const static char *polygon_char = "POLYGON";
 
 
 enum PartitionStatus{
@@ -30,39 +32,74 @@ enum Direction{
 	BOTTOM
 };
 
+class MyPolygon;
+
+enum cross_type{
+	ENTER = 0,
+	LEAVE = 1
+};
+
+class cross_info{
+public:
+	cross_type type;
+	Direction direction;
+	double vertex;
+	static bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
+};
+
 class Pixel{
 public:
 	int id[2];
 	double low[2];
 	double high[2];
 	PartitionStatus status = OUT;
-	bool left = false;
-	bool top = false;
-	bool bottom = false;
-	bool right = false;
+	PartitionStatus border[4];
+	Pixel(){
+		border[0] = OUT;
+		border[1] = OUT;
+		border[2] = OUT;
+		border[3] = OUT;
+	}
 
-	// coordinates cannot be smaller than -200
-	double in_vertex = -200;
-	Direction in_direction;
-	bool entered = false;
-	bool leaved = false;
-
+	vector<cross_info> crosses;
 	void enter(double val, Direction d);
 	void leave(double val, Direction d);
-	void process_enter_leave(Direction enter_d, double enter_val, Direction leave_d, double leave_val);
+	void process_enter_leave();
 	void setin(){
 		status = IN;
-		left = true;
-		right = true;
-		top = true;
-		bottom = true;
+		border[0] = IN;
+		border[1] = IN;
+		border[2] = IN;
+		border[3] = IN;
 	}
+
+	MyPolygon *to_polygon();
+	bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
 
 
 };
 
+class Point{
+public:
+	double x;
+	double y;
+	Point(){
+		x = 0;
+		y = 0;
+	}
+	Point(double xx, double yy){
+		x = xx;
+		y = yy;
+	}
+};
+
 class MyPolygon{
-	MyPolygon *mbb = NULL;
+	Pixel *mbb = NULL;
+	vector<vector<Pixel>> partitions;
+	double step_x = 0;
+	double step_y = 0;
+	bool partitioned = false;
+
 public:
 	double *boundary = NULL;
 	vector<double *> internal_polygons;
@@ -70,6 +107,8 @@ public:
 	static double *read_vertices(const char *wkt, size_t &offset);
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
+
+	bool contain(Point &p, bool use_partition=true);
 	void internal_partition();
 	MyPolygon *clone();
 	MyPolygon(){
@@ -83,19 +122,30 @@ public:
 		}
 		return (int)(boundary[0]);
 	}
-	MyPolygon *getMBB();
-	vector<MyPolygon *> partition(int dimx, int dimy);
+	Pixel *getMBB();
+	vector<vector<Pixel>> partition(int dimx, int dimy);
 	inline int get_num_vertices(){
 		return (int)*boundary;
 	}
-	inline double get_vertex_x(int index){
+	inline double getx(int index){
 		assert(index<*boundary);
 		return boundary[index*2+1];
 	}
-	inline double get_vertex_y(int index){
+	inline double gety(int index){
 		assert(index<*boundary);
 		return boundary[index*2+2];
 	}
+	inline int get_pixel_x(double xval){
+		assert(mbb);
+		return (xval-mbb->low[0])/step_x;
+	}
+	inline int get_pixel_y(double yval){
+		assert(mbb);
+		return (yval-mbb->low[1])/step_y;
+	}
+
+	static char *encode(vector<vector<Pixel>> partitions);
+	static vector<vector<Pixel>> decode(char *);
 };
 
 class MyMultiPolygon{
