@@ -35,8 +35,9 @@ pthread_mutex_t line_lock;
 pthread_mutex_t output_lock;
 bool stop = false;
 
-pthread_mutex_t max_poly_lock;
-vector<MyPolygon *> max_polys;
+vector<MyPolygon *> large_polys;
+int large_poly_threshold = 1000;
+MyPolygon *max_poly;
 int max_num_polygs = 100;
 long total_num_vertices = 0;
 long total_num_polygons = 0;
@@ -79,6 +80,12 @@ void *process_wkt(void *args){
 				local_vertices_count[num_stats-1]++;
 			}else{
 				local_vertices_count[p->num_boundary_vertices()-1]++;
+			}
+			if(p->num_boundary_vertices()>large_poly_threshold){
+				pthread_mutex_lock(&output_lock);
+				MyPolygon *tp = p->clone();
+				large_polys.push_back(tp);
+				pthread_mutex_unlock(&output_lock);
 			}
 		}
 		delete mp;
@@ -169,28 +176,41 @@ int collect_stats(int argc, char** argv) {
 
 
 	if(max_poly){
-		max_poly->print();
-		cout<<max_poly->num_boundary_vertices()<<endl;
+		//max_poly->print();
+		//cout<<max_poly->num_boundary_vertices()<<endl;
 		delete max_poly;
 	}
-	cerr<<total_num_polygons<<endl;
-	cerr<<total_num_vertices<<endl;
-	cerr<<total_num_vertices/total_num_polygons<<endl;
-
-	long cum = 0;
-	for(int i=0;i<num_stats;i++){
-		if(vertices_count[i]!=0){
-			cum += vertices_count[i];
-			cout<<i<<","<<vertices_count[i]<<","<<(double)cum/total_num_polygons<<endl;
-		}
-	}
+//	cerr<<total_num_polygons<<endl;
+//	cerr<<total_num_vertices<<endl;
+//	cerr<<total_num_vertices/total_num_polygons<<endl;
+//
+//	long cum = 0;
+//	for(int i=0;i<num_stats;i++){
+//		if(vertices_count[i]!=0){
+//			cum += vertices_count[i];
+//			cout<<i<<","<<vertices_count[i]<<","<<(double)cum/total_num_polygons<<endl;
+//		}
+//	}
 	delete []vertices_count;
 
-	pthread_exit(NULL);
 	return true;
 }
 
 
 int main(int argc, char **argv){
+	large_poly_threshold = 1000;
 	collect_stats(argc, argv);
+	for(int i=0;i<large_polys.size()-1;i++){
+		for(int j=large_polys.size()-1;j>i;j--){
+			if(large_polys[j]->num_boundary_vertices()>large_polys[j-1]->num_boundary_vertices()){
+				MyPolygon *tmp = large_polys[j-1];
+				large_polys[j-1] = large_polys[j];
+				large_polys[j] = tmp;
+			}
+		}
+	}
+	for(MyPolygon *p:large_polys){
+		p->print();
+		//cout<<p->num_boundary_vertices()<<endl;
+	}
 }

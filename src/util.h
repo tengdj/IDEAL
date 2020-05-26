@@ -92,6 +92,10 @@ inline int get_rand_number(int max_value){
 	return rand()%max_value+1;
 }
 
+inline double get_rand_double(){
+	return rand()/(double)RAND_MAX;
+}
+
 inline bool get_rand_sample(int rate){
 	return rand()%100<rate;
 }

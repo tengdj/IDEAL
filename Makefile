@@ -8,10 +8,10 @@ CPPFLAGS	= -g
 
 all:	partitioner polygon
 
-partitioner:	src/partitioner.o src/MyPolygon.o
+partitioner:	src/partitioner.o src/MyPolygon.o src/MyMultiPolygon.o src/Pixel.o
 	$(CXX) -o build/$@ $^ $(LIBS) 
 
-polygon:	src/MyPolygon.o src/Parser.o
+polygon:	src/Parser.o src/MyPolygon.o src/MyMultiPolygon.o src/Pixel.o
 	$(CXX) -o build/$@ $^ $(LIBS) 
 	
 %.o:	%.cpp

@@ -12,29 +12,6 @@
 #include <float.h>
 
 
-inline bool is_number(char ch){
-	return ch=='-'||ch=='.'||(ch<='9'&&ch>='0')||ch=='e';
-}
-
-inline double read_double(const char *input, size_t &offset){
-	char tmp[100];
-	while(!is_number(input[offset])){
-		offset++;
-	}
-	int index = 0;
-	while(is_number(input[offset])){
-		tmp[index++] = input[offset++];
-	}
-	tmp[index] = '\0';
-	return atof(tmp);
-}
-inline void skip_space(const char *input, size_t &offset){
-	while(input[offset]==' '||input[offset]=='\t'||input[offset]=='\n'){
-		offset++;
-	}
-}
-
-
 double *MyPolygon::read_vertices(const char *wkt, size_t &offset){
 	// read until the left parenthesis
 	skip_space(wkt, offset);
@@ -117,392 +94,6 @@ MyPolygon::~MyPolygon(){
 	}
 }
 
-
-bool Pixel::overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2){
-
-	if(enter2.direction==LEFT&&leave2.direction==LEFT){
-		if(enter2.vertex<leave2.vertex){
-			if(enter1.direction==LEFT&&enter1.vertex>leave2.vertex){
-				if(leave1.direction==LEFT){
-					if(leave1.vertex<enter2.vertex){
-						return true;
-					}
-				}else{
-					return true;
-				}
-			}
-			if(enter1.direction==RIGHT&&leave1.direction==LEFT&&leave1.vertex<enter2.vertex){
-				return true;
-			}
-			if(enter1.direction==TOP&&leave1.direction==BOTTOM){
-				return true;
-			}
-			if(enter1.direction==TOP&&leave1.direction==LEFT&&leave1.vertex<enter2.vertex){
-				return true;
-			}
-
-		}
-		return false;
-	}else if(enter2.direction==LEFT&&leave2.direction==TOP){
-		// right bottom
-		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
-				leave1.vertex<enter2.vertex){
-			return true;
-		}
-		if(enter1.direction==TOP&&leave1.direction==LEFT&&
-				leave1.vertex<enter2.vertex&&enter1.vertex>leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
-				enter1.vertex>leave2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==LEFT&&leave2.direction==RIGHT){
-		// bottom
-		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
-				enter1.vertex<leave2.vertex&&leave1.vertex<enter2.vertex){
-			return true;
-		}
-		return false;
-
-	}else if(enter2.direction==LEFT&&leave2.direction==BOTTOM){
-		return false;
-	}else if(enter2.direction==TOP&&leave2.direction==LEFT){
-		return false;
-	}else if(enter2.direction==TOP&&leave2.direction==TOP){
-		if(enter2.vertex<leave2.vertex){
-			if(enter1.direction==TOP&&enter1.vertex>leave2.vertex){
-				if(leave1.direction==TOP){
-					if(leave1.vertex<enter2.vertex){
-						return true;
-					}
-				}else{
-					return true;
-				}
-			}
-			if(enter1.direction==BOTTOM&&leave1.direction==TOP&&leave1.vertex<enter2.vertex){
-				return true;
-			}
-			if(enter1.direction==RIGHT&&leave1.direction==LEFT){
-				return true;
-			}
-			if(enter1.direction==RIGHT&&leave1.direction==TOP&&leave1.vertex<enter2.vertex){
-				return true;
-			}
-		}
-		return false;
-	}else if(enter2.direction==TOP&&leave2.direction==RIGHT){
-		//left bottom
-		if(enter1.direction==RIGHT&&leave1.direction==TOP&&
-				leave1.vertex<enter2.vertex&&enter1.vertex<leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==RIGHT&&leave1.direction==LEFT&&
-				enter1.vertex<leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
-				leave1.vertex<enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==TOP&&leave2.direction==BOTTOM){
-		// left
-		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
-				enter1.vertex<leave2.vertex&&leave1.vertex<enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==RIGHT&&leave2.direction==LEFT){
-		// top
-		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
-				enter1.vertex>leave2.vertex&&leave1.vertex>enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==RIGHT&&leave2.direction==TOP){
-		return false;
-	}else if(enter2.direction==RIGHT&&leave2.direction==RIGHT){
-		if(enter2.vertex>leave2.vertex){
-			if(enter1.direction==RIGHT&&enter1.vertex<leave2.vertex){
-				if(leave1.direction==RIGHT){
-					if(leave1.vertex>enter2.vertex){
-						return true;
-					}
-				}else{
-					return true;
-				}
-			}
-			if(enter1.direction==LEFT&&leave1.direction==RIGHT&&leave1.vertex>enter2.vertex){
-				return true;
-			}
-			if(enter1.direction==BOTTOM&&leave1.direction==TOP){
-				return true;
-			}
-			if(enter1.direction==BOTTOM&&leave1.direction==RIGHT&&leave1.vertex>enter2.vertex){
-				return true;
-			}
-		}
-		return false;
-	}else if(enter2.direction==RIGHT&&leave2.direction==BOTTOM){
-		// left top
-		if(enter1.direction==BOTTOM&&leave1.direction==RIGHT&&
-				leave1.vertex>enter2.vertex&&enter1.vertex<leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==BOTTOM&&leave1.direction==TOP&&
-				enter1.vertex<leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
-				leave1.vertex>enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==BOTTOM&&leave2.direction==LEFT){
-		// right top
-		if(enter1.direction==LEFT&&leave1.direction==BOTTOM&&
-				leave1.vertex>enter2.vertex&&enter1.vertex>leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==LEFT&&leave1.direction==RIGHT&&
-				enter1.vertex>leave2.vertex){
-			return true;
-		}
-		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
-				leave1.vertex>enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==BOTTOM&&leave2.direction==TOP){
-		// right
-		if(enter1.direction==TOP&&leave1.direction==BOTTOM&&
-				enter1.vertex>leave2.vertex&&leave1.vertex>enter2.vertex){
-			return true;
-		}
-		return false;
-	}else if(enter2.direction==BOTTOM&&leave2.direction==RIGHT){
-		return false;
-	}else if(enter2.direction==BOTTOM&&leave2.direction==BOTTOM){
-		if(enter2.vertex>leave2.vertex){
-			if(enter1.direction==BOTTOM&&enter1.vertex<leave2.vertex){
-				if(leave1.direction==BOTTOM){
-					if(leave1.vertex>enter2.vertex){
-						return true;
-					}
-				}else{
-					return true;
-				}
-			}
-			if(enter1.direction==TOP&&leave1.direction==BOTTOM&&leave1.vertex>enter2.vertex){
-				return true;
-			}
-			if(enter1.direction==LEFT&&leave1.direction==RIGHT){
-				return true;
-			}
-			if(enter1.direction==LEFT&&leave1.direction==BOTTOM&&leave1.vertex>enter2.vertex){
-				return true;
-			}
-		}
-		return false;
-	}else{
-		assert(false);
-		return false;
-	}
-
-}
-
-void Pixel::process_enter_leave(){
-//	if(id[0]==16&&id[1]==18){
-//		cout<<"teng: "<<crosses.size()<<endl;
-//		for(cross_info &ci:crosses){
-//			cout<<" "<<direction_str[ci.direction];
-//		}
-//		cout<<endl;
-//		for(cross_info &ci:crosses){
-//			printf(" %f",ci.vertex);
-//		}
-//		cout<<endl;
-//	}
-	if(crosses.size()==0){
-		return;
-	}
-	assert(crosses.size()%2==0);
-	// the first pixel is left first and then entered last.
-	if(crosses[0].type==LEAVE){
-		cross_info ci = crosses[crosses.size()-1];
-		assert(ci.type==ENTER);
-		crosses.insert(crosses.begin(), ci);
-		crosses.pop_back();
-	}
-	// in the first round, mark all the crossed boundary as
-	// BORDER edge
-	for(int i=0;i<crosses.size()-1;i+=2){
-		Direction enter_d= crosses[i].direction;
-		Direction leave_d = crosses[i+1].direction;
-		double enter_val = crosses[i].vertex;
-		double leave_val = crosses[i+1].vertex;
-		border[enter_d] = BORDER;
-		border[leave_d] = BORDER;
-	}
-	// determining if any boundary is inside the polygon
-	for(int i=0;i<crosses.size()-1;i+=2){
-		Direction enter_d= crosses[i].direction;
-		Direction leave_d = crosses[i+1].direction;
-		double enter_val = crosses[i].vertex;
-		double leave_val = crosses[i+1].vertex;
-
-		// check
-		bool overwritten = false;
-		for(int j=0;j<crosses.size()-1;j+=2){
-			if(j==i){
-				continue;
-			}
-			if(overwrites(crosses[j],crosses[j+1],crosses[i],crosses[i+1])){
-				overwritten = true;
-				break;
-			}
-		}
-		if(overwritten){
-			continue;
-		}
-
-		// totally 16 possible combinations
-		if(enter_d==LEFT&&leave_d==LEFT){
-			if(leave_val>enter_val){
-				if(border[RIGHT]==OUT){
-					border[RIGHT]=IN;
-				}
-				if(border[TOP]==OUT){
-					border[TOP]=IN;
-				}
-				if(border[BOTTOM]==OUT){
-					border[BOTTOM]=IN;
-				}
-			}
-		}else if(enter_d==LEFT&&leave_d==TOP){
-			if(border[RIGHT]==OUT){
-				border[RIGHT]=IN;
-			}
-			if(border[BOTTOM]==OUT){
-				border[BOTTOM]=IN;
-			}
-		}else if(enter_d==LEFT&&leave_d==RIGHT){
-			if(border[BOTTOM]==OUT){
-				border[BOTTOM]=IN;
-			}
-		}else if(enter_d==LEFT&&leave_d==BOTTOM){
-
-		}else if(enter_d==TOP&&leave_d==LEFT){
-
-		}else if(enter_d==TOP&&leave_d==TOP){
-			if(leave_val>enter_val){
-				if(border[RIGHT]==OUT){
-					border[RIGHT]=IN;
-				}
-				if(border[LEFT]==OUT){
-					border[LEFT]=IN;
-				}
-				if(border[BOTTOM]==OUT){
-					border[BOTTOM]=IN;
-				}
-			}
-		}else if(enter_d==TOP&&leave_d==RIGHT){
-			if(border[LEFT]==OUT){
-				border[LEFT]=IN;
-			}
-			if(border[BOTTOM]==OUT){
-				border[BOTTOM]=IN;
-			}
-		}else if(enter_d==TOP&&leave_d==BOTTOM){
-			if(border[LEFT]==OUT){
-				border[LEFT]=IN;
-			}
-		}else if(enter_d==RIGHT&&leave_d==LEFT){
-			if(border[TOP]==OUT){
-				border[TOP]=IN;
-			}
-		}else if(enter_d==RIGHT&&leave_d==TOP){
-
-		}else if(enter_d==RIGHT&&leave_d==RIGHT){
-			if(leave_val<enter_val){
-				if(border[TOP]==OUT){
-					border[TOP]=IN;
-				}
-				if(border[LEFT]==OUT){
-					border[LEFT]=IN;
-				}
-				if(border[BOTTOM]==OUT){
-					border[BOTTOM]=IN;
-				}
-			}
-		}else if(enter_d==RIGHT&&leave_d==BOTTOM){
-			if(border[LEFT]==OUT){
-				border[LEFT]=IN;
-			}
-			if(border[TOP]==OUT){
-				border[TOP]=IN;
-			}
-		}else if(enter_d==BOTTOM&&leave_d==LEFT){
-			if(border[RIGHT]==OUT){
-				border[RIGHT]=IN;
-			}
-			if(border[TOP]==OUT){
-				border[TOP]=IN;
-			}
-		}else if(enter_d==BOTTOM&&leave_d==TOP){
-			if(border[RIGHT]==OUT){
-				border[RIGHT]=IN;
-			}
-		}else if(enter_d==BOTTOM&&leave_d==RIGHT){
-
-		}else if(enter_d==BOTTOM&&leave_d==BOTTOM){
-			if(leave_val<enter_val){
-				if(border[TOP]==OUT){
-					border[TOP]=IN;
-				}
-				if(border[LEFT]==OUT){
-					border[LEFT]=IN;
-				}
-				if(border[RIGHT]==OUT){
-					border[RIGHT]=IN;
-				}
-			}
-		}else{
-			assert(false);
-		}
-	}
-	this->status = BORDER;
-}
-
-bool print_debug = false;
-
-void Pixel::enter(double val, Direction d){
-	if(print_debug){
-		cout<<direction_str[d];
-		cout<<" enter "<<id[0]<<" "<<id[1]<<endl;
-	}
-	cross_info ci;
-	ci.type = ENTER;
-	ci.vertex = val;
-	ci.direction = d;
-	crosses.push_back(ci);
-}
-
-
-
-void Pixel::leave(double val, Direction d){
-	if(print_debug){
-		cout<<direction_str[d];
-		cout<<" leave "<<id[0]<<" "<<id[1]<<endl;
-	}
-	cross_info ci;
-	ci.type = LEAVE;
-	ci.vertex = val;
-	ci.direction = d;
-	crosses.push_back(ci);
-}
 
 vector<vector<Pixel>> MyPolygon::partition(const int dimx, const int dimy){
 	assert(dimx>0&&dimy>0);
@@ -665,7 +256,6 @@ vector<vector<Pixel>> MyPolygon::partition(const int dimx, const int dimy){
 			p.process_enter_leave();
 		}
 	}
-
 	//spread the in/out with edge information
 	for(int i=0;i<dimx;i++){
 		for(int j=0;j<dimy;j++){
@@ -809,7 +399,7 @@ bool MyPolygon::contain(Point &p,bool use_partition){
 			return true;
 		}
 		if(partitions[part_x][part_y].status==OUT){
-			return true;
+			return false;
 		}
 	}
 
@@ -825,12 +415,21 @@ bool MyPolygon::contain(Point &p,bool use_partition){
 		}
 	}
 	return ret;
+
 }
 
+vector<Point> MyPolygon::generate_test_points(int num){
+	getMBB();
+	vector<Point> points;
+	for(int i=0;i<num;i++){
+		Point p;
+		p.x = get_rand_double()*(mbb->high[0]-mbb->low[0])+mbb->low[0];
+		p.y = get_rand_double()*(mbb->high[1]-mbb->low[1])+mbb->low[1];
+		points.push_back(p);
+	}
+	return points;
+}
 
-MyPolygon *Pixel::to_polygon(){
-	return 	MyPolygon::gen_box(low[0],low[1],high[0],high[1]);
-};
 
 
 
@@ -907,65 +506,6 @@ void MyPolygon::print(){
 	cout<<endl;
 }
 
-MyMultiPolygon::MyMultiPolygon(const char *wkt){
-	size_t offset = 0;
-	// read the symbol MULTIPOLYGON
-	while(wkt[offset]!='M'&&wkt[offset]!='P'){
-		offset++;
-	}
-	bool is_multiple = (wkt[offset]=='M');
-	if(is_multiple){
-		for(int i=0;i<strlen(multipolygon_char);i++){
-			assert(wkt[offset++]==multipolygon_char[i]);
-		}
-		skip_space(wkt,offset);
-		// read the left parenthesis
-		assert(wkt[offset++]=='(');
-	}else {
-		for(int i=0;i<strlen(polygon_char);i++){
-			assert(wkt[offset++]==polygon_char[i]);
-		}
-		skip_space(wkt,offset);
-	}
-	// read the first polygon
-	polygons.push_back(MyPolygon::read_polygon(wkt,offset));
-	if(is_multiple){
-		skip_space(wkt, offset);
-		// read the rest polygons
-		while(wkt[offset]==','){
-			offset++;
-			MyPolygon *in = MyPolygon::read_polygon(wkt,offset);
-			assert(in);
-			polygons.push_back(in);
-			skip_space(wkt,offset);
-		}
-		// read the right parenthesis
-		assert(wkt[offset++]==')');
-	}
-}
-
-MyMultiPolygon::~MyMultiPolygon(){
-	for(MyPolygon *p:polygons){
-		delete p;
-	}
-}
-
-void MyMultiPolygon::print(){
-	cout<<"MULTIPOLYGON (";
-	for(int i=0;i<polygons.size();i++){
-		if(i>0){
-			cout<<",";
-		}
-		polygons[i]->print_without_head();
-	}
-	cout<<")"<<endl;
-}
-
-void MyMultiPolygon::print_separate(){
-	for(MyPolygon *p:polygons){
-		p->print();
-	}
-}
 
 
 

@@ -146,6 +146,7 @@ public:
 
 	static char *encode(vector<vector<Pixel>> partitions);
 	static vector<vector<Pixel>> decode(char *);
+	vector<Point> generate_test_points(int num);
 };
 
 class MyMultiPolygon{
@@ -178,6 +179,28 @@ public:
 	}
 };
 
+// some utility function
 
+inline bool is_number(char ch){
+	return ch=='-'||ch=='.'||(ch<='9'&&ch>='0')||ch=='e';
+}
+
+inline double read_double(const char *input, size_t &offset){
+	char tmp[100];
+	while(!is_number(input[offset])){
+		offset++;
+	}
+	int index = 0;
+	while(is_number(input[offset])){
+		tmp[index++] = input[offset++];
+	}
+	tmp[index] = '\0';
+	return atof(tmp);
+}
+inline void skip_space(const char *input, size_t &offset){
+	while(input[offset]==' '||input[offset]=='\t'||input[offset]=='\n'){
+		offset++;
+	}
+}
 
 #endif /* SRC_MYPOLYGON_H_ */

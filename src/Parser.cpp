@@ -49,12 +49,21 @@ int main(int argc, char **argv){
 		}
 	}
 	logt("allocating partitions", start);
-	Point p(-120.7985,38.6137);
-	for(int i=0;i<10000;i++){
-		poly->contain(p,false);
+	vector<Point> points = poly->generate_test_points(10);
+	int inpoly = 0;
+	for(Point p:points){
+		inpoly += poly->contain(p);
 	}
-	logt("querying", start);
+	cout<<inpoly<<endl;
+	logt("querying with partition", start);
+	inpoly = 0;
+	for(Point p:points){
+		inpoly += poly->contain(p,false);
+	}
+	cout<<inpoly<<endl;
+	logt("querying without partition", start);
 
+//	cout<<"polygon"<<endl;
 //	poly->print();
 //	cout<<"border"<<endl;
 //	borderpolys->print();
