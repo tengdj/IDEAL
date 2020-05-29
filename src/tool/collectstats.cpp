@@ -1,26 +1,13 @@
-#include "MyPolygon.h"
+#include "../geometry/MyPolygon.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <vector>
 #include <string.h>
 /* 
- * RESQUE processing engine v3.0
- *   It supports spatial join and nearest neighbor query with different predicates
- *   1) parseParameters
- *   2) readCacheFile - metadata such as partition schemata
- *   3) for every input line in the current tile
- *         an input line represents an object
- *         save geometry and original data in memory
- *         execute join operation when finish reading a tile
- *   4) Join operation between 2 sets or a single set
- *         build Rtree index on the second data set
- *         for every object in the first data set
- *            using Rtree index of the second data set
- *              check for MBR/envelope intersection
- *              output the pair result or save pair statistics
- *   5) Output final statistics (opt)
- *   Requirement (input files): see the Wiki
+ *
+ * collect the statistic of the input data
+ *
  * */
 
 using namespace std;
@@ -69,19 +56,19 @@ void *process_wkt(void *args){
 		vector<MyPolygon *> polygons = mp->get_polygons();
 		for(MyPolygon *p:polygons){
 			local_num_polygons++;
-			local_num_vertices += p->num_boundary_vertices();
+			local_num_vertices += p->get_num_vertices();
 			if(!local_max_poly){
 				local_max_poly = p->clone();
-			}else if(p->num_boundary_vertices()>local_max_poly->num_boundary_vertices()){
+			}else if(p->get_num_vertices()>local_max_poly->get_num_vertices()){
 				delete local_max_poly;
 				local_max_poly = p->clone();
 			}
-			if(p->num_boundary_vertices()>num_stats){
+			if(p->get_num_vertices()>num_stats){
 				local_vertices_count[num_stats-1]++;
 			}else{
-				local_vertices_count[p->num_boundary_vertices()-1]++;
+				local_vertices_count[p->get_num_vertices()-1]++;
 			}
-			if(p->num_boundary_vertices()>large_poly_threshold){
+			if(p->get_num_vertices()>large_poly_threshold){
 				pthread_mutex_lock(&output_lock);
 				MyPolygon *tp = p->clone();
 				large_polys.push_back(tp);
@@ -96,7 +83,7 @@ void *process_wkt(void *args){
 		pthread_mutex_lock(&output_lock);
 		if(!max_poly){
 			max_poly = local_max_poly->clone();
-		}else if(local_max_poly->num_boundary_vertices()>max_poly->num_boundary_vertices()){
+		}else if(local_max_poly->get_num_vertices()>max_poly->get_num_vertices()){
 			delete max_poly;
 			max_poly = local_max_poly;
 		}
@@ -177,7 +164,7 @@ int collect_stats(int argc, char** argv) {
 
 	if(max_poly){
 		//max_poly->print();
-		//cout<<max_poly->num_boundary_vertices()<<endl;
+		//cout<<max_poly->get_num_vertices()<<endl;
 		delete max_poly;
 	}
 //	cerr<<total_num_polygons<<endl;
@@ -202,7 +189,7 @@ int main(int argc, char **argv){
 	collect_stats(argc, argv);
 	for(int i=0;i<large_polys.size()-1;i++){
 		for(int j=large_polys.size()-1;j>i;j--){
-			if(large_polys[j]->num_boundary_vertices()>large_polys[j-1]->num_boundary_vertices()){
+			if(large_polys[j]->get_num_vertices()>large_polys[j-1]->get_num_vertices()){
 				MyPolygon *tmp = large_polys[j-1];
 				large_polys[j-1] = large_polys[j];
 				large_polys[j] = tmp;
@@ -211,6 +198,6 @@ int main(int argc, char **argv){
 	}
 	for(MyPolygon *p:large_polys){
 		p->print();
-		//cout<<p->num_boundary_vertices()<<endl;
+		//cout<<p->get_num_vertices()<<endl;
 	}
 }

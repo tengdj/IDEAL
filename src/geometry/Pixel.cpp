@@ -8,7 +8,7 @@
 
 #include "MyPolygon.h"
 
-bool print_debug = true;
+bool print_debug = false;
 
 
 bool Pixel::overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2){

@@ -7,6 +7,19 @@
 
 #include "MyPolygon.h"
 
+MyPolygon *MyMultiPolygon::read_one_polygon(){
+
+	string input_line;
+	getline(cin, input_line);
+	if(input_line.size()==0){
+		return NULL;
+	}
+	MyMultiPolygon *mp = new MyMultiPolygon(input_line.c_str());
+	MyPolygon *ret = mp->polygons[0]->clone();
+	delete mp;
+	return ret;
+}
+
 MyMultiPolygon::MyMultiPolygon(const char *wkt){
 	size_t offset = 0;
 	// read the symbol MULTIPOLYGON
