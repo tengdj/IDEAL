@@ -54,6 +54,8 @@ public:
 	double high[2];
 	PartitionStatus status = OUT;
 	PartitionStatus border[4];
+	int vstart = -1;
+	int vend = -1;
 	Pixel(){
 		border[0] = OUT;
 		border[1] = OUT;
@@ -74,8 +76,8 @@ public:
 	}
 
 	vector<cross_info> crosses;
-	void enter(double val, Direction d);
-	void leave(double val, Direction d);
+	void enter(double val, Direction d, int vnum);
+	void leave(double val, Direction d, int vnum);
 	void process_enter_leave();
 	void setin(){
 		status = IN;
@@ -212,10 +214,10 @@ public:
 	static vector<MyPolygon *> load_binary_file(const char *path);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
-	bool contain(Point &p, bool use_partition=true);
-	bool intersect(MyPolygon *target, bool use_partition=true);
+	bool contain(Point &p, query_context *ctx);
+	bool intersect(MyPolygon *target, query_context *ctx);
 	bool contain(MyPolygon *target, query_context *ctx);
-	bool contain(Pixel *target, bool use_partition=true);
+	bool contain(Pixel *target, query_context *ctx);
 
 	bool contain_try_partition(MyPolygon *target, query_context *ctx);
 
@@ -233,6 +235,7 @@ public:
 	Pixel *getMBB();
 
 	void evaluate_border(int &dimx, int &dimy);
+	void spread_pixels(int &dimx, int &dimy);
 
 	vector<vector<Pixel>> partition(int dimx, int dimy);
 	vector<vector<Pixel>> partition_scanline(int dimx, int dimy);

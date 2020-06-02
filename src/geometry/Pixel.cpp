@@ -380,7 +380,7 @@ void Pixel::process_enter_leave(){
 }
 
 
-void Pixel::enter(double val, Direction d){
+void Pixel::enter(double val, Direction d, int vnum){
 	if(print_debug){
 		cout<<direction_str[d];
 		cout<<" enter "<<id[0]<<" "<<id[1]<<endl;
@@ -390,11 +390,15 @@ void Pixel::enter(double val, Direction d){
 	ci.vertex = val;
 	ci.direction = d;
 	crosses.push_back(ci);
+	if(vstart==-1){
+		vstart = vnum;
+	}
+	vend = vnum;
 }
 
 
 
-void Pixel::leave(double val, Direction d){
+void Pixel::leave(double val, Direction d, int vnum){
 	if(print_debug){
 		cout<<direction_str[d];
 		cout<<" leave "<<id[0]<<" "<<id[1]<<endl;
@@ -404,6 +408,10 @@ void Pixel::leave(double val, Direction d){
 	ci.vertex = val;
 	ci.direction = d;
 	crosses.push_back(ci);
+	if(vstart==-1){
+		vstart = vnum;
+	}
+	vend = vnum;
 }
 
 
