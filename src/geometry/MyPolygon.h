@@ -176,6 +176,19 @@ public:
 	double area();
 };
 
+class query_context{
+public:
+	int thread_id = 0;
+	MyPolygon *target = NULL;
+	int max_dimx = 40;
+	int max_dimy = 40;
+	bool use_partition = false;
+	int found = 0;
+	bool partition_determined = false;
+	bool gpu = false;
+	vector<pair<MyPolygon *, MyPolygon *>> candidates;
+	query_context(){}
+};
 
 class MyPolygon{
 	Pixel *mbb = NULL;
@@ -187,6 +200,7 @@ class MyPolygon{
 	double area_buffer = -1;
 	pthread_mutex_t partition_lock;
 public:
+	unsigned int offset = 0;
 	VertexSequence *boundary = NULL;
 	vector<VertexSequence *> internal_polygons;
 
@@ -198,11 +212,13 @@ public:
 	static vector<MyPolygon *> load_binary_file(const char *path);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
-
 	bool contain(Point &p, bool use_partition=true);
 	bool intersect(MyPolygon *target, bool use_partition=true);
-	bool contain(MyPolygon *target, bool use_partition=true);
+	bool contain(MyPolygon *target, query_context *ctx);
 	bool contain(Pixel *target, bool use_partition=true);
+
+	bool contain_try_partition(MyPolygon *target, query_context *ctx);
+
 
 
 	void internal_partition();
@@ -215,7 +231,23 @@ public:
 	void print(bool print_hole=false);
 	void print_without_return(bool print_hole=false);
 	Pixel *getMBB();
+
+	void evaluate_border(int &dimx, int &dimy);
+
 	vector<vector<Pixel>> partition(int dimx, int dimy);
+	vector<vector<Pixel>> partition_scanline(int dimx, int dimy);
+	vector<vector<Pixel>> partition_with_query(int dimx, int dimy);
+
+	void reset_partition(){
+		pthread_mutex_lock(&partition_lock);
+		partitioned = false;
+		for(vector<Pixel> &rows:partitions){
+			rows.clear();
+		}
+		partitions.clear();
+		pthread_mutex_unlock(&partition_lock);
+	}
+
 	bool ispartitioned(){
 		return partitioned;
 	}
@@ -311,29 +343,5 @@ public:
 		return ds;
 	}
 };
-
-// some utility function
-
-inline bool is_number(char ch){
-	return ch=='-'||ch=='.'||(ch<='9'&&ch>='0')||ch=='e';
-}
-
-inline double read_double(const char *input, size_t &offset){
-	char tmp[100];
-	while(!is_number(input[offset])){
-		offset++;
-	}
-	int index = 0;
-	while(is_number(input[offset])){
-		tmp[index++] = input[offset++];
-	}
-	tmp[index] = '\0';
-	return atof(tmp);
-}
-inline void skip_space(const char *input, size_t &offset){
-	while(input[offset]==' '||input[offset]=='\t'||input[offset]=='\n'){
-		offset++;
-	}
-}
 
 #endif /* SRC_MYPOLYGON_H_ */

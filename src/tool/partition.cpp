@@ -12,14 +12,15 @@
 namespace po = boost::program_options;
 using namespace std;
 
-
-
 int main(int argc, char **argv){
 	int max_dimx = 40;
 	int max_dimy = 40;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
+		("print,p", "print the pixels")
+		("query,q", "partition with query")
+		("scanline,s", "partition with scanline")
 		("max_dimx,x", po::value<int>(&max_dimx), "max dimension on horizontal")
 		("max_dimy,y", po::value<int>(&max_dimy), "max dimension on vertical")
 		;
@@ -32,8 +33,19 @@ int main(int argc, char **argv){
 	po::notify(vm);
 	timeval start = get_cur_time();
 	MyPolygon *poly = MyMultiPolygon::read_one_polygon();
+	logt("read one polygon", start);
 	vector<vector<Pixel>> partitions = poly->partition(max_dimx, max_dimy);
 	logt("partitioning polygon", start);
+	if(vm.count("scanline")){
+		poly->reset_partition();
+		partitions = poly->partition_scanline(max_dimx, max_dimy);
+		logt("partitioning polygon with scanline", start);
+	}
+	if(vm.count("query")){
+		poly->reset_partition();
+		partitions = poly->partition_with_query(max_dimx, max_dimy);
+		logt("partitioning polygon with query", start);
+	}
 
 	MyMultiPolygon *inpolys = new MyMultiPolygon();
 	MyMultiPolygon *borderpolys = new MyMultiPolygon();
@@ -53,14 +65,16 @@ int main(int argc, char **argv){
 	}
 	logt("allocating partitions", start);
 
-	cout<<"polygon:"<<endl;
-	poly->print();
-	cout<<"border:"<<endl;
-	borderpolys->print();
-	cout<<"in:"<<endl;
-	inpolys->print();
-	cout<<"out:"<<endl;
-	outpolys->print();
+	if(vm.count("print")){
+		cout<<"polygon:"<<endl;
+		poly->print();
+		cout<<"border:"<<endl;
+		borderpolys->print();
+		cout<<"in:"<<endl;
+		inpolys->print();
+		cout<<"out:"<<endl;
+		outpolys->print();
+	}
 
 	delete borderpolys;
 	delete inpolys;

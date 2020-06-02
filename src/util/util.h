@@ -25,6 +25,31 @@ namespace{
 
 #define TENG_RANDOM_NUMBER 0315
 
+
+// some utility function
+
+inline bool is_number(char ch){
+	return ch=='-'||ch=='.'||(ch<='9'&&ch>='0')||ch=='e';
+}
+
+inline double read_double(const char *input, size_t &offset){
+	char tmp[100];
+	while(!is_number(input[offset])){
+		offset++;
+	}
+	int index = 0;
+	while(is_number(input[offset])){
+		tmp[index++] = input[offset++];
+	}
+	tmp[index] = '\0';
+	return atof(tmp);
+}
+inline void skip_space(const char *input, size_t &offset){
+	while(input[offset]==' '||input[offset]=='\t'||input[offset]=='\n'){
+		offset++;
+	}
+}
+
 inline struct timeval get_cur_time(){
 	struct timeval t1;
 	gettimeofday(&t1, NULL);

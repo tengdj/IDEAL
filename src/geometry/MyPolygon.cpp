@@ -177,14 +177,7 @@ MyPolygon::~MyPolygon(){
 	}
 }
 
-
-vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
-	assert(dimx>0&&dimy>0);
-	pthread_mutex_lock(&partition_lock);
-	if(partitioned){
-		pthread_mutex_unlock(&partition_lock);
-		return partitions;
-	}
+void MyPolygon::evaluate_border(int &dimx, int &dimy){
 	// normalize
 	getMBB();
 	const double start_x = mbb->low[0];
@@ -193,6 +186,7 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 	const double end_y = mbb->high[1];
 	step_x = (end_x-start_x)/dimx;
 	step_y = (end_y-start_y)/dimy;
+
 	if(step_x<0.00001){
 		step_x = 0.00001;
 		dimx = (end_x-start_x)/step_x+1;
@@ -216,6 +210,7 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 		}
 		partitions.push_back(v);
 	}
+
 	for(int i=0;i<get_num_vertices()-1;i++){
 		double x1 = getx(i);
 		double y1 = gety(i);
@@ -373,6 +368,17 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 			}
 		}
 	}
+}
+
+vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
+	assert(dimx>0&&dimy>0);
+	pthread_mutex_lock(&partition_lock);
+	if(partitioned){
+		pthread_mutex_unlock(&partition_lock);
+		return partitions;
+	}
+
+	evaluate_border(dimx,dimy);
 
 	for(vector<Pixel> &parts:partitions){
 		for(Pixel &p:parts){
@@ -396,6 +402,103 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 			}
 		}
 	}
+	partitioned = true;
+	pthread_mutex_unlock(&partition_lock);
+	return partitions;
+}
+
+
+
+vector<vector<Pixel>> MyPolygon::partition_scanline(int dimx, int dimy){
+	assert(dimx>0&&dimy>0);
+	pthread_mutex_lock(&partition_lock);
+	if(partitioned){
+		pthread_mutex_unlock(&partition_lock);
+		return partitions;
+	}
+	//
+	evaluate_border(dimx, dimy);
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &p:rows){
+			if(p.crosses.size()>0){
+				p.status = BORDER;
+			}
+		}
+	}
+	for(int y=1;y<dimy;y++){
+		bool isin = false;
+		for(int x=0;x<dimx;x++){
+			if(partitions[x][y].status!=BORDER){
+				if(isin){
+					partitions[x][y].status = IN;
+				}
+				continue;
+			}
+			for(cross_info &c:partitions[x][y].crosses){
+				if(c.direction==BOTTOM){
+					isin = !isin;
+				}
+			}
+		}
+	}
+
+	partitioned = true;
+	pthread_mutex_unlock(&partition_lock);
+	return partitions;
+}
+
+
+vector<vector<Pixel>> MyPolygon::partition_with_query(int dimx, int dimy){
+	assert(dimx>0&&dimy>0);
+	pthread_mutex_lock(&partition_lock);
+	if(partitioned){
+		pthread_mutex_unlock(&partition_lock);
+		return partitions;
+	}
+	// normalize
+	getMBB();
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
+	const double end_x = mbb->high[0];
+	const double end_y = mbb->high[1];
+	step_x = (end_x-start_x)/dimx;
+	step_y = (end_y-start_y)/dimy;
+
+	if(step_x<0.00001){
+		step_x = 0.00001;
+		dimx = (end_x-start_x)/step_x+1;
+	}
+	if(step_y<0.00001){
+		step_y = 0.00001;
+		dimy = (end_y-start_y)/step_y+1;
+	}
+
+	for(double i=0;i<=dimx;i++){
+		vector<Pixel> v;
+		for(double j=0;j<=dimy;j++){
+			Pixel m;
+			m.id[0] = i;
+			m.id[1] = j;
+			m.low[0] = i*step_x+start_x;
+			m.high[0] = (i+1.0)*step_x+start_x;
+			m.low[1] = j*step_y+start_y;
+			m.high[1] = (j+1.0)*step_y+start_y;
+			v.push_back(m);
+			Point p1(m.low[0],m.low[1]);
+			Point p2(m.high[0],m.high[1]);
+			bool in1 = contain(p1,false);
+			bool in2 = contain(p2,false);;
+			if(in1&&in2){
+				m.status = IN;
+			}else if(!in1&&!in2){
+				m.status = OUT;
+			}else{
+				m.status = BORDER;
+			}
+		}
+		partitions.push_back(v);
+	}
+
 	partitioned = true;
 	pthread_mutex_unlock(&partition_lock);
 	return partitions;
@@ -676,45 +779,49 @@ bool MyPolygon::contain(Point &p,bool use_partition){
 
 }
 
-bool MyPolygon::contain(MyPolygon *target, bool use_partition){
 
+bool MyPolygon::contain_try_partition(MyPolygon *target, query_context *ctx){
+	assert(partitioned&&ctx->use_partition);
+	ctx->partition_determined = true;
 	Pixel *a = getMBB();
 	Pixel *b = target->getMBB();
 	if(!a->contain(b)){
 		return false;
 	}
-	if(partitioned&&use_partition){
-		// test all the pixels
-		int txstart = this->get_pixel_x(a->low[0]);
-		int txend = this->get_pixel_x(a->high[0]);
-		int tystart = this->get_pixel_y(a->low[1]);
-		int tyend = this->get_pixel_y(a->high[0]);
-		int incount = 0;
-		for(int i=txstart;i<=txend;i++){
-			for(int j=tystart;j<=tyend;j++){
-				if(partitions[i][j].status==OUT){
-					return false;
-				}
-				if(partitions[i][j].status==IN){
-					incount++;
-				}
+	// test all the pixels
+	int txstart = this->get_pixel_x(a->low[0]);
+	int txend = this->get_pixel_x(a->high[0]);
+	int tystart = this->get_pixel_y(a->low[1]);
+	int tyend = this->get_pixel_y(a->high[0]);
+	int incount = 0;
+	for(int i=txstart;i<=txend;i++){
+		for(int j=tystart;j<=tyend;j++){
+			if(partitions[i][j].status==OUT){
+				return false;
+			}
+			if(partitions[i][j].status==IN){
+				incount++;
 			}
 		}
-		// all is in
-		if(incount==(txend-txstart+1)*(tyend-tystart+1)){
-			return true;
-		}
+	}
+	// all is in
+	if(incount==(txend-txstart+1)*(tyend-tystart+1)){
+		return true;
 	}
 
+	ctx->partition_determined = false;
+	return false;
+}
+
+bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 	// check each vertex in target
 	for(int i=0;i<target->get_num_vertices();i++){
 		Point p(target->getx(i),target->gety(i));
-		if(!contain(p, use_partition)){
+		if(!contain(p, ctx->use_partition)){
 			return false;
 		}
 	}
 	return true;
-
 }
 
 bool MyPolygon::contain(Pixel *target, bool use_partition){
@@ -790,5 +897,7 @@ bool MyPolygon::intersect(MyPolygon *target, bool use_partition){
 	}
 	return false;
 }
+
+
 
 
