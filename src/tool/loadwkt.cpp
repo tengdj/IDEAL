@@ -6,6 +6,10 @@
 #include <string.h>
 #include <fstream>
 #include <iostream>
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
+
 using namespace std;
 
 #define MAX_THREAD_NUM 100
@@ -15,6 +19,7 @@ string processing_line[MAX_THREAD_NUM];
 bool is_working[MAX_THREAD_NUM];
 pthread_mutex_t output_lock;
 bool stop = false;
+int big_threshold = 1000;
 
 ofstream big_wf;
 ofstream small_wf;
@@ -42,7 +47,7 @@ void *process_wkt(void *args){
 
 		vector<MyPolygon *> polygons = mp->get_polygons();
 		for(MyPolygon *p:polygons){
-			if(p->get_num_vertices()>1000){
+			if(p->get_num_vertices()>big_threshold){
 				if(p->get_data_size()+data_size_big>buffer_size){
 					pthread_mutex_lock(&output_lock);
 					big_wf.write(data_buffer_big, data_size_big);
@@ -77,8 +82,27 @@ void *process_wkt(void *args){
 
 
 int main(int argc, char** argv) {
-	big_wf.open(argv[1], ios::out | ios::binary |ios::trunc);
-	small_wf.open(argv[2], ios::out | ios::binary|ios::trunc);
+	string path1;
+	string path2;
+
+	po::options_description desc("load usage");
+	desc.add_options()
+		("help,h", "produce help message")
+		("path_big", po::value<string>(&path1)->required(), "path for the big polygons")
+		("path_small", po::value<string>(&path2)->required(), "path for the small polygons")
+		("big_threshold,b", po::value<int>(&big_threshold), "partition with scanline")
+		;
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	if (vm.count("help")) {
+		cout << desc << "\n";
+		return 0;
+	}
+	po::notify(vm);
+
+	big_wf.open(path1.c_str(), ios::out | ios::binary |ios::trunc);
+	small_wf.open(path2.c_str(), ios::out | ios::binary|ios::trunc);
+
 	int num_threads = get_num_threads();
 	pthread_t threads[num_threads];
 	int id[num_threads];

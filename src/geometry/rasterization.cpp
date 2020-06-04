@@ -6,26 +6,13 @@
  */
 
 #include "MyPolygon.h"
+#include <math.h>
 
-
-void MyPolygon::evaluate_border(int &dimx, int &dimy){
+void MyPolygon::evaluate_border(const int dimx, const int dimy){
 	// normalize
-	getMBB();
+	assert(mbb);
 	const double start_x = mbb->low[0];
 	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
-	step_x = (end_x-start_x)/dimx;
-	step_y = (end_y-start_y)/dimy;
-
-	if(step_x<0.00001){
-		step_x = 0.00001;
-		dimx = (end_x-start_x)/step_x+1;
-	}
-	if(step_y<0.00001){
-		step_y = 0.00001;
-		dimy = (end_y-start_y)/step_y+1;
-	}
 
 	for(double i=0;i<=dimx;i++){
 		vector<Pixel> v;
@@ -201,7 +188,7 @@ void MyPolygon::evaluate_border(int &dimx, int &dimy){
 	}
 }
 
-void MyPolygon::spread_pixels(int &dimx, int &dimy){
+void MyPolygon::spread_pixels(const int dimx, const int dimy){
 	for(int i=0;i<dimx;i++){
 		for(int j=0;j<dimy;j++){
 			// bottom up
@@ -220,12 +207,45 @@ void MyPolygon::spread_pixels(int &dimx, int &dimy){
 	}
 }
 
-vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
-	assert(dimx>0&&dimy>0);
+vector<vector<Pixel>> MyPolygon::partition(int vpr){
+	assert(vpr>0);
 	pthread_mutex_lock(&partition_lock);
 	if(partitioned){
 		pthread_mutex_unlock(&partition_lock);
 		return partitions;
+	}
+
+	getMBB();
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
+	const double end_x = mbb->high[0];
+	const double end_y = mbb->high[1];
+
+	double multi = abs((end_y-start_y)/(end_x-start_x));
+	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
+	int dimy = multi*dimx;
+//	if(dimx>200){
+//		dimx = 200;
+//	}
+//	if(dimy>200){
+//		dimy = 200;
+//	}
+	if(dimx==0){
+		dimx = 1;
+	}
+	if(dimy==0){
+		dimy = 1;
+	}
+	step_x = (end_x-start_x)/dimx;
+	step_y = (end_y-start_y)/dimy;
+
+	if(step_x<0.00001){
+		step_x = 0.00001;
+		dimx = (end_x-start_x)/step_x+1;
+	}
+	if(step_y<0.00001){
+		step_y = 0.00001;
+		dimy = (end_y-start_y)/step_y+1;
 	}
 
 	evaluate_border(dimx,dimy);
@@ -244,12 +264,33 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 
 
 
-vector<vector<Pixel>> MyPolygon::partition_scanline(int dimx, int dimy){
-	assert(dimx>0&&dimy>0);
+vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
+	assert(vpr>0);
 	pthread_mutex_lock(&partition_lock);
 	if(partitioned){
 		pthread_mutex_unlock(&partition_lock);
 		return partitions;
+	}
+	getMBB();
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
+	const double end_x = mbb->high[0];
+	const double end_y = mbb->high[1];
+
+	double multi = abs((end_y-start_y)/(end_x-start_x));
+	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
+	int dimy = multi*dimx;
+
+	step_x = (end_x-start_x)/dimx;
+	step_y = (end_y-start_y)/dimy;
+
+	if(step_x<0.00001){
+		step_x = 0.00001;
+		dimx = (end_x-start_x)/step_x+1;
+	}
+	if(step_y<0.00001){
+		step_y = 0.00001;
+		dimy = (end_y-start_y)/step_y+1;
 	}
 	//
 	evaluate_border(dimx, dimy);
@@ -283,8 +324,8 @@ vector<vector<Pixel>> MyPolygon::partition_scanline(int dimx, int dimy){
 }
 
 
-vector<vector<Pixel>> MyPolygon::partition_with_query(int dimx, int dimy){
-	assert(dimx>0&&dimy>0);
+vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
+	assert(vpr>0);
 	pthread_mutex_lock(&partition_lock);
 	if(partitioned){
 		pthread_mutex_unlock(&partition_lock);
@@ -296,6 +337,12 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int dimx, int dimy){
 	const double start_y = mbb->low[1];
 	const double end_x = mbb->high[0];
 	const double end_y = mbb->high[1];
+
+	double multi = abs((end_y-start_y)/(end_x-start_x));
+	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
+	int dimy = multi*dimx;
+
+
 	step_x = (end_x-start_x)/dimx;
 	step_y = (end_y-start_y)/dimy;
 

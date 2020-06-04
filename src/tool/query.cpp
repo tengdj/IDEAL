@@ -17,9 +17,14 @@ using namespace std;
 
 #define MAX_THREAD_NUM 100
 
+int element_size = 100;
+
 // some shared parameters
 pthread_mutex_t poly_lock;
 bool stop = false;
+
+pthread_mutex_t report_lock;
+long query_count = 0;
 
 vector<gpu_info *> gpus;
 pthread_mutex_t gpu_lock;
@@ -101,7 +106,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	// query with parition
 	if(ctx->use_partition){
 		if(!poly->ispartitioned()){
-			poly->partition(ctx->max_dimx, ctx->max_dimy);
+			poly->partition(ctx->vpr);
 		}
 		bool find = poly->contain_try_partition(ctx->target, ctx);
 		if(ctx->partition_determined){
@@ -125,6 +130,7 @@ void *query(void *args){
 	log("thread %d is started",ctx->thread_id);
 	pthread_mutex_unlock(&poly_lock);
 	vector<queue_element *> elems;
+	int local_count = 0;
 	while(!stop||shared_queue.size()>0){
 		queue_element *elem = NULL;
 		pthread_mutex_lock(&poly_lock);
@@ -142,6 +148,15 @@ void *query(void *args){
 			ctx->target = poly;
 			Pixel *px = poly->getMBB();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
+			if(++local_count==1000){
+				pthread_mutex_lock(&report_lock);
+				query_count += local_count;
+				if(query_count%100000==0){
+					log("queried %d polygons",query_count);
+				}
+				local_count = 0;
+				pthread_mutex_unlock(&report_lock);
+			}
 		}
 
 		if(ctx->gpu){
@@ -174,18 +189,20 @@ int main(int argc, char** argv) {
 	int num_threads = get_num_threads();
 	bool use_partition = false;
 	bool use_gpu = false;
-	int max_dimx = 40;
-	int max_dimy = 40;
+	bool in_memory = false;
+	int vpr = 10;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
 		("partition,p", "query with inner partition")
 		("gpu,g", "compute with gpu")
+		("in_memory,m", "data will be loaded into memory and start")
+		("active_partition", "rasterize source polygons before query")
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
-		("max_dimx,x", po::value<int>(&max_dimx), "max dimension on horizontal")
-		("max_dimy,y", po::value<int>(&max_dimy), "max dimension on vertical")
+		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
+		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -196,6 +213,9 @@ int main(int argc, char** argv) {
 	po::notify(vm);
 	if(vm.count("partition")){
 		use_partition = true;
+	}
+	if(vm.count("in_memory")){
+		in_memory = true;
 	}
 	if(vm.count("gpu")){
 		use_gpu = true;
@@ -216,6 +236,12 @@ int main(int argc, char** argv) {
 
 	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
 	logt("loaded %ld polygons", start, source.size());
+	if(use_partition&&vm.count("active_partition")){
+		for(MyPolygon *p:source){
+			p->partition(vpr);
+		}
+		logt("partition polygons", start);
+	}
 	if(use_gpu){
 		load_source_togpu(gpus[0], source);
 		logt("load to gpu", start);
@@ -228,13 +254,14 @@ int main(int argc, char** argv) {
 	query_context ctx[num_threads];
 	for(int i=0;i<num_threads;i++){
 		ctx[i].thread_id = i;
-		ctx[i].max_dimx = max_dimx;
-		ctx[i].max_dimy = max_dimy;
+		ctx[i].vpr = vpr;
 		ctx[i].use_partition = use_partition;
 		ctx[i].gpu = use_gpu;
 	}
-	for(int i=0;i<num_threads;i++){
-		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
+	if(!in_memory){
+		for(int i=0;i<num_threads;i++){
+			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
+		}
 	}
 
 	ifstream is;
@@ -250,8 +277,8 @@ int main(int argc, char** argv) {
 		}
 		poly->setid(pid++);
 		elem->polys.push_back(poly);
-		if(elem->polys.size()==20){
-			while(shared_queue.size()>2*num_threads){
+		if(elem->polys.size()==element_size){
+			while(!in_memory&&shared_queue.size()>10*num_threads){
 				usleep(20);
 			}
 			pthread_mutex_lock(&poly_lock);
@@ -259,8 +286,8 @@ int main(int argc, char** argv) {
 			pthread_mutex_unlock(&poly_lock);
 			elem = new queue_element(eid++);
 		}
-		if(++loaded%100000==0){
-			log("queried %d polygons",loaded);
+		if(in_memory&&++loaded%100000==0){
+			log("loaded %d polygons",loaded);
 		}
 	}
 	if(elem->polys.size()>0){
@@ -271,7 +298,14 @@ int main(int argc, char** argv) {
 		delete elem;
 	}
 	stop = true;
+	stop = true;
 
+	if(in_memory){
+		logt("loaded %d polygons",start,loaded);
+		for(int i=0;i<num_threads;i++){
+			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
+		}
+	}
 	for(int i = 0; i < num_threads; i++ ){
 		void *status;
 		pthread_join(threads[i], &status);

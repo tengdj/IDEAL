@@ -13,16 +13,14 @@ namespace po = boost::program_options;
 using namespace std;
 
 int main(int argc, char **argv){
-	int max_dimx = 40;
-	int max_dimy = 40;
+	int vpr = 10;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
 		("print,p", "print the pixels")
 		("query,q", "partition with query")
 		("scanline,s", "partition with scanline")
-		("max_dimx,x", po::value<int>(&max_dimx), "max dimension on horizontal")
-		("max_dimy,y", po::value<int>(&max_dimy), "max dimension on vertical")
+		("vertices_per_raster,n", po::value<int>(&vpr), "number of vertices per raster")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -34,16 +32,16 @@ int main(int argc, char **argv){
 	timeval start = get_cur_time();
 	MyPolygon *poly = MyMultiPolygon::read_one_polygon();
 	logt("read one polygon", start);
-	vector<vector<Pixel>> partitions = poly->partition(max_dimx, max_dimy);
-	logt("partitioning polygon", start);
+	vector<vector<Pixel>> partitions = poly->partition(vpr);
+	logt("partitioning polygon %d %d", start,partitions.size(),partitions[0].size());
 	if(vm.count("scanline")){
 		poly->reset_partition();
-		partitions = poly->partition_scanline(max_dimx, max_dimy);
+		partitions = poly->partition_scanline(vpr);
 		logt("partitioning polygon with scanline", start);
 	}
 	if(vm.count("query")){
 		poly->reset_partition();
-		partitions = poly->partition_with_query(max_dimx, max_dimy);
+		partitions = poly->partition_with_query(vpr);
 		logt("partitioning polygon with query", start);
 	}
 
@@ -51,8 +49,8 @@ int main(int argc, char **argv){
 	MyMultiPolygon *borderpolys = new MyMultiPolygon();
 	MyMultiPolygon *outpolys = new MyMultiPolygon();
 
-	for(int i=0;i<max_dimx;i++){
-		for(int j=0;j<max_dimy;j++){
+	for(int i=0;i<partitions.size();i++){
+		for(int j=0;j<partitions[0].size();j++){
 			MyPolygon *m = partitions[i][j].to_polygon();
 			if(partitions[i][j].status==BORDER){
 				borderpolys->insert_polygon(m);

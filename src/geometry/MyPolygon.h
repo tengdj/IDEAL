@@ -182,8 +182,7 @@ class query_context{
 public:
 	int thread_id = 0;
 	MyPolygon *target = NULL;
-	int max_dimx = 40;
-	int max_dimy = 40;
+	int vpr = 10;
 	bool use_partition = false;
 	int found = 0;
 	bool partition_determined = false;
@@ -234,12 +233,12 @@ public:
 	void print_without_return(bool print_hole=false);
 	Pixel *getMBB();
 
-	void evaluate_border(int &dimx, int &dimy);
-	void spread_pixels(int &dimx, int &dimy);
+	void evaluate_border(const int dimx, const int dimy);
+	void spread_pixels(const int dimx, const int dimy);
 
-	vector<vector<Pixel>> partition(int dimx, int dimy);
-	vector<vector<Pixel>> partition_scanline(int dimx, int dimy);
-	vector<vector<Pixel>> partition_with_query(int dimx, int dimy);
+	vector<vector<Pixel>> partition(int vertex_per_raster);
+	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
+	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
 
 	void reset_partition(){
 		pthread_mutex_lock(&partition_lock);

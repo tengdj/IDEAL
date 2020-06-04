@@ -36,9 +36,6 @@ load:	tool/loadwkt.o $(GEOMETRY_OBJS)
 	
 geninsert:	tool/geninsert.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-
-partperf:	tool/partperf.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-
+	
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)
