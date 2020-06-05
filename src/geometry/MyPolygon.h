@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include <stdint.h>
+#include <math.h>
 #include "../util/util.h"
 using namespace std;
 const static char *multipolygon_char = "MULTIPOLYGON";
@@ -47,6 +48,20 @@ public:
 	static bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
 };
 
+class Point{
+public:
+	double x;
+	double y;
+	Point(){
+		x = 0;
+		y = 0;
+	}
+	Point(double xx, double yy){
+		x = xx;
+		y = yy;
+	}
+};
+
 class Pixel{
 public:
 	int id[2];
@@ -74,6 +89,18 @@ public:
 			   target->low[1]>=low[1]&&
 			   target->high[1]<=high[1];
 	}
+	bool contain(Point &p){
+		return p.x>=low[0]&&
+			   p.x<=high[0]&&
+			   p.y>=low[1]&&
+			   p.y<=high[1];
+	}
+
+	double distance(Point &p){
+		double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
+		double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
+		return sqrt(dx * dx + dy * dy);
+	}
 
 	vector<cross_info> crosses;
 	void enter(double val, Direction d, int vnum);
@@ -93,19 +120,7 @@ public:
 
 };
 
-class Point{
-public:
-	double x;
-	double y;
-	Point(){
-		x = 0;
-		y = 0;
-	}
-	Point(double xx, double yy){
-		x = xx;
-		y = yy;
-	}
-};
+
 
 
 class VertexSequence{
@@ -191,6 +206,8 @@ public:
 	query_context(){}
 };
 
+
+
 class MyPolygon{
 	Pixel *mbb = NULL;
 	vector<vector<Pixel>> partitions;
@@ -217,6 +234,7 @@ public:
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool contain(MyPolygon *target, query_context *ctx);
 	bool contain(Pixel *target, query_context *ctx);
+	double distance(Point &p, query_context *ctx);
 
 	bool contain_try_partition(MyPolygon *target, query_context *ctx);
 
@@ -236,7 +254,7 @@ public:
 	void evaluate_border(const int dimx, const int dimy);
 	void spread_pixels(const int dimx, const int dimy);
 
-	vector<vector<Pixel>> partition(int vertex_per_raster);
+	vector<vector<Pixel>> partition(int vertex_per_raster, double flatness=1);
 	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
 
@@ -306,6 +324,21 @@ public:
 		//assert(sum>=0);
 		area_buffer = std::max(sum,0.0);
 		return area_buffer;
+	}
+};
+
+class queue_element{
+public:
+	int id = 0;
+	vector<MyPolygon *> polys;
+	queue_element(int i){
+		id = i;
+	}
+	~queue_element(){
+		for(MyPolygon *p:polys){
+			delete p;
+		}
+		polys.clear();
 	}
 };
 

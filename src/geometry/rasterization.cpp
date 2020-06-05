@@ -207,8 +207,8 @@ void MyPolygon::spread_pixels(const int dimx, const int dimy){
 	}
 }
 
-vector<vector<Pixel>> MyPolygon::partition(int vpr){
-	assert(vpr>0);
+vector<vector<Pixel>> MyPolygon::partition(int vpr, double flatness){
+	assert(vpr>0&&flatness>0);
 	pthread_mutex_lock(&partition_lock);
 	if(partitioned){
 		pthread_mutex_unlock(&partition_lock);
@@ -222,8 +222,8 @@ vector<vector<Pixel>> MyPolygon::partition(int vpr){
 	const double end_y = mbb->high[1];
 
 	double multi = abs((end_y-start_y)/(end_x-start_x));
-	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
-	int dimy = multi*dimx;
+	int dimx = std::pow((get_num_vertices()/vpr)/(multi*flatness),0.5);
+	int dimy = dimx*multi*flatness;
 //	if(dimx>200){
 //		dimx = 200;
 //	}

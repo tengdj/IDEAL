@@ -7,7 +7,40 @@
 
 
 #include "MyPolygon.h"
+#include <float.h>
+#include <math.h>
 
+
+inline double point_to_segment_distance(const double x, const double y, const double x1, double y1, const double x2, const double y2) {
+
+  double A = x - x1;
+  double B = y - y1;
+  double C = x2 - x1;
+  double D = y2 - y1;
+
+  double dot = A * C + B * D;
+  double len_sq = C * C + D * D;
+  double param = -1;
+  if (len_sq != 0) //in case of 0 length line
+      param = dot / len_sq;
+
+  double xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  double dx = x - xx;
+  double dy = y - yy;
+  return sqrt(dx * dx + dy * dy);
+}
 
 
 
@@ -43,10 +76,10 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		return ret;
 	}else{
 		bool ret = false;
-		for (int i = 0, j = get_num_vertices()-1; i < get_num_vertices(); j = i++) {
+		for (int i = 0; i < get_num_vertices()-1; i++) {
 			// segment i->j intersect with line y=p.y
-			if ( ((gety(i)>p.y) != (gety(j)>p.y))){
-				double a = (getx(j)-getx(i)) / (gety(j)-gety(i));
+			if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+				double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
 				if(p.x - getx(i) < a * (p.y-gety(i))){
 					ret = !ret;
 				}
@@ -173,5 +206,85 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 		}
 	}
 	return false;
+}
+
+double MyPolygon::distance(Point &p, query_context *ctx){
+	Pixel *mbr = getMBB();
+	if(ctx&&ctx->use_partition&&partitioned){
+		int part_x = this->get_pixel_x(p.x);
+		int part_y = this->get_pixel_y(p.y);
+		double radius = min(step_x,step_y);
+		if(mbr->contain(p)){
+			if(partitions[part_x][part_y].status==IN){
+				return 0;
+			}
+			bool ret = false;
+			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
+				// segment i->j intersect with line y=p.y
+				if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+					double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+					if(p.x - getx(i) < a * (p.y-gety(i))){
+						ret = !ret;
+					}
+				}
+			}
+			if(ret){
+				return 0;
+			}
+		}else{
+			radius += mbr->distance(p);
+			assert(radius>0);
+		}
+
+		double sx = max(mbr->low[0],p.x-radius);
+		double ex = min(mbr->high[0],p.x+radius);
+		double mindist = DBL_MAX;
+		while(true){
+			for(double xval=sx;xval<=ex;xval+=step_x){
+				double yval = sqrt(radius*radius-(xval-p.x)*(xval-p.x))+p.y;
+				if(yval<=mbr->high[1]&&yval>=mbr->low[1]){
+					int pixx = get_pixel_x(xval);
+					int pixy = get_pixel_y(yval);
+					if(partitions[pixx][pixy].status==BORDER){
+						for (int i = partitions[pixx][pixy].vstart; i < partitions[pixx][pixy].vend; i++) {
+							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+							if(dist<mindist){
+								mindist = dist;
+							}
+						}
+					}
+				}
+			}
+			if(mindist<=radius){
+				break;
+			}
+			radius += step_x;
+			//cout<<mindist<<" "<<radius<<endl;
+		}
+		return mindist;
+	}else{
+		bool ret = false;
+		for (int i = 0; i < get_num_vertices()-1; i++) {
+			// segment i->j intersect with line y=p.y
+			if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+				double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+				if(p.x - getx(i) < a * (p.y-gety(i))){
+					ret = !ret;
+				}
+			}
+		}
+		if(ret){
+			return 0;
+		}
+
+		double mindist = DBL_MAX;
+		for (int i = 0; i < get_num_vertices()-1; i++) {
+			double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+			if(dist<mindist){
+				mindist = dist;
+			}
+		}
+		return mindist;
+	}
 }
 

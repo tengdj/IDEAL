@@ -36,6 +36,11 @@ load:	tool/loadwkt.o $(GEOMETRY_OBJS)
 	
 geninsert:	tool/geninsert.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+
+partstat:	tool/partstat.o $(GEOMETRY_OBJS) $(CU_OBJS)
+	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
 	
+distance:	tool/distance.o $(GEOMETRY_OBJS) $(CU_OBJS)
+	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)
