@@ -99,10 +99,10 @@ bool MyPolygon::contain_try_partition(MyPolygon *target, query_context *ctx){
 		return false;
 	}
 	// test all the pixels
-	int txstart = this->get_pixel_x(a->low[0]);
-	int txend = this->get_pixel_x(a->high[0]);
-	int tystart = this->get_pixel_y(a->low[1]);
-	int tyend = this->get_pixel_y(a->high[0]);
+	int txstart = this->get_pixel_x(b->low[0]);
+	int txend = this->get_pixel_x(b->high[0]);
+	int tystart = this->get_pixel_y(b->low[1]);
+	int tyend = this->get_pixel_y(b->high[0]);
 	int incount = 0;
 	for(int i=txstart;i<=txend;i++){
 		for(int j=tystart;j<=tyend;j++){
@@ -122,6 +122,7 @@ bool MyPolygon::contain_try_partition(MyPolygon *target, query_context *ctx){
 	ctx->partition_determined = false;
 	return false;
 }
+
 
 bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 	// check each vertex in target
@@ -214,52 +215,180 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		double radius = min(step_x,step_y);
+		bool is_contained = false;
 		if(mbr->contain(p)){
 			if(partitions[part_x][part_y].status==IN){
 				return 0;
 			}
-			bool ret = false;
-			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
-				// segment i->j intersect with line y=p.y
-				if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-					double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-					if(p.x - getx(i) < a * (p.y-gety(i))){
-						ret = !ret;
+			if(partitions[part_x][part_y].status==BORDER){
+				bool ret = false;
+				for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
+					// segment i->j intersect with line y=p.y
+					if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+						double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+						if(p.x - getx(i) < a * (p.y-gety(i))){
+							ret = !ret;
+						}
+					}
+				}
+				if(ret){
+					return 0;
+				}
+			}
+			is_contained = true;
+		}else{
+			radius = mbr->distance(p)+step_x/2;
+		}
+
+
+		double mindist = 1000;
+		int index = 0;
+		while(true){
+			double sx = 360;
+			double ex = -360;
+
+			if(is_contained){
+				sx = max(mbr->low[0],p.x-radius);
+				ex = min(mbr->high[0],p.x+radius);
+			}else{
+				if(mbr->high[1]>p.y-radius&&mbr->high[1]<p.y+radius){
+					double ty = sqrt(abs(radius*radius-(mbr->high[1]-p.y)*(mbr->high[1]-p.y)));
+					double xval = ty+p.x;
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval<sx){
+						sx = xval;
+					}
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval>ex){
+						ex = xval;
+					}
+					xval = p.x-ty;
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval<sx){
+						sx = xval;
+					}
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval>ex){
+						ex = xval;
+					}
+				}
+				if(mbr->low[1]>p.y-radius&&mbr->low[1]<p.y+radius){
+					double ty = sqrt(abs(radius*radius-(mbr->low[1]-p.y)*(mbr->low[1]-p.y)));
+					double xval = ty+p.x;
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval<sx){
+						sx = xval;
+					}
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval>ex){
+						ex = xval;
+					}
+					xval = p.x-ty;
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval<sx){
+						sx = xval;
+					}
+					if(xval<mbr->high[0]&&xval>mbr->low[0]&&xval>ex){
+						ex = xval;
+					}
+				}
+				if(mbr->low[0]>p.x-radius&&mbr->low[0]<p.x+radius){
+					double ty = sqrt(abs(radius*radius-(mbr->low[0]-p.x)*(mbr->low[0]-p.x)));
+					double yval = ty+p.y;
+					if(yval<mbr->high[1]&&yval>mbr->low[1]){
+						sx = mbr->low[0];
+					}
+					yval = p.y-ty;
+					if(yval<mbr->high[1]&&yval>mbr->low[1]){
+						sx = mbr->low[0];
+					}
+				}
+				if(mbr->high[0]>p.x-radius&&mbr->high[0]<p.x+radius){
+					double ty = sqrt(abs(radius*radius-(mbr->high[0]-p.x)*(mbr->high[0]-p.x)));
+					double yval = ty+p.y;
+					if(yval<mbr->high[1]&&yval>mbr->low[1]){
+						ex = mbr->high[0];
+					}
+					yval = p.y-ty;
+					if(yval<mbr->high[1]&&yval>mbr->low[1]){
+						ex = mbr->high[0];
+					}
+				}
+				if(p.y>mbr->low[1]&&p.y<mbr->high[1]){
+					if(p.x-radius>mbr->low[0]&&p.x-radius<sx){
+						sx = p.x-radius;
+					}
+					if(p.x+radius<mbr->high[0]&&p.x+radius>ex){
+						ex = p.x+radius;
 					}
 				}
 			}
-			if(ret){
-				return 0;
+//			mbr->print();
+//			p.print();
+//			printf("%f %f %f\n",radius, sx,ex);
+			if(sx<mbr->low[0]||sx>mbr->high[0]||ex<mbr->low[0]||ex>mbr->high[0]){
+				break;
 			}
-		}else{
-			radius += mbr->distance(p);
-			assert(radius>0);
-		}
+//			assert(sx>=mbr->low[0]&&sx<=mbr->high[0]);
+//			assert(ex>=mbr->low[0]&&ex<=mbr->high[0]);
 
-		double sx = max(mbr->low[0],p.x-radius);
-		double ex = min(mbr->high[0],p.x+radius);
-		double mindist = DBL_MAX;
-		while(true){
+//			double sy = max(mbr->low[1],p.y-radius);
+//			double ey = min(mbr->high[1],p.y+radius);
+//			int pixxs = get_pixel_x(sx);
+//			int pixxe = get_pixel_x(ex);
+//			int pixys = get_pixel_y(sy);
+//			int pixye = get_pixel_y(ey);
+//			for(int pixx=pixxs;pixx<=pixxe;pixx++){
+//				for(int pixy=pixys;pixy<=pixye;pixy++){
+//					if(partitions[pixx][pixy].status==BORDER){
+//						for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
+//							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+//							if(dist<mindist){
+//								mindist = dist;
+//								//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
+//							}
+//						}
+//					}
+//				}
+//			}
+//			if(mindist<360){
+//				return mindist;
+//			}
+
+//
+//
+//			if(abs(p.x-(155.091526))<0.00001 && abs(p.y-39.771422)<0.00001){
+//				printf("radius: %f\n",radius);
+//				printf("start x: %f\n",sx);
+//				printf("end x: %f\n\n",ex);
+//			}
 			for(double xval=sx;xval<=ex;xval+=step_x){
-				double yval = sqrt(radius*radius-(xval-p.x)*(xval-p.x))+p.y;
-				if(yval<=mbr->high[1]&&yval>=mbr->low[1]){
-					int pixx = get_pixel_x(xval);
-					int pixy = get_pixel_y(yval);
-					if(partitions[pixx][pixy].status==BORDER){
-						for (int i = partitions[pixx][pixy].vstart; i < partitions[pixx][pixy].vend; i++) {
-							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
-							if(dist<mindist){
-								mindist = dist;
-							}
+				double ty = sqrt(abs(radius*radius-(xval-p.x)*(xval-p.x)));
+				double yval = ty+p.y;
+				if(yval>mbr->high[1]||yval<mbr->low[1]){
+					yval = p.y-ty;
+				}
+				if(yval>mbr->high[1]||yval<mbr->low[1]){
+					continue;
+				}
+				int pixx = get_pixel_x(xval);
+				int pixy = get_pixel_y(yval);
+//				printf("%f\n",radius*radius-(xval-p.x)*(xval-p.x));
+//				cout<<pixx<<" "<<ty<<" "<<pixy<<" "<<partitions.size()<<" "<<partitions[0].size()<<endl;
+
+				if(partitions[pixx][pixy].status==BORDER){
+					for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
+						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+						if(dist<mindist){
+							mindist = dist;
+							//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
 						}
 					}
 				}
 			}
-			if(mindist<=radius){
+			if(mindist<=1000){
 				break;
 			}
 			radius += step_x;
-			//cout<<mindist<<" "<<radius<<endl;
+			if(index++>10000){
+				mbr->print();
+				p.print();
+				printf("%f %f %f %f %ld %ld \n",radius,sx,ex,step_x,partitions.size(),partitions[0].size());
+				exit(0);
+			}
 		}
 		return mindist;
 	}else{

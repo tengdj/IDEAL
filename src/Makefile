@@ -25,22 +25,43 @@ CU_OBJS := $(patsubst %.cu,%_cu.o,$(CU_SRCS))
 
 all:	partition query load geninsert
 
-partition:	tool/partition.o $(GEOMETRY_OBJS)
+# for queries
+partition:	query/partition.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-query:	tool/query.o $(GEOMETRY_OBJS) $(CU_OBJS)
-	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
-	
-load:	tool/loadwkt.o $(GEOMETRY_OBJS)
+polygon_in_polygon:	query/polygon_in_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geninsert:	tool/geninsert.o $(GEOMETRY_OBJS)
+point_polygon_distance:	query/point_polygon_distance.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+partstat:	query/partstat.o $(GEOMETRY_OBJS) $(CU_OBJS)
+	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
+
+pixeldensity:	query/pixeldensity.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+distance:	query/distance.o $(GEOMETRY_OBJS) $(CU_OBJS)
+	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
+	
+lookup:	query/lookup.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-partstat:	tool/partstat.o $(GEOMETRY_OBJS) $(CU_OBJS)
-	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
+# for data extraction
+load:	datagen/loadwkt.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-distance:	tool/distance.o $(GEOMETRY_OBJS) $(CU_OBJS)
-	$(CXX) -o ../build/$@ $^ $(CUDALIBS) $(LIBS) 
+geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+
+loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

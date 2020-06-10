@@ -325,10 +325,28 @@ void MyPolygon::print_without_return(bool print_hole){
 	print_without_head(print_hole);
 }
 
-/*
- * query
- *
- * */
 
+
+Point *Point::read_one_point(string &input_line){
+
+	if(input_line.size()==0){
+		return NULL;
+	}
+	const char *wkt = input_line.c_str();
+	size_t offset = 0;
+	// read the symbol MULTIPOLYGON
+	while(wkt[offset]!='P'){
+		offset++;
+	}
+	for(int i=0;i<strlen(point_char);i++){
+		assert(wkt[offset++]==point_char[i]);
+	}
+	skip_space(wkt,offset);
+	Point *p = new Point();
+	p->x = read_double(wkt,offset);
+	p->y = read_double(wkt,offset);
+
+	return p;
+}
 
 

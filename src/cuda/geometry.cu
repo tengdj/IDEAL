@@ -105,3 +105,54 @@ void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source){
 }
 
 
+void contain_batch_gpu(gpu_info *gpu, double *data, uint *offset_size, int *result, size_t total_vertice_num, int pair_num);
+void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source);
+
+int process_with_gpu(gpu_info *gpu, query_context *ctx){
+
+	int pair_num = ctx->candidates.size();
+	if(pair_num==0){
+		return 0;
+	}
+	int *result = new int[pair_num];
+	uint *offset_size = new uint[pair_num*4];
+	uint dataoffset = 0;
+	uint total_num_vertices = 0;
+	for(int i=0;i<pair_num;i++){
+		if(i==0||ctx->candidates[i].second->getid()!=ctx->candidates[i-1].second->getid()){
+			total_num_vertices += ctx->candidates[i].second->boundary->num_vertices;
+		}
+	}
+
+	double *tmpdata = new double[total_num_vertices*2];
+	for(int i=0;i<pair_num;i++){
+		offset_size[i*4] = ctx->candidates[i].first->offset;
+		offset_size[i*4+1] = ctx->candidates[i].first->boundary->num_vertices;
+		offset_size[i*4+3] = ctx->candidates[i].second->boundary->num_vertices;
+		if(i==0||ctx->candidates[i].second->getid()!=ctx->candidates[i-1].second->getid()){
+			offset_size[i*4+2] = dataoffset;
+			int num_vertices = ctx->candidates[i].second->boundary->num_vertices;
+			memcpy((char *)(tmpdata+dataoffset), (char *)(ctx->candidates[i].second->boundary->x), num_vertices*sizeof(double));
+			dataoffset += num_vertices;
+			memcpy((char *)(tmpdata+dataoffset), (char *)(ctx->candidates[i].second->boundary->y), num_vertices*sizeof(double));
+			dataoffset += num_vertices;
+		}else{
+			offset_size[i*4+2] = dataoffset-offset_size[i*4+3]*2;
+		}
+	}
+	assert(dataoffset==total_num_vertices*2);
+	ctx->candidates.clear();
+
+	int found = 0;
+	pthread_mutex_lock(&gpu->lock);
+	contain_batch_gpu(gpu,tmpdata,offset_size,result,total_num_vertices,pair_num);
+	pthread_mutex_unlock(&gpu->lock);
+	for(int i=0;i<pair_num;i++){
+		found += result[i];
+	}
+	delete []result;
+	delete []offset_size;
+	delete []tmpdata;
+	return found;
+}
+

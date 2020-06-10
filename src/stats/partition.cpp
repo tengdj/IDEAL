@@ -20,7 +20,7 @@ int main(int argc, char **argv){
 		("print,p", "print the pixels")
 		("query,q", "partition with query")
 		("scanline,s", "partition with scanline")
-		("vertices_per_raster,n", po::value<int>(&vpr), "number of vertices per raster")
+		("vertices_per_raster,v", po::value<int>(&vpr), "number of vertices per raster")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);

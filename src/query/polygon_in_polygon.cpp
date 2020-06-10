@@ -10,7 +10,6 @@
 #include "../index/RTree.h"
 #include <queue>
 #include <boost/program_options.hpp>
-#include "cuda/mygpu.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -26,76 +25,10 @@ bool stop = false;
 pthread_mutex_t report_lock;
 long query_count = 0;
 
-vector<gpu_info *> gpus;
-pthread_mutex_t gpu_lock;
-
-class queue_element{
-public:
-	int id = 0;
-	vector<MyPolygon *> polys;
-	queue_element(int i){
-		id = i;
-	}
-	~queue_element(){
-		for(MyPolygon *p:polys){
-			delete p;
-		}
-		polys.clear();
-	}
-};
 queue<queue_element *> shared_queue;
 
 RTree<MyPolygon *, double, 2, double> tree;
-void contain_batch_gpu(gpu_info *gpu, double *data, uint *offset_size, int *result, size_t total_vertice_num, int pair_num);
-void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source);
 
-int process_with_gpu(query_context *ctx){
-
-	int pair_num = ctx->candidates.size();
-	if(pair_num==0){
-		return 0;
-	}
-	int *result = new int[pair_num];
-	uint *offset_size = new uint[pair_num*4];
-	uint dataoffset = 0;
-	uint total_num_vertices = 0;
-	for(int i=0;i<pair_num;i++){
-		if(i==0||ctx->candidates[i].second->getid()!=ctx->candidates[i-1].second->getid()){
-			total_num_vertices += ctx->candidates[i].second->boundary->num_vertices;
-		}
-	}
-
-	double *tmpdata = new double[total_num_vertices*2];
-	for(int i=0;i<pair_num;i++){
-		offset_size[i*4] = ctx->candidates[i].first->offset;
-		offset_size[i*4+1] = ctx->candidates[i].first->boundary->num_vertices;
-		offset_size[i*4+3] = ctx->candidates[i].second->boundary->num_vertices;
-		if(i==0||ctx->candidates[i].second->getid()!=ctx->candidates[i-1].second->getid()){
-			offset_size[i*4+2] = dataoffset;
-			int num_vertices = ctx->candidates[i].second->boundary->num_vertices;
-			memcpy((char *)(tmpdata+dataoffset), (char *)(ctx->candidates[i].second->boundary->x), num_vertices*sizeof(double));
-			dataoffset += num_vertices;
-			memcpy((char *)(tmpdata+dataoffset), (char *)(ctx->candidates[i].second->boundary->y), num_vertices*sizeof(double));
-			dataoffset += num_vertices;
-		}else{
-			offset_size[i*4+2] = dataoffset-offset_size[i*4+3]*2;
-		}
-	}
-	assert(dataoffset==total_num_vertices*2);
-	ctx->candidates.clear();
-
-	int found = 0;
-	pthread_mutex_lock(&gpu_lock);
-	contain_batch_gpu(gpus[0],tmpdata,offset_size,result,total_num_vertices,pair_num);
-	pthread_mutex_unlock(&gpu_lock);
-	for(int i=0;i<pair_num;i++){
-		found += result[i];
-	}
-	delete []result;
-	delete []offset_size;
-	delete []tmpdata;
-	return found;
-}
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
@@ -108,18 +41,8 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->ispartitioned()){
 			poly->partition(ctx->vpr);
 		}
-		bool find = poly->contain_try_partition(ctx->target, ctx);
-		if(ctx->partition_determined){
-			ctx->found += find;
-			return true;
-		}
 	}
-
-	if(!ctx->gpu){
-		ctx->found += poly->contain(ctx->target, ctx);
-	}else{
-		ctx->candidates.push_back(std::make_pair(poly, ctx->target));
-	}
+	ctx->found += poly->contain(ctx->target, ctx);
 	// keep going until all hit objects are found
 	return true;
 }
@@ -159,23 +82,7 @@ void *query(void *args){
 			}
 		}
 
-		if(ctx->gpu){
-			elems.push_back(elem);
-			if(ctx->candidates.size()>100){
-				process_with_gpu(ctx);
-				for(queue_element *e:elems){
-					delete e;
-				}
-			}
-		}else{
-			delete elem;
-		}
-	}
-	if(ctx->gpu){
-		process_with_gpu(ctx);
-		for(queue_element *e:elems){
-			delete e;
-		}
+		delete elem;
 	}
 
 	return NULL;
@@ -195,7 +102,6 @@ int main(int argc, char** argv) {
 	desc.add_options()
 		("help,h", "produce help message")
 		("partition,p", "query with inner partition")
-		("gpu,g", "compute with gpu")
 		("in_memory,m", "data will be loaded into memory and start")
 		("active_partition", "rasterize source polygons before query")
 		("source,s", po::value<string>(&source_path), "path to the source")
@@ -217,16 +123,6 @@ int main(int argc, char** argv) {
 	if(vm.count("in_memory")){
 		in_memory = true;
 	}
-	if(vm.count("gpu")){
-		use_gpu = true;
-		gpus = get_gpus();
-		for(gpu_info *g:gpus){
-			g->init();
-		}
-		if(gpus.size()==0){
-			use_gpu = false;
-		}
-	}
 	if(!vm.count("source")||!vm.count("target")){
 		cout << desc << "\n";
 		return 0;
@@ -242,10 +138,6 @@ int main(int argc, char** argv) {
 		}
 		logt("partition polygons", start);
 	}
-	if(use_gpu){
-		load_source_togpu(gpus[0], source);
-		logt("load to gpu", start);
-	}
 	for(MyPolygon *p:source){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
@@ -256,7 +148,6 @@ int main(int argc, char** argv) {
 		ctx[i].thread_id = i;
 		ctx[i].vpr = vpr;
 		ctx[i].use_partition = use_partition;
-		ctx[i].gpu = use_gpu;
 	}
 	if(!in_memory){
 		for(int i=0;i<num_threads;i++){
@@ -270,10 +161,18 @@ int main(int argc, char** argv) {
 	queue_element *elem = new queue_element(eid++);
 	int loaded = 0;
 	size_t pid = 0;
+	int count100 = 0;
+	int count500 = 0;
 	while(!is.eof()){
 		MyPolygon *poly = MyPolygon::read_polygon_binary_file(is);
 		if(!poly){
 			continue;
+		}
+		if(poly->get_num_vertices()>100){
+			count100++;
+		}
+		if(poly->get_num_vertices()>500){
+			count500++;
 		}
 		poly->setid(pid++);
 		elem->polys.push_back(poly);
@@ -298,7 +197,6 @@ int main(int argc, char** argv) {
 		delete elem;
 	}
 	stop = true;
-	stop = true;
 
 	if(in_memory){
 		logt("loaded %d polygons",start,loaded);
@@ -312,11 +210,9 @@ int main(int argc, char** argv) {
 	}
 	logt("queried %d polygons",start,loaded);
 
+	cout<<count100<<" "<<count500<<endl;
 	for(MyPolygon *p:source){
 		delete p;
-	}
-	for(gpu_info *g:gpus){
-		delete g;
 	}
 	return 0;
 }

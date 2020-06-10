@@ -19,7 +19,8 @@ string processing_line[MAX_THREAD_NUM];
 bool is_working[MAX_THREAD_NUM];
 pthread_mutex_t output_lock;
 bool stop = false;
-int big_threshold = 1000;
+int big_threshold = 100;
+int small_threshold = 1000;
 
 ofstream big_wf;
 ofstream small_wf;
@@ -47,7 +48,7 @@ void *process_wkt(void *args){
 
 		vector<MyPolygon *> polygons = mp->get_polygons();
 		for(MyPolygon *p:polygons){
-			if(p->get_num_vertices()>big_threshold){
+			if(p->get_num_vertices()>=big_threshold){
 				if(p->get_data_size()+data_size_big>buffer_size){
 					pthread_mutex_lock(&output_lock);
 					big_wf.write(data_buffer_big, data_size_big);
@@ -55,7 +56,8 @@ void *process_wkt(void *args){
 					data_size_big = 0;
 				}
 				data_size_big += p->encode_to(data_buffer_big+data_size_big);
-			}else{
+			}
+			if(p->get_num_vertices()<=small_threshold){
 				if(p->get_data_size()+data_size_small>buffer_size){
 					pthread_mutex_lock(&output_lock);
 					small_wf.write(data_buffer_small, data_size_small);
@@ -90,7 +92,8 @@ int main(int argc, char** argv) {
 		("help,h", "produce help message")
 		("path_big", po::value<string>(&path1)->required(), "path for the big polygons")
 		("path_small", po::value<string>(&path2)->required(), "path for the small polygons")
-		("big_threshold,b", po::value<int>(&big_threshold), "partition with scanline")
+		("big_threshold,b", po::value<int>(&big_threshold), "minimum number of vertices for big polygons")
+		("small_threshold,s", po::value<int>(&small_threshold), "maximum number of vertices for small polygons")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);

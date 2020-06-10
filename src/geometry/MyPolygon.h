@@ -16,6 +16,7 @@
 using namespace std;
 const static char *multipolygon_char = "MULTIPOLYGON";
 const static char *polygon_char = "POLYGON";
+const static char *point_char = "POINT";
 
 
 enum PartitionStatus{
@@ -60,6 +61,15 @@ public:
 		x = xx;
 		y = yy;
 	}
+	void print(){
+		printf("POINT (%f %f)\n",x,y);
+		//printf("x: %f y: %f\n",x,y);
+	}
+	void print_without_return(){
+		printf("POINT (%f %f)",x,y);
+		//printf("x: %f y: %f\n",x,y);
+	}
+	static Point *read_one_point(string &str);
 };
 
 class Pixel{
@@ -116,7 +126,9 @@ public:
 
 	MyPolygon *to_polygon();
 	bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
-
+	void print(){
+		printf("low_x: %f low_y %f high_x %f high_y %f\n",low[0],low[1],high[0],high[1]);
+	}
 
 };
 
@@ -197,9 +209,11 @@ class query_context{
 public:
 	int thread_id = 0;
 	MyPolygon *target = NULL;
+	Point target_p;
 	int vpr = 10;
 	bool use_partition = false;
 	int found = 0;
+	double distance = 0;
 	bool partition_determined = false;
 	bool gpu = false;
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
@@ -237,8 +251,6 @@ public:
 	double distance(Point &p, query_context *ctx);
 
 	bool contain_try_partition(MyPolygon *target, query_context *ctx);
-
-
 
 	void internal_partition();
 	MyPolygon *clone();

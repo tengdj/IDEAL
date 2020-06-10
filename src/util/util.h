@@ -9,7 +9,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <sstream>
 #include <vector>
 #include <thread>
 #include <iostream>
@@ -18,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <time.h>
+#include <sstream>
 
 using namespace std;
 
@@ -156,9 +156,11 @@ inline void list_files(const char *path, std::vector<string> &f_list){
 					strcmp(ent->d_name,".")==0){
 				continue;
 			}
-			stringstream ss;
+			std::stringstream ss;
 			ss<<path<<"/"<<ent->d_name;
-			list_files(ss.str().c_str(), f_list);
+			string spath;
+			ss>>spath;
+			list_files(spath.c_str(), f_list);
 		}
 		closedir (dir);
 	}
