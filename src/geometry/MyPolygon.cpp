@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <float.h>
+#include <sstream>
 
 using namespace std;
 
@@ -103,10 +104,14 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 }
 
 vector<MyPolygon *> MyPolygon::load_binary_file(const char *path){
+	vector<MyPolygon *> polygons;
+	if(!file_exist(path)){
+		log("%s does not exist",path);
+		return polygons;
+	}
 	log("loading polygon from %s",path);
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
-	vector<MyPolygon *> polygons;
 	int id = 0;
 	while(!infile.eof()){
 		MyPolygon *poly = read_polygon_binary_file(infile);
@@ -323,6 +328,33 @@ void MyPolygon::print(bool print_hole){
 void MyPolygon::print_without_return(bool print_hole){
 	cout<<"POLYGON";
 	print_without_head(print_hole);
+}
+
+string MyPolygon::to_string(bool clockwise){
+	std::stringstream ss;
+	char double_str[200];
+	ss<<"POLYGON";
+	ss<<"((";
+	if(clockwise){
+		for(int i=0;i<boundary->num_vertices;i++){
+			if(i!=0){
+				ss<<",";
+			}
+			sprintf(double_str,"%f %f",boundary->x[i],boundary->y[i]);
+			ss<<double_str;
+		}
+	}else{
+		for(int i=boundary->num_vertices-1;i>=0;i--){
+			if(i!=boundary->num_vertices-1){
+				ss<<",";
+			}
+			sprintf(double_str,"%f %f",boundary->x[i],boundary->y[i]);
+			ss<<double_str;
+		}
+	}
+
+	ss<<"))";
+	return ss.str();
 }
 
 

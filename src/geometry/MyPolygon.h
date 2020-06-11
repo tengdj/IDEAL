@@ -208,7 +208,7 @@ public:
 class query_context{
 public:
 	int thread_id = 0;
-	MyPolygon *target = NULL;
+	void *target = NULL;
 	Point target_p;
 	int vpr = 10;
 	bool use_partition = false;
@@ -261,6 +261,7 @@ public:
 	void print_without_head(bool print_hole = false);
 	void print(bool print_hole=false);
 	void print_without_return(bool print_hole=false);
+	string to_string(bool clockwise = true);
 	Pixel *getMBB();
 
 	void evaluate_border(const int dimx, const int dimy);

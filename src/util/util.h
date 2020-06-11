@@ -24,7 +24,7 @@ using namespace std;
 namespace{
 
 #define TENG_RANDOM_NUMBER 0315
-
+#define OSM_SRID 4326
 
 // some utility function
 

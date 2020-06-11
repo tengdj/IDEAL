@@ -11,6 +11,21 @@
 #include <queue>
 #include <boost/program_options.hpp>
 
+#include <geos/geom/PrecisionModel.h>
+#include <geos/geom/GeometryFactory.h>
+#include <geos/geom/Geometry.h>
+#include <geos/operation/distance/DistanceOp.h>
+#include <geos/geom/Point.h>
+#include <geos/io/WKTReader.h>
+#include <geos/io/WKTWriter.h>
+#include <geos/opBuffer.h>
+
+using namespace geos;
+using namespace geos::io;
+using namespace geos::geom;
+using namespace geos::operation::buffer;
+using namespace geos::operation::distance;
+
 namespace po = boost::program_options;
 using namespace std;
 
@@ -27,22 +42,20 @@ long query_count = 0;
 
 queue<queue_element *> shared_queue;
 
-RTree<MyPolygon *, double, 2, double> tree;
+RTree<Geometry *, double, 2, double> tree;
 
 int big_threshold = 500;
 int small_threshold = 100;
 
 
-bool MySearchCallback(MyPolygon *poly, void* arg){
+bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
-	MyPolygon *target = (MyPolygon *)ctx->target;
-	// query with parition
-	if(ctx->use_partition){
-		if(!poly->ispartitioned()){
-			poly->partition(ctx->vpr);
-		}
+	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
+	try{
+		ctx->found += poly->covers(p);
+	}catch(...){
+
 	}
-	ctx->found += poly->contain(target, ctx);
 	// keep going until all hit objects are found
 	return true;
 }
@@ -53,6 +66,7 @@ void *query(void *args){
 	log("thread %d is started",ctx->thread_id);
 	pthread_mutex_unlock(&poly_lock);
 	vector<queue_element *> elems;
+	WKTReader *wkt_reader = new WKTReader();
 	int local_count = 0;
 	while(!stop||shared_queue.size()>0){
 		queue_element *elem = NULL;
@@ -71,7 +85,8 @@ void *query(void *args){
 			if(poly->get_num_vertices()>small_threshold){
 				continue;
 			}
-			ctx->target = (void *)poly;
+			Geometry *geo = wkt_reader->read(poly->to_string());
+			ctx->target = (void *)geo;
 			Pixel *px = poly->getMBB();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
 			if(++local_count==1000){
@@ -83,6 +98,7 @@ void *query(void *args){
 				local_count = 0;
 				pthread_mutex_unlock(&report_lock);
 			}
+			delete geo;
 		}
 
 		delete elem;
@@ -97,20 +113,14 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	bool use_partition = false;
-	bool use_gpu = false;
 	bool in_memory = false;
-	int vpr = 10;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
-		("partition,p", "query with inner partition")
 		("in_memory,m", "data will be loaded into memory and start")
-		("active_partition,a", "rasterize source polygons before query")
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
-		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
 		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
 		;
 	po::variables_map vm;
@@ -120,9 +130,6 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	po::notify(vm);
-	if(vm.count("partition")){
-		use_partition = true;
-	}
 	if(vm.count("in_memory")){
 		in_memory = true;
 	}
@@ -130,21 +137,24 @@ int main(int argc, char** argv) {
 		cout << desc << "\n";
 		return 0;
 	}
-
+	if(!file_exist(source_path.c_str())){
+		log("%s does not exist",source_path.c_str());
+		return 0;
+	}
+	if(!file_exist(target_path.c_str())){
+		log("%s does not exist",target_path.c_str());
+		return 0;
+	}
 	timeval start = get_cur_time();
 
 	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
 	logt("loaded %ld polygons", start, source.size());
-	if(use_partition&&vm.count("active_partition")){
-		for(MyPolygon *p:source){
-			p->partition(vpr);
-		}
-		logt("partition polygons", start);
-	}
+	WKTReader *wkt_reader = new WKTReader();
 	int treesize = 0;
 	for(MyPolygon *p:source){
 		if(p->get_num_vertices()>=big_threshold){
-			tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
+			Geometry *geo = wkt_reader->read(p->to_string());
+			tree.Insert(p->getMBB()->low, p->getMBB()->high, geo);
 			treesize++;
 		}
 	}
@@ -153,8 +163,6 @@ int main(int argc, char** argv) {
 	query_context ctx[num_threads];
 	for(int i=0;i<num_threads;i++){
 		ctx[i].thread_id = i;
-		ctx[i].vpr = vpr;
-		ctx[i].use_partition = use_partition;
 	}
 	if(!in_memory){
 		for(int i=0;i<num_threads;i++){

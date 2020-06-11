@@ -36,10 +36,6 @@ RTree<MyPolygon *, double, 2, double> tree;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
-	// MBB check
-	if(!poly->getMBB()->contain(ctx->target_p)){
-		return true;
-	}
 	// query with parition
 	if(ctx->use_partition){
 		if(!poly->ispartitioned()){
@@ -99,6 +95,7 @@ int main(int argc, char** argv) {
 	int num_threads = get_num_threads();
 	bool use_partition = false;
 	int vpr = 10;
+	int big_threshold = 500;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
@@ -108,6 +105,7 @@ int main(int argc, char** argv) {
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
+		("big_threshold,b", po::value<int>(&big_threshold), "threshold for complex polygon")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -134,10 +132,14 @@ int main(int argc, char** argv) {
 		}
 		logt("partition polygons", start);
 	}
+	int treesize = 0;
 	for(MyPolygon *p:source){
-		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
+		if(p->get_num_vertices()>=big_threshold){
+			tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
+			treesize++;
+		}
 	}
-	logt("building R-Tree", start);
+	logt("building R-Tree with %d nodes", start, treesize);
 
 	// read all the points
 	long fsize = file_size(target_path.c_str());
