@@ -30,6 +30,9 @@ double *points;
 size_t cur_index = 0;
 size_t total_points = 0;
 
+size_t inout_checks = 0;
+size_t border_checks = 0;
+size_t edges_checks = 0;
 
 RTree<MyPolygon *, double, 2, double> tree;
 
@@ -84,6 +87,12 @@ void *query(void *args){
 			}
 		}
 	}
+	pthread_mutex_lock(&report_lock);
+	inout_checks += ctx->inout_check;
+	border_checks += ctx->border_check;
+	edges_checks += ctx->edges_checked;
+	pthread_mutex_unlock(&report_lock);
+
 	return NULL;
 }
 
@@ -172,7 +181,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,total_points);
+	logt("queried %d polygons %ld in/out %ld border %ld edges checked",start,total_points,inout_checks,border_checks, edges_checks);
 
 	for(MyPolygon *p:source){
 		delete p;

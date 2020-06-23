@@ -106,7 +106,7 @@ void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source){
 
 
 void contain_batch_gpu(gpu_info *gpu, double *data, uint *offset_size, int *result, size_t total_vertice_num, int pair_num);
-void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source);
+//void load_source_togpu(gpu_info *gpu, vector<MyPolygon *> &source);
 
 int process_with_gpu(gpu_info *gpu, query_context *ctx){
 

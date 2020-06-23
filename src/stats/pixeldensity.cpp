@@ -42,6 +42,9 @@ public:
 	int ins = 0;
 	int outs = 0;
 	int crosses_count = 0;
+	int two_crosses_count = 0;
+	int multiple_crosses_count = 0;
+	int line_count = 0;
 	size_t num_pixels = 0;
 	double partition_time = 0;
 	double query_time = 0;
@@ -53,6 +56,7 @@ public:
 		ins += target.ins;
 		outs += target.outs;
 		crosses_count += target.crosses_count;
+		line_count += target.line_count;
 		num_pixels += target.num_pixels;
 		partition_time += target.partition_time;
 		query_time += target.query_time/num_queries;
@@ -60,6 +64,8 @@ public:
 
 		distance_query_time += target.distance_query_time/num_queries;
 		nopartition_distance_query_time += target.nopartition_distance_query_time/num_queries;
+		this->two_crosses_count += target.two_crosses_count;
+		this->multiple_crosses_count += target.multiple_crosses_count;
 	}
 };
 
@@ -83,6 +89,7 @@ void *partition(void *args){
 	global_info local[totalcount];
 
 	size_t num_vertices = 0;
+	query_context qctx;
 	while(!stop||shared_queue.size()>0){
 		queue_element *elem = NULL;
 		pthread_mutex_lock(&poly_lock);
@@ -98,7 +105,6 @@ void *partition(void *args){
 		}
 		for(MyPolygon *poly:elem->polys){
 			num_vertices += poly->get_num_vertices();
-			query_context qctx;
 			vector<Point> targets = poly->generate_test_points(num_queries);
 			vector<Point> distance_targets = global_space->generate_test_points(num_queries);
 
@@ -120,7 +126,8 @@ void *partition(void *args){
 					poly->distance(distance_targets[t],&qctx);
 					local[k].nopartition_distance_query_time += get_time_elapsed(start,true);
 				}
-
+				local[k].line_count += partitions.size();
+				local[k].line_count += partitions[0].size();
 				for(int i=0;i<partitions.size();i++){
 					for(int j=0;j<partitions[0].size();j++){
 						if(partitions[i][j].status==BORDER){
@@ -132,6 +139,11 @@ void *partition(void *args){
 						}
 						local[k].crosses_count+=partitions[i][j].crosses.size();
 						local[k].num_pixels++;
+						if(partitions[i][j].crosses.size()==2){
+							local[k].two_crosses_count++;
+						}else if(partitions[i][j].crosses.size()>2){
+							local[k].multiple_crosses_count++;
+						}
 					}
 				}
 				poly->reset_partition();
@@ -200,7 +212,10 @@ int main(int argc, char** argv) {
 	size_t pid = 0;
 	while(!is.eof()&&max_polygons-->0){
 		MyPolygon *poly = MyPolygon::read_polygon_binary_file(is);
-		if(!poly){
+		if(!poly||poly->get_num_vertices()<500){
+			if(poly){
+				delete poly;
+			}
 			continue;
 		}
 		poly->setid(pid++);
@@ -214,8 +229,8 @@ int main(int argc, char** argv) {
 			pthread_mutex_unlock(&poly_lock);
 			elem = new queue_element(eid++);
 		}
-		if(++loaded%100000==0){
-			log("partitioned %d polygons",loaded);
+		if(++loaded%10000==0){
+			log("processed %d polygons",loaded);
 		}
 	}
 	if(elem->polys.size()>0){
@@ -231,25 +246,27 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("partitioned %d polygons",start,loaded);
+	logt("processed %d polygons",start,loaded);
 	for(int i=0;i<ctx.vprs.size();i++){
 		global_info info = ctx.infos[i];
 		int total = info.ins+info.outs+info.borders;
-//		if(total==0){
-//			cout<<min_flatness+i*flatness_step<<endl;
-//		}
 		assert(total>0);
 
-		printf("%d\t%ld\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n",
+		printf("%d\t%ld\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%d\t%d\t%f\n",
 				ctx.vprs[i],
 				info.num_pixels/pid,
 				1.0*info.borders/total,
-				0.5*info.crosses_count/ctx.total_num_vertices,
+				(0.5*info.crosses_count*8+4.25*info.num_pixels)/(ctx.total_num_vertices*16),
+				0.5*info.crosses_count/info.line_count,
+				1.0*info.crosses_count/info.borders,
 				info.partition_time/pid,
 				info.query_time/pid,
 				info.nopartition_query_time/pid,
 				info.distance_query_time/pid,
-				info.nopartition_distance_query_time/pid
+				info.nopartition_distance_query_time/pid,
+				info.two_crosses_count,
+				info.multiple_crosses_count,
+				info.two_crosses_count*1.0/(info.two_crosses_count+info.multiple_crosses_count)
 		);
 	}
 

@@ -46,7 +46,7 @@ RTree<Geometry *, double, 2, double> tree;
 
 int big_threshold = 500;
 int small_threshold = 100;
-
+float sample_rate = 1.0;
 
 bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
@@ -82,6 +82,9 @@ void *query(void *args){
 			continue;
 		}
 		for(MyPolygon *poly:elem->polys){
+			if(sample_rate<1.0 && !tryluck(sample_rate)){
+				continue;
+			}
 			if(poly->get_num_vertices()>small_threshold){
 				continue;
 			}
@@ -103,7 +106,9 @@ void *query(void *args){
 
 		delete elem;
 	}
-
+	pthread_mutex_lock(&report_lock);
+	query_count += local_count;
+	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
 
@@ -122,6 +127,7 @@ int main(int argc, char** argv) {
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
+		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -155,7 +161,9 @@ int main(int argc, char** argv) {
 		if(p->get_num_vertices()>=big_threshold){
 			Geometry *geo = wkt_reader->read(p->to_string());
 			tree.Insert(p->getMBB()->low, p->getMBB()->high, geo);
-			treesize++;
+			if(++treesize%10000==0){
+				log("%d nodes inserted",treesize);
+			}
 		}
 	}
 	logt("building R-Tree with %d nodes", start,treesize);
@@ -215,7 +223,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,loaded);
+	logt("queried %d polygons",start,query_count);
 
 	for(MyPolygon *p:source){
 		delete p;

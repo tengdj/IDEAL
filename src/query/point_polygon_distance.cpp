@@ -30,6 +30,7 @@ double *points;
 size_t cur_index = 0;
 size_t total_points = 0;
 int buffer_size = 10;
+float sample_rate = 1.0;
 
 
 RTree<MyPolygon *, double, 2, double> tree;
@@ -83,6 +84,9 @@ void *query(void *args){
 		pthread_mutex_unlock(&poly_lock);
 
 		for(int i=local_cur;i<local_end;i++){
+			if(sample_rate<1.0&&!tryluck(sample_rate)){
+				continue;
+			}
 			ctx->target_p = Point(points[2*i],points[2*i+1]);
 			double shiftx = degree_per_kilometer_longitude(points[2*i+1])*buffer_size;
 			double shifty = degree_per_kilometer_latitude*buffer_size;
@@ -102,6 +106,9 @@ void *query(void *args){
 			}
 		}
 	}
+	pthread_mutex_lock(&report_lock);
+	query_count += local_count;
+	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
 
@@ -123,9 +130,9 @@ int main(int argc, char** argv) {
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
-		("buffer_expand,b", po::value<int>(&buffer_size), "buffer in kilometers")
+		("buffer_expand,e", po::value<int>(&buffer_size), "buffer in kilometers")
 		("big_threshold,b", po::value<int>(&big_threshold), "threshold for complex polygon")
-
+		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -192,7 +199,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,total_points);
+	logt("queried %d points",start,query_count);
 
 	for(MyPolygon *p:source){
 		delete p;

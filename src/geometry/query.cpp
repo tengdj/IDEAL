@@ -58,9 +58,11 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		if(partitions[part_x][part_y].status==IN){
+			ctx->inout_check++;
 			return true;
 		}
 		if(partitions[part_x][part_y].status==OUT){
+			ctx->inout_check++;
 			return false;
 		}
 		bool ret = false;
@@ -73,6 +75,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 				}
 			}
 		}
+		ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
+		ctx->border_check++;
 		return ret;
 	}else{
 		bool ret = false;

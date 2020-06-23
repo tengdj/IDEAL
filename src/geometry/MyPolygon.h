@@ -213,11 +213,17 @@ public:
 	int vpr = 10;
 	bool use_partition = false;
 	int found = 0;
+	int checked = 0;
 	double distance = 0;
 	bool partition_determined = false;
 	bool gpu = false;
+	size_t inout_check = 0;
+	size_t border_check = 0;
+	size_t edges_checked = 0;
+	float sample_rate = 1.0;
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
 	query_context(){}
+	~query_context(){candidates.clear();}
 };
 
 

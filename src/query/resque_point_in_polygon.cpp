@@ -44,6 +44,7 @@ long query_count = 0;
 double *points;
 size_t cur_index = 0;
 size_t total_points = 0;
+float sample_rate = 1.0;
 
 
 RTree<Geometry *, double, 2, double> tree;
@@ -54,7 +55,8 @@ bool MySearchCallback(Geometry *poly, void* arg){
 	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
 
 	//exact query
-	ctx->found += poly->covers(p);
+	ctx->found += poly->contains(p);
+	ctx->checked++;
 	return true;
 }
 
@@ -85,9 +87,14 @@ void *query(void *args){
 		pthread_mutex_unlock(&poly_lock);
 
 		for(int i=local_cur;i<local_end;i++){
+			if(sample_rate<1.0&&!tryluck(sample_rate)){
+				continue;
+			}
 			sprintf(point_buffer,"POINT(%f %f)",points[2*i],points[2*i+1]);
 			Geometry *geo = wkt_reader->read(point_buffer);
 			ctx->target = (void *)(geo);
+			ctx->checked = 0;
+			ctx->found = 0;
 			tree.Search(points+2*i, points+2*i, MySearchCallback, (void *)ctx);
 			if(++local_count==1000){
 				pthread_mutex_lock(&report_lock);
@@ -101,6 +108,9 @@ void *query(void *args){
 			delete geo;
 		}
 	}
+	pthread_mutex_lock(&report_lock);
+	query_count += local_count;
+	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
 
@@ -118,6 +128,7 @@ int main(int argc, char** argv) {
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("big_threshold,b", po::value<int>(&big_threshold), "threshold for complex polygon")
+		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
 
 		;
 	po::variables_map vm;
@@ -134,7 +145,7 @@ int main(int argc, char** argv) {
 
 	timeval start = get_cur_time();
 //
-//	PrecisionModel *pm = new PrecisionModel();
+//	PrecisionModel *pm = new PrecisionModel();sample_rate
 //	GeometryFactory *gf = GeometryFactory::create().get();
 	WKTReader *wkt_reader = new WKTReader();
 
@@ -146,7 +157,9 @@ int main(int argc, char** argv) {
 		if(p->get_num_vertices()>=big_threshold){
 			Geometry *poly = wkt_reader->read(p->to_string());
 			tree.Insert(p->getMBB()->low, p->getMBB()->high, poly);
-			treesize++;
+			if(++treesize%10000==0){
+				log("%d nodes inserted",treesize);
+			}
 		}
 	}
 	logt("building R-Tree with %d nodes", start,treesize);
@@ -179,7 +192,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,total_points);
+	logt("queried %d points",start,query_count);
 
 	for(MyPolygon *p:source){
 		delete p;

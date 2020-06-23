@@ -31,6 +31,7 @@ RTree<MyPolygon *, double, 2, double> tree;
 
 int big_threshold = 500;
 int small_threshold = 100;
+float sample_rate = 1.0;
 
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
@@ -68,6 +69,9 @@ void *query(void *args){
 			continue;
 		}
 		for(MyPolygon *poly:elem->polys){
+			if(ctx->sample_rate<1.0&&!tryluck(ctx->sample_rate)){
+				continue;
+			}
 			if(poly->get_num_vertices()>small_threshold){
 				continue;
 			}
@@ -87,7 +91,9 @@ void *query(void *args){
 
 		delete elem;
 	}
-
+	pthread_mutex_lock(&report_lock);
+	query_count += local_count;
+	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
 
@@ -101,6 +107,7 @@ int main(int argc, char** argv) {
 	bool use_gpu = false;
 	bool in_memory = false;
 	int vpr = 10;
+	float sample_rate = 1.0;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
@@ -112,6 +119,7 @@ int main(int argc, char** argv) {
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
 		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
+		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -155,6 +163,7 @@ int main(int argc, char** argv) {
 		ctx[i].thread_id = i;
 		ctx[i].vpr = vpr;
 		ctx[i].use_partition = use_partition;
+		ctx[i].sample_rate = sample_rate;
 	}
 	if(!in_memory){
 		for(int i=0;i<num_threads;i++){
@@ -207,11 +216,11 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,loaded);
+	logt("queried %d polygons",start,query_count);
 
-	for(MyPolygon *p:source){
-		delete p;
-	}
+//	for(MyPolygon *p:source){
+//		delete p;
+//	}
 	return 0;
 }
 
