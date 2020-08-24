@@ -44,7 +44,7 @@ inline double point_to_segment_distance(const double x, const double y, const do
 
 
 
-bool MyPolygon::contain(Point &p, query_context *ctx){
+bool MyPolygon::contain(Point p, query_context *ctx){
 
 	if(!mbb){
 		getMBB();
@@ -208,6 +208,50 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 		Point p(target->getx(i),target->gety(i));
 		if(contain(p, ctx)){
 			return true;
+		}
+	}
+	return false;
+}
+
+bool MyPolygon::intersect_segment(Pixel *target){
+	for (int i = 0; i < get_num_vertices()-1; i++) {
+		// segment i->j intersect with segment
+		double x1 = target->low[0];
+		double x2 = target->high[0];
+		double y1 = target->low[1];
+		double y2 = target->high[1];
+		if ( ((gety(i)>y1) != (gety(i+1)>y1))){
+			double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+			double b = (getx(i)*gety(i+1)-getx(i+1)*gety(i))/(gety(i+1)-gety(i));
+			double xc = a*y1+b;
+			if(x1<xc!=x2<xc){
+				return true;
+			}
+		}
+		if ( ((gety(i)>y2) != (gety(i+1)>y2))){
+			double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+			double b = (getx(i)*gety(i+1)-getx(i+1)*gety(i))/(gety(i+1)-gety(i));
+			double xc = a*y2+b;
+			if(x1<xc!=x2<xc){
+				return true;
+			}
+		}
+		if ( ((getx(i)>x1) != (getx(i+1)>x1))){
+			double a = (gety(i+1)-gety(i)) / (getx(i+1)-getx(i));
+			double b = (gety(i)*getx(i+1)-gety(i+1)*getx(i))/(getx(i+1)-getx(i));
+			double yc = a*x1+b;
+			if(y1<yc!=y2<yc){
+				return true;
+			}
+		}
+
+		if ( ((getx(i)>x2) != (getx(i+1)>x2))){
+			double a = (gety(i+1)-gety(i)) / (getx(i+1)-getx(i));
+			double b = (gety(i)*getx(i+1)-gety(i+1)*getx(i))/(getx(i+1)-getx(i));
+			double yc = a*x2+b;
+			if(y1<yc!=y2<yc){
+				return true;
+			}
 		}
 	}
 	return false;

@@ -8,6 +8,7 @@
 #include "../geometry/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
+#include <stack>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -18,7 +19,7 @@ int main(int argc, char **argv){
 	desc.add_options()
 		("help,h", "produce help message")
 		("print,p", "print the pixels")
-		("query,q", "partition with query")
+		("quad_tree,q", "partition with Q-tree")
 		("scanline,s", "partition with scanline")
 		("vertices_per_raster,v", po::value<int>(&vpr), "number of vertices per raster")
 		;
@@ -32,35 +33,57 @@ int main(int argc, char **argv){
 	timeval start = get_cur_time();
 	MyPolygon *poly = MyMultiPolygon::read_one_polygon();
 	logt("read one polygon", start);
-	vector<vector<Pixel>> partitions = poly->partition(vpr);
-	logt("partitioning polygon %d %d", start,partitions.size(),partitions[0].size());
+	vector<vector<Pixel>> partitions;
 	if(vm.count("scanline")){
-		poly->reset_partition();
 		partitions = poly->partition_scanline(vpr);
 		logt("partitioning polygon with scanline", start);
-	}
-	if(vm.count("query")){
-		poly->reset_partition();
-		partitions = poly->partition_with_query(vpr);
-		logt("partitioning polygon with query", start);
+	}else if(vm.count("quad_tree")){
+		poly->partition_qtree(vpr);
+		logt("partitioning polygon with Q-tree", start);
+	}else{
+		partitions = poly->partition(vpr);
+		logt("partitioning polygon %d %d", start,partitions.size(),partitions[0].size());
 	}
 
 	MyMultiPolygon *inpolys = new MyMultiPolygon();
 	MyMultiPolygon *borderpolys = new MyMultiPolygon();
 	MyMultiPolygon *outpolys = new MyMultiPolygon();
 
-	for(int i=0;i<partitions.size();i++){
-		for(int j=0;j<partitions[0].size();j++){
-			MyPolygon *m = partitions[i][j].to_polygon();
-			if(partitions[i][j].status==BORDER){
-				borderpolys->insert_polygon(m);
-			}else if(partitions[i][j].status==IN){
+	if(vm.count("quad_tree")){
+		std::stack<QTNode *> ws;
+		ws.push(poly->get_qtree());
+		while(!ws.empty()){
+			QTNode *cur = ws.top();
+			ws.pop();
+			if(cur->interior){
+				MyPolygon *m = cur->mbb.to_polygon();
 				inpolys->insert_polygon(m);
-			}else if(partitions[i][j].status==OUT){
+			}else if(cur->exterior){
+				MyPolygon *m = cur->mbb.to_polygon();
 				outpolys->insert_polygon(m);
+			}else if(cur->level>=vpr){
+				MyPolygon *m = cur->mbb.to_polygon();
+				borderpolys->insert_polygon(m);
+			}else{
+				cur->push(ws);
+			}
+		}
+	}else{
+		for(int i=0;i<partitions.size();i++){
+			for(int j=0;j<partitions[0].size();j++){
+				MyPolygon *m = partitions[i][j].to_polygon();
+				if(partitions[i][j].status==BORDER){
+					borderpolys->insert_polygon(m);
+				}else if(partitions[i][j].status==IN){
+					inpolys->insert_polygon(m);
+				}else if(partitions[i][j].status==OUT){
+					outpolys->insert_polygon(m);
+				}
 			}
 		}
 	}
+
+
 	logt("allocating partitions", start);
 
 	if(vm.count("print")){

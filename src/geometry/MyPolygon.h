@@ -12,6 +12,7 @@
 #include <string>
 #include <stdint.h>
 #include <math.h>
+#include <stack>
 #include "../util/util.h"
 using namespace std;
 const static char *multipolygon_char = "MULTIPOLYGON";
@@ -227,16 +228,70 @@ public:
 };
 
 
+class QTNode{
+public:
+	Pixel mbb;
+	bool interior = false;
+	bool exterior = false;
+	int level = 0;
+	QTNode *bottom_left = NULL;
+	QTNode *bottom_right = NULL;
+	QTNode *top_left = NULL;
+	QTNode *top_right = NULL;
+	QTNode(double low_x, double low_y, double high_x, double high_y){
+		mbb.low[0] = low_x;
+		mbb.low[1] = low_y;
+		mbb.high[0] = high_x;
+		mbb.high[1] = high_y;
+	}
+	QTNode(Pixel m){
+		mbb = m;
+	}
+	void split(){
+		double mid_x = (mbb.high[0]+mbb.low[0])/2;
+		double mid_y = (mbb.high[1]+mbb.low[1])/2;
+		bottom_left = new QTNode(mbb.low[0],mbb.low[1],mid_x,mid_y);
+		bottom_right = new QTNode(mid_x,mbb.low[1],mbb.high[0],mid_y);
+		top_left = new QTNode(mbb.low[0],mid_y,mid_x,mbb.high[1]);
+		top_right = new QTNode(mid_x,mid_y,mbb.high[0],mbb.high[1]);
+		bottom_left->level = level+1;
+		bottom_right->level = level+1;
+		top_left->level = level+1;
+		top_right->level = level+1;
+	}
+	void push(std::stack<QTNode *> &ws){
+		ws.push(bottom_left);
+		ws.push(bottom_right);
+		ws.push(top_left);
+		ws.push(top_right);
+	}
+	~QTNode(){
+		if(bottom_left){
+			delete bottom_left;
+		}
+		if(bottom_right){
+			delete bottom_right;
+		}
+		if(top_right){
+			delete top_right;
+		}
+		if(top_left){
+			delete top_left;
+		}
+	}
+};
 
 class MyPolygon{
 	Pixel *mbb = NULL;
 	vector<vector<Pixel>> partitions;
+	QTNode *qtree = NULL;
 	double step_x = 0;
 	double step_y = 0;
 	bool partitioned = false;
 	int id = 0;
 	double area_buffer = -1;
 	pthread_mutex_t partition_lock;
+
 public:
 	unsigned int offset = 0;
 	VertexSequence *boundary = NULL;
@@ -250,8 +305,9 @@ public:
 	static vector<MyPolygon *> load_binary_file(const char *path);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
-	bool contain(Point &p, query_context *ctx);
+	bool contain(Point p, query_context *ctx);
 	bool intersect(MyPolygon *target, query_context *ctx);
+	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
 	bool contain(Pixel *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx);
@@ -276,6 +332,10 @@ public:
 	vector<vector<Pixel>> partition(int vertex_per_raster, double flatness=1);
 	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
+	QTNode *partition_qtree(const int level);
+	QTNode *get_qtree(){
+		return qtree;
+	}
 
 	void reset_partition(){
 		pthread_mutex_lock(&partition_lock);

@@ -7,6 +7,7 @@
 
 #include "MyPolygon.h"
 #include <math.h>
+#include <stack>
 
 void MyPolygon::evaluate_border(const int dimx, const int dimy){
 	// normalize
@@ -384,6 +385,41 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 	partitioned = true;
 	pthread_mutex_unlock(&partition_lock);
 	return partitions;
+}
+
+
+QTNode *MyPolygon::partition_qtree(const int level){
+	if(this->qtree){
+		delete qtree;
+	}
+
+	qtree = new QTNode(*mbb);
+	std::stack<QTNode *> ws;
+	qtree->split();
+	qtree->push(ws);
+	query_context ctx;
+
+	ctx.use_partition = false;
+	while(!ws.empty()){
+
+		QTNode *cur = ws.top();
+		ws.pop();
+
+		if(this->intersect_segment(&cur->mbb)){
+			if(cur->level<level){
+				cur->split();
+				cur->push(ws);
+			}
+		}else if(this->contain(Point(cur->mbb.low[0],cur->mbb.low[1]), &ctx)){
+			cur->interior = true;
+		}else{
+			cur->exterior = true;
+		}
+
+	}
+
+
+	return qtree;
 }
 
 
