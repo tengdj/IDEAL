@@ -228,16 +228,24 @@ public:
 };
 
 
+enum QT_Direction{
+	bottom_left = 0,
+	bottom_right = 1,
+	top_left = 2,
+	top_right = 3
+};
+
 class QTNode{
+
 public:
+
+	bool isleaf = true;
+	QTNode *children[4];
 	Pixel mbb;
 	bool interior = false;
 	bool exterior = false;
 	int level = 0;
-	QTNode *bottom_left = NULL;
-	QTNode *bottom_right = NULL;
-	QTNode *top_left = NULL;
-	QTNode *top_right = NULL;
+
 	QTNode(double low_x, double low_y, double high_x, double high_y){
 		mbb.low[0] = low_x;
 		mbb.low[1] = low_y;
@@ -248,37 +256,106 @@ public:
 		mbb = m;
 	}
 	void split(){
+		isleaf = false;
 		double mid_x = (mbb.high[0]+mbb.low[0])/2;
 		double mid_y = (mbb.high[1]+mbb.low[1])/2;
-		bottom_left = new QTNode(mbb.low[0],mbb.low[1],mid_x,mid_y);
-		bottom_right = new QTNode(mid_x,mbb.low[1],mbb.high[0],mid_y);
-		top_left = new QTNode(mbb.low[0],mid_y,mid_x,mbb.high[1]);
-		top_right = new QTNode(mid_x,mid_y,mbb.high[0],mbb.high[1]);
-		bottom_left->level = level+1;
-		bottom_right->level = level+1;
-		top_left->level = level+1;
-		top_right->level = level+1;
+		children[bottom_left] = new QTNode(mbb.low[0],mbb.low[1],mid_x,mid_y);
+		children[bottom_right] = new QTNode(mid_x,mbb.low[1],mbb.high[0],mid_y);
+		children[top_left] = new QTNode(mbb.low[0],mid_y,mid_x,mbb.high[1]);
+		children[top_right] = new QTNode(mid_x,mid_y,mbb.high[0],mbb.high[1]);
+		for(int i=0;i<4;i++){
+			children[i]->level = level+1;
+		}
 	}
 	void push(std::stack<QTNode *> &ws){
-		ws.push(bottom_left);
-		ws.push(bottom_right);
-		ws.push(top_left);
-		ws.push(top_right);
+		if(!isleaf){
+			for(int i=0;i<4;i++){
+				ws.push(children[i]);
+			}
+		}
 	}
 	~QTNode(){
-		if(bottom_left){
-			delete bottom_left;
-		}
-		if(bottom_right){
-			delete bottom_right;
-		}
-		if(top_right){
-			delete top_right;
-		}
-		if(top_left){
-			delete top_left;
+		if(!isleaf){
+			for(int i=0;i<4;i++){
+				delete children[i];
+			}
 		}
 	}
+	int size(){
+		int cs = 2+4*8;
+		if(!isleaf){
+			for(int i=0;i<4;i++){
+				cs += children[i]->size();
+			}
+		}
+		return cs;
+	}
+	int leaf_count(){
+		if(isleaf){
+			return 1;
+		}else{
+			int lc = 0;
+			for(int i=0;i<4;i++){
+				lc += children[i]->leaf_count();
+			}
+			return lc;
+		}
+	}
+	QTNode *retrieve(Point &p){
+		if(this->mbb.contain(p)){
+			if(this->isleaf){
+				return this;
+			}else{
+				for(int i=0;i<4;i++){
+					if(children[i]->retrieve(p)){
+						return children[i];
+					}
+				}
+				return NULL;
+			}
+		}else{
+			return NULL;
+		}
+	}
+
+	bool determine_contain(Point &p){
+		QTNode *n = retrieve(p);
+		return n->interior||n->exterior;
+	}
+
+	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex){
+		if(!mbb.intersect(&p)){
+			return true;
+		}
+		if(isleaf){
+			//border box
+			if(!interior&&!exterior){
+				return false;
+			}
+			has_ex |= exterior;
+			has_in |= interior;
+			//cross box
+			if(has_in&&has_ex){
+				return false;
+			}
+		}else{
+			for(int i=0;i<4;i++){
+				if(!children[i]->determine_contain(p, has_in, has_ex)){
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	bool determine_contain(Pixel &p){
+		assert(this->level==0);
+		bool has_in = false;
+		bool has_out = false;
+		return determine_contain(p, has_in, has_out);
+	}
+
+
 };
 
 class MyPolygon{

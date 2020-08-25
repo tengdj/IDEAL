@@ -50,20 +50,25 @@ int main(int argc, char **argv){
 	MyMultiPolygon *outpolys = new MyMultiPolygon();
 
 	if(vm.count("quad_tree")){
+		QTNode *qtree = poly->get_qtree();
+		log("leaf count %d",qtree->leaf_count());
+		log("size in bytes %d",qtree->size());
 		std::stack<QTNode *> ws;
-		ws.push(poly->get_qtree());
+		ws.push(qtree);
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
 			ws.pop();
-			if(cur->interior){
-				MyPolygon *m = cur->mbb.to_polygon();
-				inpolys->insert_polygon(m);
-			}else if(cur->exterior){
-				MyPolygon *m = cur->mbb.to_polygon();
-				outpolys->insert_polygon(m);
-			}else if(cur->level>=vpr){
-				MyPolygon *m = cur->mbb.to_polygon();
-				borderpolys->insert_polygon(m);
+			if(cur->isleaf){
+				if(cur->interior){
+					MyPolygon *m = cur->mbb.to_polygon();
+					inpolys->insert_polygon(m);
+				}else if(cur->exterior){
+					MyPolygon *m = cur->mbb.to_polygon();
+					outpolys->insert_polygon(m);
+				}else{
+					MyPolygon *m = cur->mbb.to_polygon();
+					borderpolys->insert_polygon(m);
+				}
 			}else{
 				cur->push(ws);
 			}

@@ -388,10 +388,13 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 }
 
 
-QTNode *MyPolygon::partition_qtree(const int level){
+QTNode *MyPolygon::partition_qtree(const int vpr){
 	if(this->qtree){
 		delete qtree;
 	}
+
+	const int num_boxes = this->get_num_vertices()/vpr;
+	int box_count = 4;
 
 	qtree = new QTNode(*mbb);
 	std::stack<QTNode *> ws;
@@ -400,21 +403,35 @@ QTNode *MyPolygon::partition_qtree(const int level){
 	query_context ctx;
 
 	ctx.use_partition = false;
-	while(!ws.empty()){
+	vector<QTNode *> level_nodes;
 
-		QTNode *cur = ws.top();
-		ws.pop();
+	int counter = 0;
+	while(box_count<num_boxes||!ws.empty()){
+		while(!ws.empty()){
+			QTNode *cur = ws.top();
+			ws.pop();
 
-		if(this->intersect_segment(&cur->mbb)){
-			if(cur->level<level){
-				cur->split();
-				cur->push(ws);
+			if(this->intersect_segment(&cur->mbb)){
+				level_nodes.push_back(cur);
+			}else if(this->contain(Point(cur->mbb.low[0],cur->mbb.low[1]), &ctx)){
+				cur->interior = true;
+			}else{
+				cur->exterior = true;
 			}
-		}else if(this->contain(Point(cur->mbb.low[0],cur->mbb.low[1]), &ctx)){
-			cur->interior = true;
-		}else{
-			cur->exterior = true;
 		}
+
+		//fill in this segment
+		for(QTNode *n:level_nodes){
+			if(box_count<num_boxes){
+				n->split();
+				n->push(ws);
+				box_count += 3;
+			}else{
+				break;
+			}
+		}
+		level_nodes.clear();
+
 
 	}
 
