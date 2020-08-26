@@ -23,7 +23,10 @@ pthread_mutex_t poly_lock;
 bool stop = false;
 
 pthread_mutex_t report_lock;
-long query_count = 0;
+size_t query_count = 0;
+size_t inout_checks = 0;
+size_t border_checks = 0;
+size_t total_found = 0;
 
 queue<queue_element *> shared_queue;
 
@@ -34,6 +37,7 @@ int small_threshold = 100;
 float sample_rate = 1.0;
 
 
+
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	MyPolygon *target = (MyPolygon *)ctx->target;
@@ -42,8 +46,27 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->ispartitioned()){
 			poly->partition(ctx->vpr);
 		}
+		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
+		if(ctx->rastor_only){
+			ctx->inout_check++;
+			ctx->found += isfound;
+		}else{
+			ctx->border_check++;
+			ctx->found += poly->contain(target, ctx);
+		}
+	}else if(ctx->use_qtree){
+		if(!poly->ispartitioned()){
+			 poly->partition_qtree(ctx->vpr);
+		}
+		if(poly->get_qtree()->determine_contain(*(target->getMBB()))){
+			ctx->inout_check++;
+		}else{
+			ctx->found += poly->contain(target,ctx);
+			ctx->border_check++;
+		}
+	}else{
+		ctx->found += poly->contain(target,ctx);
 	}
-	ctx->found += poly->contain(target, ctx);
 	// keep going until all hit objects are found
 	return true;
 }
@@ -93,6 +116,9 @@ void *query(void *args){
 	}
 	pthread_mutex_lock(&report_lock);
 	query_count += local_count;
+	inout_checks += ctx->inout_check;
+	border_checks += ctx->border_check;
+	total_found += ctx->found;
 	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
@@ -103,23 +129,22 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	bool use_partition = false;
-	bool use_gpu = false;
 	bool in_memory = false;
 	int vpr = 10;
 	float sample_rate = 1.0;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
-		("partition,p", "query with inner partition")
+		("rasterize,r", "partition with rasterization")
+		("qtree,q", "partition with qtree")
+		("active_partition,a", "partitioning source polygons before query")
 		("in_memory,m", "data will be loaded into memory and start")
-		("active_partition,a", "rasterize source polygons before query")
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
 		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
-		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
+		("sample_rate", po::value<float>(&sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -128,9 +153,6 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	po::notify(vm);
-	if(vm.count("partition")){
-		use_partition = true;
-	}
 	if(vm.count("in_memory")){
 		in_memory = true;
 	}
@@ -143,12 +165,23 @@ int main(int argc, char** argv) {
 
 	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
 	logt("loaded %ld polygons", start, source.size());
-	if(use_partition&&vm.count("active_partition")){
+	if(vm.count("rasterize")&&vm.count("active_partition")){
+		int total = 0;
 		for(MyPolygon *p:source){
 			p->partition(vpr);
+			total+= p->get_num_partitions();
 		}
-		logt("partition polygons", start);
+		logt("partition polygons into averagely %d partitions", start, total/source.size());
 	}
+
+	if(vm.count("qtree")&&vm.count("active_partition")){
+		int total = 0;
+		for(MyPolygon *p:source){
+			total += p->partition_qtree(vpr)->leaf_count();
+		}
+		logt("partition polygons into averagely %d partitions", start, total/source.size());
+	}
+
 	int treesize = 0;
 	for(MyPolygon *p:source){
 		if(p->get_num_vertices()>=big_threshold){
@@ -162,7 +195,8 @@ int main(int argc, char** argv) {
 	for(int i=0;i<num_threads;i++){
 		ctx[i].thread_id = i;
 		ctx[i].vpr = vpr;
-		ctx[i].use_partition = use_partition;
+		ctx[i].use_partition = vm.count("rasterize");
+		ctx[i].use_qtree = vm.count("qtree");
 		ctx[i].sample_rate = sample_rate;
 	}
 	if(!in_memory){
@@ -216,7 +250,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,query_count);
+	logt("queried %d polygons %ld in/out %ld border %ld edges checked %ld found",start,query_count,inout_checks,border_checks, total_found);
 
 //	for(MyPolygon *p:source){
 //		delete p;

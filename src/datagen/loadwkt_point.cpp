@@ -38,6 +38,9 @@ int main(int argc, char** argv) {
 	int index = 0;
 
 	while(getline(cin, input_line)) {
+		if(num_objects%1000000==0){
+			cout<<num_objects<<endl;
+		}
 		Point *p = Point::read_one_point(input_line);
 		if(!p){
 			continue;

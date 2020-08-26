@@ -58,13 +58,14 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		if(partitions[part_x][part_y].status==IN){
-			ctx->inout_check++;
+			ctx->rastor_only = true;
 			return true;
 		}
 		if(partitions[part_x][part_y].status==OUT){
-			ctx->inout_check++;
+			ctx->rastor_only = true;
 			return false;
 		}
+		ctx->rastor_only = false;
 		bool ret = false;
 		for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
 			// segment i->j intersect with line y=p.y
@@ -76,7 +77,6 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 			}
 		}
 		ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
-		ctx->border_check++;
 		return ret;
 	}else{
 		bool ret = false;
@@ -94,11 +94,10 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 }
 
 
-bool MyPolygon::contain_try_partition(MyPolygon *target, query_context *ctx){
+bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	assert(partitioned&&ctx->use_partition);
-	ctx->partition_determined = true;
+	ctx->rastor_only = true;
 	Pixel *a = getMBB();
-	Pixel *b = target->getMBB();
 	if(!a->contain(b)){
 		return false;
 	}
@@ -123,7 +122,7 @@ bool MyPolygon::contain_try_partition(MyPolygon *target, query_context *ctx){
 		return true;
 	}
 
-	ctx->partition_determined = false;
+	ctx->rastor_only = false;
 	return false;
 }
 

@@ -49,6 +49,10 @@ resque_point_polygon_distance:	query/resque_point_polygon_distance.o $(GEOMETRY_
 	
 resque_point_in_polygon:	query/resque_point_in_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+	
+ms_point_in_polygon:	query/ms_point_in_polygon.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
 

@@ -213,14 +213,15 @@ public:
 	Point target_p;
 	int vpr = 10;
 	bool use_partition = false;
+	bool use_qtree = false;
 	int found = 0;
 	int checked = 0;
 	double distance = 0;
-	bool partition_determined = false;
 	bool gpu = false;
 	size_t inout_check = 0;
 	size_t border_check = 0;
 	size_t edges_checked = 0;
+	bool rastor_only = false;
 	float sample_rate = 1.0;
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
 	query_context(){}
@@ -302,23 +303,16 @@ public:
 		}
 	}
 	QTNode *retrieve(Point &p){
-		if(this->mbb.contain(p)){
-			if(this->isleaf){
-				return this;
-			}else{
-				for(int i=0;i<4;i++){
-					if(children[i]->retrieve(p)){
-						return children[i];
-					}
-				}
-				return NULL;
-			}
+		if(this->isleaf){
+			return this;
 		}else{
-			return NULL;
+			int offset =  2*(p.y>(mbb.low[1]+mbb.high[1])/2)+(p.x>(mbb.low[0]+mbb.high[0])/2);
+			return children[offset]->retrieve(p);
 		}
 	}
 
 	bool determine_contain(Point &p){
+		assert(mbb.contain(p));
 		QTNode *n = retrieve(p);
 		return n->interior||n->exterior;
 	}
@@ -389,7 +383,7 @@ public:
 	bool contain(Pixel *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx);
 
-	bool contain_try_partition(MyPolygon *target, query_context *ctx);
+	bool contain_try_partition(Pixel *target, query_context *ctx);
 
 	void internal_partition();
 	MyPolygon *clone();
@@ -409,7 +403,7 @@ public:
 	vector<vector<Pixel>> partition(int vertex_per_raster, double flatness=1);
 	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
-	QTNode *partition_qtree(const int level);
+	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){
 		return qtree;
 	}
@@ -460,6 +454,12 @@ public:
 	size_t encode_to(char *target);
 	size_t decode_from(char *source);
 
+	int get_num_partitions(){
+		if(partitions.size()==0){
+			return 0;
+		}
+		return partitions.size()*partitions[0].size();
+	}
 	static char *encode_partition(vector<vector<Pixel>> partitions);
 	static vector<vector<Pixel>> decode_partition(char *);
 	vector<Point> generate_test_points(int num);

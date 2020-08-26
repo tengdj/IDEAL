@@ -389,14 +389,17 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 
 
 QTNode *MyPolygon::partition_qtree(const int vpr){
-	if(this->qtree){
-		delete qtree;
+
+	pthread_mutex_lock(&partition_lock);
+	if(partitioned){
+		pthread_mutex_unlock(&partition_lock);
+		return qtree;
 	}
 
 	const int num_boxes = this->get_num_vertices()/vpr;
 	int box_count = 4;
 
-	qtree = new QTNode(*mbb);
+	qtree = new QTNode(*(this->getMBB()));
 	std::stack<QTNode *> ws;
 	qtree->split();
 	qtree->push(ws);
@@ -435,6 +438,8 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 
 	}
 
+	partitioned = true;
+	pthread_mutex_unlock(&partition_lock);
 
 	return qtree;
 }

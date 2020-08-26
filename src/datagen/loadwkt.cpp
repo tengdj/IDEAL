@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
 		}
 		processed_size += input_line.size()+1;
 		num_objects++;
-		if(num_objects%1000000==0){
+		if(num_objects%100000==0){
 			log("processed %d objects", num_objects);
 		}
 	}
