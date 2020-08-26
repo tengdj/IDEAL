@@ -105,12 +105,16 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	int txstart = this->get_pixel_x(b->low[0]);
 	int txend = this->get_pixel_x(b->high[0]);
 	int tystart = this->get_pixel_y(b->low[1]);
-	int tyend = this->get_pixel_y(b->high[0]);
+	int tyend = this->get_pixel_y(b->high[1]);
 	int incount = 0;
+	int outcount = 0;
+	int total = 0;
+
 	for(int i=txstart;i<=txend;i++){
 		for(int j=tystart;j<=tyend;j++){
+			total++;
 			if(partitions[i][j].status==OUT){
-				return false;
+				outcount++;
 			}
 			if(partitions[i][j].status==IN){
 				incount++;
@@ -118,10 +122,11 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 		}
 	}
 	// all is in
-	if(incount==(txend-txstart+1)*(tyend-tystart+1)){
+	if(incount==total){
 		return true;
+	}else if(outcount==total){
+		return false;
 	}
-
 	ctx->rastor_only = false;
 	return false;
 }

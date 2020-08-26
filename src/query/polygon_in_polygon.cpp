@@ -27,6 +27,7 @@ size_t query_count = 0;
 size_t inout_checks = 0;
 size_t border_checks = 0;
 size_t total_found = 0;
+size_t edge_count = 0;
 
 queue<queue_element *> shared_queue;
 
@@ -46,6 +47,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->ispartitioned()){
 			poly->partition(ctx->vpr);
 		}
+
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 		if(ctx->rastor_only){
 			ctx->inout_check++;
@@ -88,7 +90,7 @@ void *query(void *args){
 		pthread_mutex_unlock(&poly_lock);
 		// queue is empty but not stopped
 		if(!elem){
-			usleep(20);
+			usleep(10);
 			continue;
 		}
 		for(MyPolygon *poly:elem->polys){
@@ -119,6 +121,7 @@ void *query(void *args){
 	inout_checks += ctx->inout_check;
 	border_checks += ctx->border_check;
 	total_found += ctx->found;
+	edge_count += ctx->edges_checked;
 	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
@@ -220,7 +223,7 @@ int main(int argc, char** argv) {
 		elem->polys.push_back(poly);
 		if(elem->polys.size()==element_size){
 			while(!in_memory&&shared_queue.size()>10*num_threads){
-				usleep(20);
+				usleep(10);
 			}
 			pthread_mutex_lock(&poly_lock);
 			shared_queue.push(elem);
@@ -250,7 +253,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons %ld in/out %ld border %ld edges checked %ld found",start,query_count,inout_checks,border_checks, total_found);
+	logt("queried %d polygons %ld in/out %ld border %ld edges checked %ld found",start,query_count,inout_checks,border_checks,edge_count/border_checks, total_found);
 
 //	for(MyPolygon *p:source){
 //		delete p;

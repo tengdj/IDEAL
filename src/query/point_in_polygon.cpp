@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d point %ld in/out %ld border %ld edges checked %ld found",start,total_points,inout_checks,border_checks, edges_checks, total_found);
+	logt("queried %d point %ld in/out %ld border %ld edges checked %ld found",start,total_points,inout_checks,border_checks, edges_checks/border_checks, total_found);
 
 	for(MyPolygon *p:source){
 		delete p;
