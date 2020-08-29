@@ -218,6 +218,7 @@ public:
 	int checked = 0;
 	double distance = 0;
 	bool gpu = false;
+	size_t query_count = 0;
 	size_t inout_check = 0;
 	size_t border_check = 0;
 	size_t edges_checked = 0;
@@ -226,6 +227,15 @@ public:
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
 	query_context(){}
 	~query_context(){candidates.clear();}
+	query_context operator + (query_context const &obj) {
+		query_context res = *this;
+		res.query_count += obj.query_count;
+		res.inout_check += obj.inout_check;
+		res.border_check += obj.border_check;
+		res.found += obj.found;
+		res.edges_checked += obj.edges_checked;
+		return res;
+	}
 };
 
 
@@ -373,7 +383,7 @@ public:
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
 	static MyPolygon *read_one_polygon();
-	static vector<MyPolygon *> load_binary_file(const char *path);
+	static vector<MyPolygon *> load_binary_file(const char *path, int small_threshold = 0, int big_threshold = 1000000);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
 	bool contain(Point p, query_context *ctx);

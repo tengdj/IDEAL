@@ -127,6 +127,8 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	}else if(outcount==total){
 		return false;
 	}
+	//log("%d %d %d",total,incount,outcount);
+
 	ctx->rastor_only = false;
 	return false;
 }

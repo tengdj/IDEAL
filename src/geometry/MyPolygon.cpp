@@ -103,7 +103,7 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 	return poly;
 }
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path){
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path,int small_threshold, int big_threshold){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -115,7 +115,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path){
 	int id = 0;
 	while(!infile.eof()){
 		MyPolygon *poly = read_polygon_binary_file(infile);
-		if(!poly){
+		if(!poly||poly->get_num_vertices()<small_threshold||poly->get_num_vertices()>big_threshold){
 			continue;
 		}
 		if(poly->area()<=0){

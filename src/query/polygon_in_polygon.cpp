@@ -23,18 +23,13 @@ pthread_mutex_t poly_lock;
 bool stop = false;
 
 pthread_mutex_t report_lock;
-size_t query_count = 0;
-size_t inout_checks = 0;
-size_t border_checks = 0;
-size_t total_found = 0;
-size_t edge_count = 0;
+query_context global_ctx;
 
 queue<queue_element *> shared_queue;
 
 RTree<MyPolygon *, double, 2, double> tree;
 
 int big_threshold = 500;
-int small_threshold = 100;
 float sample_rate = 1.0;
 
 
@@ -47,8 +42,8 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->ispartitioned()){
 			poly->partition(ctx->vpr);
 		}
-
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
+
 		if(ctx->rastor_only){
 			ctx->inout_check++;
 			ctx->found += isfound;
@@ -78,8 +73,6 @@ void *query(void *args){
 	pthread_mutex_lock(&poly_lock);
 	log("thread %d is started",ctx->thread_id);
 	pthread_mutex_unlock(&poly_lock);
-	vector<queue_element *> elems;
-	int local_count = 0;
 	while(!stop||shared_queue.size()>0){
 		queue_element *elem = NULL;
 		pthread_mutex_lock(&poly_lock);
@@ -97,19 +90,19 @@ void *query(void *args){
 			if(ctx->sample_rate<1.0&&!tryluck(ctx->sample_rate)){
 				continue;
 			}
-			if(poly->get_num_vertices()>small_threshold){
+			if(poly->get_num_vertices()>100){
 				continue;
 			}
 			ctx->target = (void *)poly;
 			Pixel *px = poly->getMBB();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
-			if(++local_count==1000){
+			if(++ctx->query_count==1000){
 				pthread_mutex_lock(&report_lock);
-				query_count += local_count;
-				if(query_count%100000==0){
-					log("queried %d polygons",query_count);
+				global_ctx.query_count += ctx->query_count;
+				if(global_ctx.query_count%100000==0){
+					log("queried %d polygons",global_ctx.query_count);
 				}
-				local_count = 0;
+				ctx->query_count = 0;
 				pthread_mutex_unlock(&report_lock);
 			}
 		}
@@ -117,11 +110,7 @@ void *query(void *args){
 		delete elem;
 	}
 	pthread_mutex_lock(&report_lock);
-	query_count += local_count;
-	inout_checks += ctx->inout_check;
-	border_checks += ctx->border_check;
-	total_found += ctx->found;
-	edge_count += ctx->edges_checked;
+	global_ctx = global_ctx+*ctx;
 	pthread_mutex_unlock(&report_lock);
 	return NULL;
 }
@@ -135,6 +124,8 @@ int main(int argc, char** argv) {
 	bool in_memory = false;
 	int vpr = 10;
 	float sample_rate = 1.0;
+	int big_threshold = 1000000;
+	int small_threshold = 500;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
@@ -148,6 +139,8 @@ int main(int argc, char** argv) {
 		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
 		("element_size,e", po::value<int>(&element_size), "max dimension on vertical")
 		("sample_rate", po::value<float>(&sample_rate), "sample rate")
+		("big_threshold,b", po::value<int>(&big_threshold), "up threshold for complex polygon")
+		("small_threshold", po::value<int>(&small_threshold), "low threshold for complex polygon")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -166,7 +159,7 @@ int main(int argc, char** argv) {
 
 	timeval start = get_cur_time();
 
-	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
+	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str(),small_threshold, big_threshold);
 	logt("loaded %ld polygons", start, source.size());
 	if(vm.count("rasterize")&&vm.count("active_partition")){
 		int total = 0;
@@ -185,14 +178,10 @@ int main(int argc, char** argv) {
 		logt("partition polygons into averagely %d partitions", start, total/source.size());
 	}
 
-	int treesize = 0;
 	for(MyPolygon *p:source){
-		if(p->get_num_vertices()>=big_threshold){
-			tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
-			treesize++;
-		}
+		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
-	logt("building R-Tree with %d nodes", start,treesize);
+	logt("building R-Tree with %d nodes", start,source.size());
 	pthread_t threads[num_threads];
 	query_context ctx[num_threads];
 	for(int i=0;i<num_threads;i++){
@@ -253,7 +242,8 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons %ld in/out %ld border %ld edges checked %ld found",start,query_count,inout_checks,border_checks,edge_count/border_checks, total_found);
+	logt("queried %d polygons %ld rastor %ld vector %ld found",start,global_ctx.query_count,global_ctx.inout_check,global_ctx.border_check
+			,global_ctx.found);
 
 //	for(MyPolygon *p:source){
 //		delete p;

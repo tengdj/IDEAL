@@ -396,8 +396,16 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 		return qtree;
 	}
 
-	const int num_boxes = this->get_num_vertices()/vpr;
+	struct timeval start = get_cur_time();
+
+	int num_boxes = this->get_num_vertices()/vpr;
+	if(num_boxes<4){
+		num_boxes=4;
+	}
 	int box_count = 4;
+//	if(num_boxes>2000){
+//		num_boxes=2000;
+//	}
 
 	qtree = new QTNode(*(this->getMBB()));
 	std::stack<QTNode *> ws;
@@ -408,7 +416,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	ctx.use_partition = false;
 	vector<QTNode *> level_nodes;
 
-	int counter = 0;
+	//breadth first traverse
 	while(box_count<num_boxes||!ws.empty()){
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
@@ -423,7 +431,6 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 			}
 		}
 
-		//fill in this segment
 		for(QTNode *n:level_nodes){
 			if(box_count<num_boxes){
 				n->split();
@@ -434,13 +441,14 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 			}
 		}
 		level_nodes.clear();
-
-
 	}
 
 	partitioned = true;
 	pthread_mutex_unlock(&partition_lock);
 
+	if(get_time_elapsed(start)>10000){
+		logt("partition %d vertices takes",start,this->get_num_vertices());
+	}
 	return qtree;
 }
 

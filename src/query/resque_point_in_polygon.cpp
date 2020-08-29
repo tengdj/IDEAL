@@ -11,21 +11,7 @@
 #include <queue>
 #include <boost/program_options.hpp>
 #include "cuda/mygpu.h"
-
-#include <geos/geom/PrecisionModel.h>
-#include <geos/geom/GeometryFactory.h>
-#include <geos/geom/Geometry.h>
-#include <geos/operation/distance/DistanceOp.h>
-#include <geos/geom/Point.h>
-#include <geos/io/WKTReader.h>
-#include <geos/io/WKTWriter.h>
-#include <geos/opBuffer.h>
-
-using namespace geos;
-using namespace geos::io;
-using namespace geos::geom;
-using namespace geos::operation::buffer;
-using namespace geos::operation::distance;
+#include "resque_util.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -40,6 +26,7 @@ bool stop = false;
 
 pthread_mutex_t report_lock;
 long query_count = 0;
+long load_count = 0;
 
 double *points;
 size_t cur_index = 0;
@@ -50,25 +37,17 @@ float sample_rate = 1.0;
 RTree<Geometry *, double, 2, double> tree;
 
 
-bool MySearchCallback(Geometry *poly, void* arg){
-	query_context *ctx = (query_context *)arg;
-	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
-
-	//exact query
-	ctx->found += poly->contains(p);
-	ctx->checked++;
-	return true;
-}
+vector<MyPolygon *> source_polygons;
+vector<Geometry *> sources;
+vector<Geometry *> targets;
 
 int batch_num = 100;
-void *query(void *args){
-	query_context *ctx = (query_context *)args;
-	pthread_mutex_lock(&poly_lock);
-	log("thread %d is started",ctx->thread_id);
-	pthread_mutex_unlock(&poly_lock);
+// multiple thread load
+void *load_target(void *args){
 	WKTReader *wkt_reader = new WKTReader();
 	int local_count = 0;
 	char point_buffer[200];
+	vector<Geometry *> local_geoms;
 	while(cur_index!=total_points){
 		int local_cur = 0;
 		int local_end = 0;
@@ -87,12 +66,108 @@ void *query(void *args){
 		pthread_mutex_unlock(&poly_lock);
 
 		for(int i=local_cur;i<local_end;i++){
-			if(sample_rate<1.0&&!tryluck(sample_rate)){
-				continue;
-			}
 			sprintf(point_buffer,"POINT(%f %f)",points[2*i],points[2*i+1]);
 			Geometry *geo = wkt_reader->read(point_buffer);
-			ctx->target = (void *)(geo);
+			targets[i] = geo;
+
+			if(++local_count==1000){
+				pthread_mutex_lock(&report_lock);
+				load_count += local_count;
+				if(load_count%1000000==0){
+					log("loaded %d points",load_count);
+				}
+				local_count = 0;
+				pthread_mutex_unlock(&report_lock);
+			}
+		}
+	}
+	pthread_mutex_lock(&report_lock);
+	load_count += local_count;
+	pthread_mutex_unlock(&report_lock);
+	delete wkt_reader;
+	return NULL;
+}
+
+// multiple thread load
+void *load_source(void *args){
+	WKTReader *wkt_reader = new WKTReader();
+	int local_count = 0;
+	while(cur_index!=source_polygons.size()){
+		int local_cur = 0;
+		int local_end = 0;
+		pthread_mutex_lock(&poly_lock);
+		if(cur_index==source_polygons.size()){
+			pthread_mutex_unlock(&poly_lock);
+			break;
+		}
+		local_cur = cur_index;
+		if(local_cur+batch_num>source_polygons.size()){
+			local_end = source_polygons.size();
+		}else {
+			local_end = local_cur+batch_num;
+		}
+		cur_index = local_end;
+		pthread_mutex_unlock(&poly_lock);
+
+		for(int i=local_cur;i<local_end;i++){
+			Geometry *geo = wkt_reader->read(source_polygons[i]->to_string());
+			sources[i] = geo;
+			if(++local_count==1000){
+				pthread_mutex_lock(&report_lock);
+				load_count += local_count;
+				if(load_count%100000==0){
+					log("processed %d polygons",load_count);
+				}
+				local_count = 0;
+				pthread_mutex_unlock(&report_lock);
+			}
+		}
+	}
+	pthread_mutex_lock(&report_lock);
+	load_count += local_count;
+	pthread_mutex_unlock(&report_lock);
+	delete wkt_reader;
+	return NULL;
+}
+
+bool MySearchCallback(Geometry *poly, void* arg){
+	query_context *ctx = (query_context *)arg;
+	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
+
+	//exact query
+	ctx->found += poly->contains(p);
+	ctx->checked++;
+	return true;
+}
+
+void *query(void *args){
+	query_context *ctx = (query_context *)args;
+	pthread_mutex_lock(&poly_lock);
+	log("thread %d is started",ctx->thread_id);
+	pthread_mutex_unlock(&poly_lock);
+
+	int local_count = 0;
+	while(cur_index!=total_points){
+		int local_cur = 0;
+		int local_end = 0;
+		pthread_mutex_lock(&poly_lock);
+		if(cur_index==total_points){
+			pthread_mutex_unlock(&poly_lock);
+			break;
+		}
+		local_cur = cur_index;
+		if(local_cur+batch_num>total_points){
+			local_end = total_points;
+		}else {
+			local_end = local_cur+batch_num;
+		}
+		cur_index = local_end;
+		pthread_mutex_unlock(&poly_lock);
+		for(int i=local_cur;i<local_end;i++){
+			if(sample_rate<1.0 && !tryluck(sample_rate)){
+				continue;
+			}
+			ctx->target = (void *)(targets[i]);
 			ctx->checked = 0;
 			ctx->found = 0;
 			tree.Search(points+2*i, points+2*i, MySearchCallback, (void *)ctx);
@@ -105,9 +180,9 @@ void *query(void *args){
 				local_count = 0;
 				pthread_mutex_unlock(&report_lock);
 			}
-			delete geo;
 		}
 	}
+
 	pthread_mutex_lock(&report_lock);
 	query_count += local_count;
 	pthread_mutex_unlock(&report_lock);
@@ -124,12 +199,11 @@ int main(int argc, char** argv) {
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
-		("source,s", po::value<string>(&source_path), "path to the source")
-		("target,t", po::value<string>(&target_path), "path to the target")
+		("source,s", po::value<string>(&source_path)->required(), "path to the source")
+		("target,t", po::value<string>(&target_path)->required(), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("big_threshold,b", po::value<int>(&big_threshold), "threshold for complex polygon")
 		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
-
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -138,32 +212,34 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	po::notify(vm);
-	if(!vm.count("source")||!vm.count("target")){
-		cout << desc << "\n";
-		return 0;
-	}
 
 	timeval start = get_cur_time();
-//
-//	PrecisionModel *pm = new PrecisionModel();sample_rate
-//	GeometryFactory *gf = GeometryFactory::create().get();
-	WKTReader *wkt_reader = new WKTReader();
+	/////////////////////////////////////////////////////////////////////////////
+	// load the source into polygon
+	source_polygons = MyPolygon::load_binary_file(source_path.c_str(),big_threshold);
+	logt("loaded %ld polygons", start, source_polygons.size());
 
-	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
-	logt("loaded %ld points", start, source.size());
-
-	int treesize = 0;
-	for(MyPolygon *p:source){
-		if(p->get_num_vertices()>=big_threshold){
-			Geometry *poly = wkt_reader->read(p->to_string());
-			tree.Insert(p->getMBB()->low, p->getMBB()->high, poly);
-			if(++treesize%10000==0){
-				log("%d nodes inserted",treesize);
-			}
-		}
+	/////////////////////////////////////////////////////////////////////////////
+	//loading sources as geometry
+	sources.resize(source_polygons.size());
+	pthread_t threads[num_threads];
+	load_count = 0;
+	cur_index = 0;
+	for(int i=0;i<num_threads;i++){
+		pthread_create(&threads[i], NULL, load_source, NULL);
 	}
-	logt("building R-Tree with %d nodes", start,treesize);
+	for(int i = 0; i < num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+	logt("loading %d polygons into geometry",start,load_count);
 
+	for(int i=0;i<sources.size();i++){
+		tree.Insert(source_polygons[i]->getMBB()->low, source_polygons[i]->getMBB()->high, sources[i]);
+	}
+	logt("building R-Tree with %d nodes", start,sources.size());
+
+	/////////////////////////////////////////////////////////////////////////////////////
 	// read all the points
 	long fsize = file_size(target_path.c_str());
 	if(fsize<=0){
@@ -179,8 +255,26 @@ int main(int argc, char** argv) {
 	infile.read((char *)points, fsize);
 	logt("loaded %ld points", start,total_points);
 
-	pthread_t threads[num_threads];
+	////////////////////////////////////////////////////////////////////////////////////
+	//loading the points into geometry
+	targets.resize(total_points);
+	load_count = 0;
+	cur_index = 0;
+	for(int i=0;i<num_threads;i++){
+		pthread_create(&threads[i], NULL, load_target, NULL);
+	}
+
+	for(int i = 0; i < num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+	logt("loading points into geometry",start);
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// querying
 	query_context ctx[num_threads];
+	load_count = 0;
+	cur_index = 0;
 	for(int i=0;i<num_threads;i++){
 		ctx[i].thread_id = i;
 	}
@@ -194,9 +288,16 @@ int main(int argc, char** argv) {
 	}
 	logt("queried %d points",start,query_count);
 
-	for(MyPolygon *p:source){
+	for(MyPolygon *p:source_polygons){
 		delete p;
 	}
+	for(Geometry *g:sources){
+		delete g;
+	}
+	for(Geometry *g:targets){
+		delete g;
+	}
+	delete []points;
 	return 0;
 }
 
