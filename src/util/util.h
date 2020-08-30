@@ -113,6 +113,13 @@ inline void log(const char *format, ...){
 	pthread_mutex_unlock(&print_lock);
 }
 
+inline void log(){
+	pthread_mutex_lock(&print_lock);
+	fprintf(stdout,"%s thread %ld:\tterry is good\n", time_string().c_str(),syscall(__NR_gettid));
+	fflush(stdout);
+	pthread_mutex_unlock(&print_lock);
+}
+
 inline int get_rand_number(int max_value){
 	return rand()%max_value+1;
 }

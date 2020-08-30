@@ -30,7 +30,7 @@
 *.exe
 *.out
 *.app
-
+*.csv
 data/
 *.wkt
 build/

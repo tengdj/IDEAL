@@ -396,7 +396,6 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 		return qtree;
 	}
 
-	struct timeval start = get_cur_time();
 
 	int num_boxes = this->get_num_vertices()/vpr;
 	if(num_boxes<4){
@@ -446,9 +445,6 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	partitioned = true;
 	pthread_mutex_unlock(&partition_lock);
 
-	if(get_time_elapsed(start)>10000){
-		logt("partition %d vertices takes",start,this->get_num_vertices());
-	}
 	return qtree;
 }
 

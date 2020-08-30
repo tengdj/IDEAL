@@ -36,6 +36,8 @@ vector<MyPolygon *> source;
 int source_index = 0;
 int partition_count = 0;
 
+
+
 int batch_num = 100;
 void *partition_unit(void *args){
 	query_context *ctx = (query_context *)args;
@@ -59,11 +61,19 @@ void *partition_unit(void *args){
 		pthread_mutex_unlock(&poly_lock);
 
 		for(int i=local_cur;i<local_end;i++){
+			struct timeval start = get_cur_time();
+
 			if(ctx->use_partition){
 				source[i]->partition(ctx->vpr);
 			}
 			if(ctx->use_qtree){
 				source[i]->partition_qtree(ctx->vpr);
+			}
+			double latency = get_time_elapsed(start);
+			int num_vertices = source[i]->get_num_vertices();
+			ctx->report_latency(num_vertices, latency);
+			if(latency>10000||num_vertices>200000){
+				logt("partition %d vertices takes",start,num_vertices);
 			}
 			if(++local_count==1000){
 				pthread_mutex_lock(&report_lock);
@@ -78,6 +88,7 @@ void *partition_unit(void *args){
 	}
 	pthread_mutex_lock(&report_lock);
 	partition_count += local_count;
+	global_ctx = global_ctx + *ctx;
 	pthread_mutex_unlock(&report_lock);
 	log("thread %d done his job",ctx->thread_id);
 	return NULL;
@@ -167,10 +178,6 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	int vpr = 10;
-	int big_threshold = 1000000;
-	int small_threshold = 500;
-	float sample_rate = 1;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
@@ -181,11 +188,10 @@ int main(int argc, char** argv) {
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
-		("vpr,v", po::value<int>(&vpr), "number of vertices per raster")
-		("big_threshold,b", po::value<int>(&big_threshold), "up threshold for complex polygon")
-		("small_threshold", po::value<int>(&small_threshold), "low threshold for complex polygon")
-		("sample_rate", po::value<float>(&sample_rate), "sample rate")
-
+		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")
+		("big_threshold,b", po::value<int>(&global_ctx.big_threshold), "up threshold for complex polygon")
+		("small_threshold", po::value<int>(&global_ctx.small_threshold), "low threshold for complex polygon")
+		("sample_rate", po::value<float>(&global_ctx.sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -195,26 +201,25 @@ int main(int argc, char** argv) {
 	}
 	po::notify(vm);
 
-
 	if(!vm.count("source")||!vm.count("target")){
 		cout << desc << "\n";
 		return 0;
 	}
+	global_ctx.use_partition = vm.count("rasterize");
+	global_ctx.use_qtree = vm.count("qtree");
 
-	assert(!(vm.count("rasterize")&&vm.count("qtree")));
+	assert(!(global_ctx.use_partition&&global_ctx.use_qtree));
 	timeval start = get_cur_time();
 
-	source = MyPolygon::load_binary_file(source_path.c_str(),small_threshold,big_threshold);
+	global_ctx.sort_polygons = true;
+	source = MyPolygon::load_binary_file(source_path.c_str(),global_ctx);
 	logt("loaded %ld polygons", start, source.size());
 
 	pthread_t threads[num_threads];
 	query_context ctx[num_threads];
 	for(int i=0;i<num_threads;i++){
+		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
-		ctx[i].vpr = vpr;
-		ctx[i].use_partition = vm.count("rasterize");
-		ctx[i].use_qtree = vm.count("qtree");
-		ctx[i].sample_rate = sample_rate;
 	}
 
 	if(vm.count("rasterize")&&vm.count("active_partition")){
@@ -242,6 +247,9 @@ int main(int argc, char** argv) {
 	}
 
 	if(vm.count("partition_only")){
+		for(auto it:global_ctx.partition_vertex_number){
+			cout<<it.first<<"\t"<<global_ctx.partition_latency[it.first]/it.second<<endl;
+		}
 		return 0;
 	}
 
@@ -284,6 +292,9 @@ int main(int argc, char** argv) {
 	for(MyPolygon *p:source){
 		delete p;
 	}
+
+
+
 	return 0;
 }
 

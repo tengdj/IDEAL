@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <math.h>
 #include <stack>
+#include <map>
+#include <bits/stdc++.h>
+
 #include "../util/util.h"
 using namespace std;
 const static char *multipolygon_char = "MULTIPOLYGON";
@@ -224,7 +227,16 @@ public:
 	size_t edges_checked = 0;
 	bool rastor_only = false;
 	float sample_rate = 1.0;
+
+	int small_threshold = 500;
+	int big_threshold = 1000000;
+
+	bool sort_polygons = false;
+
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
+	map<int, int> partition_vertex_number;
+	map<int, double> partition_latency;
+
 	query_context(){}
 	~query_context(){candidates.clear();}
 	query_context operator + (query_context const &obj) {
@@ -234,7 +246,28 @@ public:
 		res.border_check += obj.border_check;
 		res.found += obj.found;
 		res.edges_checked += obj.edges_checked;
+		for(auto &it :obj.partition_vertex_number){
+
+			const double lt = obj.partition_latency.at(it.first);
+			if(res.partition_vertex_number.find(it.first)!=res.partition_vertex_number.end()){
+				res.partition_vertex_number[it.first] = res.partition_vertex_number[it.first]+it.second;
+				res.partition_latency[it.first] = res.partition_latency[it.first]+lt;
+			}else{
+				res.partition_vertex_number[it.first] = it.second;
+				res.partition_latency[it.first] = lt;
+			}
+		}
 		return res;
+	}
+	void report_latency(int num_v, double latency){
+		if(partition_vertex_number.find(num_v)==partition_vertex_number.end()){
+			partition_vertex_number[num_v] = 1;
+			partition_latency[num_v] = latency;
+		}else{
+			partition_vertex_number[num_v] = partition_vertex_number[num_v]+1;
+			partition_latency[num_v] = partition_latency[num_v]+latency;
+		}
+
 	}
 };
 
@@ -383,7 +416,8 @@ public:
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
 	static MyPolygon *read_one_polygon();
-	static vector<MyPolygon *> load_binary_file(const char *path, int small_threshold = 0, int big_threshold = 1000000);
+
+	static vector<MyPolygon *> load_binary_file(const char *path, query_context ctx);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
 	bool contain(Point p, query_context *ctx);

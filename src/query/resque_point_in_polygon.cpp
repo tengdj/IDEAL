@@ -31,8 +31,8 @@ long load_count = 0;
 double *points;
 size_t cur_index = 0;
 size_t total_points = 0;
-float sample_rate = 1.0;
 
+query_context global_ctx;
 
 RTree<Geometry *, double, 2, double> tree;
 
@@ -164,7 +164,7 @@ void *query(void *args){
 		cur_index = local_end;
 		pthread_mutex_unlock(&poly_lock);
 		for(int i=local_cur;i<local_end;i++){
-			if(sample_rate<1.0 && !tryluck(sample_rate)){
+			if(ctx->sample_rate<1.0 && !tryluck(ctx->sample_rate)){
 				continue;
 			}
 			ctx->target = (void *)(targets[i]);
@@ -195,15 +195,15 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	int big_threshold = 500;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
 		("source,s", po::value<string>(&source_path)->required(), "path to the source")
 		("target,t", po::value<string>(&target_path)->required(), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
-		("big_threshold,b", po::value<int>(&big_threshold), "threshold for complex polygon")
-		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
+		("big_threshold,b", po::value<int>(&global_ctx.big_threshold), "up threshold for complex polygon")
+		("small_threshold", po::value<int>(&global_ctx.small_threshold), "low threshold for complex polygon")
+		("sample_rate", po::value<float>(&global_ctx.sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 	/////////////////////////////////////////////////////////////////////////////
 	// load the source into polygon
-	source_polygons = MyPolygon::load_binary_file(source_path.c_str(),big_threshold);
+	source_polygons = MyPolygon::load_binary_file(source_path.c_str(),global_ctx);
 	logt("loaded %ld polygons", start, source_polygons.size());
 
 	/////////////////////////////////////////////////////////////////////////////

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <float.h>
 #include <sstream>
+#include <vector>
 
 using namespace std;
 
@@ -103,7 +104,11 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 	return poly;
 }
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path,int small_threshold, int big_threshold){
+inline bool compareIterator(MyPolygon *p1, MyPolygon *p2){
+	return p1->get_num_vertices()>p2->get_num_vertices();
+}
+
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context ctx){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -113,13 +118,23 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path,int small_thres
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
 	int id = 0;
+	int iii = 0;
 	while(!infile.eof()){
 		MyPolygon *poly = read_polygon_binary_file(infile);
-		if(!poly||poly->get_num_vertices()<small_threshold||poly->get_num_vertices()>big_threshold){
+		if(!poly){
 			continue;
 		}
-		if(poly->area()<=0){
+
+		if(poly->get_num_vertices()<ctx.small_threshold||
+			  poly->get_num_vertices()>ctx.big_threshold||
+				poly->area()<=0){
 			delete poly;
+			continue;
+		}
+		if(ctx.sample_rate<1.0 && !tryluck(ctx.sample_rate)){
+			if(poly){
+				delete poly;
+			}
 			continue;
 		}
 		poly->setid(id++);
@@ -129,6 +144,9 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path,int small_thres
 		}
 	}
 	infile.close();
+	if(ctx.sort_polygons){
+		std::sort(polygons.begin(),polygons.end(),compareIterator);
+	}
 	return polygons;
 }
 
