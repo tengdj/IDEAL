@@ -113,6 +113,18 @@ inline void log(const char *format, ...){
 	pthread_mutex_unlock(&print_lock);
 }
 
+inline void log_stdout(const char *format, ...){
+	pthread_mutex_lock(&print_lock);
+	va_list args;
+	va_start(args, format);
+	char sprint_buf[200];
+	int n = vsprintf(sprint_buf, format, args);
+	va_end(args);
+	fprintf(stdout,"%s thread %ld:\t%s\n", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+	fflush(stdout);
+	pthread_mutex_unlock(&print_lock);
+}
+
 inline void log(){
 	pthread_mutex_lock(&print_lock);
 	fprintf(stdout,"%s thread %ld:\tterry is good\n", time_string().c_str(),syscall(__NR_gettid));

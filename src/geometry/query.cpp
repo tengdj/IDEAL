@@ -54,7 +54,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		return false;
 	}
 
-	if(ctx&&ctx->use_partition&&partitioned){
+	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		if(partitions[part_x][part_y].status==IN){
@@ -67,16 +67,19 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		}
 		ctx->rastor_only = false;
 		bool ret = false;
-		for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
-			// segment i->j intersect with line y=p.y
-			if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-				double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-				if(p.x - getx(i) < a * (p.y-gety(i))){
-					ret = !ret;
+		if(ctx->query_vector){
+			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
+				// segment i->j intersect with line y=p.y
+				if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+					double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+					if(p.x - getx(i) < a * (p.y-gety(i))){
+						ret = !ret;
+					}
 				}
 			}
+			ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
 		}
-		ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
+
 		return ret;
 	}else{
 		bool ret = false;
@@ -95,7 +98,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 
 
 bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
-	assert(partitioned&&ctx->use_partition);
+
 	ctx->rastor_only = true;
 	Pixel *a = getMBB();
 	if(!a->contain(b)){
@@ -151,7 +154,7 @@ bool MyPolygon::contain(Pixel *target, query_context *ctx){
 	if(!a->contain(target)){
 		return false;
 	}
-	if(ctx&&ctx->use_partition&&partitioned){
+	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		// test all the pixels
 		int txstart = this->get_pixel_x(a->low[0]);
 		int txend = this->get_pixel_x(a->high[0]);
@@ -187,7 +190,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	if(!a->intersect(b)){
 		return false;
 	}
-	if(ctx&&ctx->use_partition&&partitioned){
+	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		// test all the pixels
 		int txstart = this->get_pixel_x(a->low[0]);
 		int txend = this->get_pixel_x(a->high[0]);
@@ -265,7 +268,7 @@ bool MyPolygon::intersect_segment(Pixel *target){
 
 double MyPolygon::distance(Point &p, query_context *ctx){
 	Pixel *mbr = getMBB();
-	if(ctx&&ctx->use_partition&&partitioned){
+	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		double radius = min(step_x,step_y);

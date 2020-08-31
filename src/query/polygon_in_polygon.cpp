@@ -59,7 +59,7 @@ void *partition_unit(void *args){
 		for(int i=local_cur;i<local_end;i++){
 			struct timeval start = get_cur_time();
 
-			if(ctx->use_partition){
+			if(ctx->use_grid){
 				source[i]->partition(ctx->vpr);
 			}
 			if(ctx->use_qtree){
@@ -94,8 +94,8 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	MyPolygon *target = (MyPolygon *)ctx->target;
 	// query with parition
-	if(ctx->use_partition){
-		if(!poly->ispartitioned()){
+	if(ctx->use_grid){
+		if(!poly->is_grid_partitioned()){
 			poly->partition(ctx->vpr);
 		}
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
@@ -108,7 +108,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			ctx->found += poly->contain(target, ctx);
 		}
 	}else if(ctx->use_qtree){
-		if(!poly->ispartitioned()){
+		if(!poly->is_grid_partitioned()){
 			 poly->partition_qtree(ctx->vpr);
 		}
 		if(poly->get_qtree()->determine_contain(*(target->getMBB()))){
@@ -208,7 +208,7 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	global_ctx.use_partition = vm.count("rasterize");
+	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
 
 	pthread_t threads[num_threads];

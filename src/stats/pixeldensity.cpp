@@ -113,16 +113,16 @@ void *partition(void *args){
 				vector<vector<Pixel>> partitions = poly->partition(ctx->vprs[k]);
 				local[k].partition_time += get_time_elapsed(start,true);
 				for(int t=0;t<num_queries;t++){
-					qctx.use_partition = true;
+					qctx.use_grid = true;
 					poly->contain(targets[t],&qctx);
 					local[k].query_time += get_time_elapsed(start,true);
-					qctx.use_partition = false;
+					qctx.use_grid = false;
 					poly->contain(targets[t],&qctx);
 					local[k].nopartition_query_time += get_time_elapsed(start,true);
-					qctx.use_partition = true;
+					qctx.use_grid = true;
 					poly->distance(distance_targets[t],&qctx);
 					local[k].distance_query_time += get_time_elapsed(start,true);
-					qctx.use_partition = false;
+					qctx.use_grid = false;
 					poly->distance(distance_targets[t],&qctx);
 					local[k].nopartition_distance_query_time += get_time_elapsed(start,true);
 				}
@@ -146,7 +146,7 @@ void *partition(void *args){
 						}
 					}
 				}
-				poly->reset_partition();
+				poly->reset_grid_partition();
 			}
 			targets.clear();
 			distance_targets.clear();

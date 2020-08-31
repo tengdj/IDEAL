@@ -376,6 +376,67 @@ string MyPolygon::to_string(bool clockwise){
 }
 
 
+void MyPolygon::print_partition(query_context qt){
+	MyMultiPolygon *inpolys = new MyMultiPolygon();
+	MyMultiPolygon *borderpolys = new MyMultiPolygon();
+	MyMultiPolygon *outpolys = new MyMultiPolygon();
+
+	if(qt.use_qtree){
+		QTNode *qtree = get_qtree();
+		log("leaf count %d",qtree->leaf_count());
+		log("size in bytes %d",qtree->size());
+		std::stack<QTNode *> ws;
+		ws.push(qtree);
+		while(!ws.empty()){
+			QTNode *cur = ws.top();
+			ws.pop();
+			if(cur->isleaf){
+				if(cur->interior){
+					MyPolygon *m = cur->mbb.to_polygon();
+					inpolys->insert_polygon(m);
+				}else if(cur->exterior){
+					MyPolygon *m = cur->mbb.to_polygon();
+					outpolys->insert_polygon(m);
+				}else{
+					MyPolygon *m = cur->mbb.to_polygon();
+					borderpolys->insert_polygon(m);
+				}
+			}else{
+				cur->push(ws);
+			}
+		}
+	}
+	if(qt.use_grid){
+		for(int i=0;i<partitions.size();i++){
+			for(int j=0;j<partitions[0].size();j++){
+				MyPolygon *m = partitions[i][j].to_polygon();
+				if(partitions[i][j].status==BORDER){
+					borderpolys->insert_polygon(m);
+				}else if(partitions[i][j].status==IN){
+					inpolys->insert_polygon(m);
+				}else if(partitions[i][j].status==OUT){
+					outpolys->insert_polygon(m);
+				}
+			}
+		}
+	}
+
+	cout<<"polygon:"<<endl;
+	print();
+	cout<<"border:"<<endl;
+	borderpolys->print();
+	cout<<"in:"<<endl;
+	inpolys->print();
+	cout<<"out:"<<endl;
+	outpolys->print();
+
+
+	delete borderpolys;
+	delete inpolys;
+	delete outpolys;
+}
+
+
 
 Point *Point::read_one_point(string &input_line){
 

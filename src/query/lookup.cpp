@@ -50,7 +50,8 @@ int main(int argc, char** argv) {
 	po::notify(vm);
 	timeval start = get_cur_time();
 
-	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
+	query_context ctx;
+	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str(),ctx);
 	logt("loaded %ld polygons", start, source.size());
 	for(MyPolygon *p:source){
 		p->partition(10);
@@ -62,7 +63,7 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree", start);
 	query_context ctx;
-	ctx.use_partition = true;
+	ctx.use_grid = true;
 	ctx.target_p.x = point[0];
 	ctx.target_p.y = point[1];
 	tree.Search(point, point, MySearchCallback, (void *)&ctx);

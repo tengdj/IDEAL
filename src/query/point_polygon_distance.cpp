@@ -32,6 +32,7 @@ size_t total_points = 0;
 int buffer_size = 10;
 float sample_rate = 1.0;
 
+query_context global_ctx;
 
 RTree<MyPolygon *, double, 2, double> tree;
 double degree_per_kilometer_latitude = 360.0/40076.0;
@@ -48,8 +49,8 @@ double degree_per_kilometer_longitude(double latitude){
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	// query with parition
-	if(ctx->use_partition){
-		if(!poly->ispartitioned()){
+	if(ctx->use_grid){
+		if(!poly->is_grid_partitioned()){
 			poly->partition(ctx->vpr);
 		}
 	}
@@ -151,7 +152,7 @@ int main(int argc, char** argv) {
 
 	timeval start = get_cur_time();
 
-	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str());
+	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str(), global_ctx);
 	logt("loaded %ld points", start, source.size());
 	if(use_partition&&vm.count("active_partition")){
 		for(MyPolygon *p:source){
@@ -189,7 +190,7 @@ int main(int argc, char** argv) {
 	for(int i=0;i<num_threads;i++){
 		ctx[i].thread_id = i;
 		ctx[i].vpr = vpr;
-		ctx[i].use_partition = use_partition;
+		ctx[i].use_grid = use_partition;
 	}
 	for(int i=0;i<num_threads;i++){
 		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);

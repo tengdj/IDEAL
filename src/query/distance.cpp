@@ -35,7 +35,8 @@ int main(int argc, char **argv){
 	}
 	po::notify(vm);
 	timeval start = get_cur_time();
-	vector<MyPolygon *> polys = MyPolygon::load_binary_file(input_path.c_str());
+	query_context ctx;
+	vector<MyPolygon *> polys = MyPolygon::load_binary_file(input_path.c_str(), ctx);
 	logt("read polygons", start);
 	for(MyPolygon *p:polys){
 		p->partition(vpr);
@@ -43,14 +44,14 @@ int main(int argc, char **argv){
 	logt("partitioning polygons", start);
 	Point target(x,y);
 	query_context ctx;
-	ctx.use_partition = false;
+	ctx.use_grid = false;
 	for(MyPolygon *p:polys){
 		double dist = p->distance(target,&ctx);
 		//printf("%f\n",dist);
 	}
 	logt("querying without rasterization", start);
 
-	ctx.use_partition = true;
+	ctx.use_grid = true;
 	for(MyPolygon *p:polys){
 		p->distance(target,&ctx);
 	}

@@ -215,15 +215,17 @@ public:
 	void *target = NULL;
 	Point target_p;
 	int vpr = 10;
-	bool use_partition = false;
+	bool use_grid = false;
 	bool use_qtree = false;
+	bool query_vector = true;
+
 	int found = 0;
 	int checked = 0;
 	double distance = 0;
 	bool gpu = false;
 	size_t query_count = 0;
 	size_t inout_check = 0;
-	size_t border_check = 0;
+	size_t border_check = 1;
 	size_t edges_checked = 0;
 	bool rastor_only = false;
 	float sample_rate = 1.0;
@@ -233,6 +235,8 @@ public:
 
 	size_t total_data_size = 0;
 	size_t total_partition_size = 0;
+
+	size_t partitions_count = 0;
 
 	bool sort_polygons = false;
 
@@ -251,6 +255,7 @@ public:
 		res.edges_checked += obj.edges_checked;
 		res.total_data_size += obj.total_data_size;
 		res.total_partition_size += obj.total_partition_size;
+		res.partitions_count += obj.partitions_count;
 		for(auto &it :obj.partition_vertex_number){
 
 			const double lt = obj.partition_latency.at(it.first);
@@ -406,7 +411,6 @@ class MyPolygon{
 	QTNode *qtree = NULL;
 	double step_x = 0;
 	double step_y = 0;
-	bool partitioned = false;
 	int id = 0;
 	double area_buffer = -1;
 	pthread_mutex_t partition_lock;
@@ -449,7 +453,8 @@ public:
 	void evaluate_border(const int dimx, const int dimy);
 	void spread_pixels(const int dimx, const int dimy);
 
-	vector<vector<Pixel>> partition(int vertex_per_raster, double flatness=1);
+	vector<vector<Pixel>> partition(int vertex_per_raster);
+	vector<vector<Pixel>> partition(int xdim, int ydim);
 	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
 	QTNode *partition_qtree(const int vpr);
@@ -457,9 +462,8 @@ public:
 		return qtree;
 	}
 
-	void reset_partition(){
+	void reset_grid_partition(){
 		pthread_mutex_lock(&partition_lock);
-		partitioned = false;
 		for(vector<Pixel> &rows:partitions){
 			rows.clear();
 		}
@@ -467,8 +471,11 @@ public:
 		pthread_mutex_unlock(&partition_lock);
 	}
 
-	bool ispartitioned(){
-		return partitioned;
+	bool is_grid_partitioned(){
+		return partitions.size()>0;
+	}
+	bool is_qtree_partitioned(){
+		return qtree!=NULL;
 	}
 	inline int get_num_vertices(){
 		if(!boundary){
@@ -530,6 +537,8 @@ public:
 		area_buffer = std::max(sum,0.0);
 		return area_buffer;
 	}
+
+	void print_partition(query_context qc);
 };
 
 class queue_element{
