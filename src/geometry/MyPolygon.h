@@ -231,6 +231,9 @@ public:
 	int small_threshold = 500;
 	int big_threshold = 1000000;
 
+	size_t total_data_size = 0;
+	size_t total_partition_size = 0;
+
 	bool sort_polygons = false;
 
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
@@ -246,6 +249,8 @@ public:
 		res.border_check += obj.border_check;
 		res.found += obj.found;
 		res.edges_checked += obj.edges_checked;
+		res.total_data_size += obj.total_data_size;
+		res.total_partition_size += obj.total_partition_size;
 		for(auto &it :obj.partition_vertex_number){
 
 			const double lt = obj.partition_latency.at(it.first);

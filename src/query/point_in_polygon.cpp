@@ -10,7 +10,7 @@
 #include "../index/RTree.h"
 #include <queue>
 #include <boost/program_options.hpp>
-#include "cuda/mygpu.h"
+
 
 namespace po = boost::program_options;
 using namespace std;
@@ -67,7 +67,8 @@ void *partition_unit(void *args){
 				source[i]->partition(ctx->vpr);
 			}
 			if(ctx->use_qtree){
-				source[i]->partition_qtree(ctx->vpr);
+				QTNode *qtree = source[i]->partition_qtree(ctx->vpr);
+				ctx->total_partition_size += qtree->size();
 			}
 			double latency = get_time_elapsed(start);
 			int num_vertices = source[i]->get_num_vertices();
@@ -75,6 +76,12 @@ void *partition_unit(void *args){
 			if(latency>10000||num_vertices>200000){
 				logt("partition %d vertices takes",start,num_vertices);
 			}
+			if(num_vertices>400000){
+				cout<<source[i]->to_string()<<endl;
+			}
+
+			ctx->total_data_size += source[i]->get_data_size();
+
 			if(++local_count==1000){
 				pthread_mutex_lock(&report_lock);
 				partition_count += local_count;
@@ -247,9 +254,10 @@ int main(int argc, char** argv) {
 	}
 
 	if(vm.count("partition_only")){
-		for(auto it:global_ctx.partition_vertex_number){
-			cout<<it.first<<"\t"<<global_ctx.partition_latency[it.first]/it.second<<endl;
-		}
+//		for(auto it:global_ctx.partition_vertex_number){
+//			cout<<it.first<<"\t"<<global_ctx.partition_latency[it.first]/it.second<<endl;
+//		}
+		cout<<global_ctx.total_data_size<<" "<<global_ctx.total_partition_size<<endl;
 		return 0;
 	}
 
