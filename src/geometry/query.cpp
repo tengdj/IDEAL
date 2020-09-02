@@ -51,12 +51,22 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 	}
 	if(mbb->low[0]>p.x||mbb->low[1]>p.y||
 	   mbb->high[0]<p.x||mbb->high[1]<p.y){
+		log();
 		return false;
 	}
 
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
-		int part_x = this->get_pixel_x(p.x);
-		int part_y = this->get_pixel_y(p.y);
+		int part_x = get_pixel_x(p.x);
+		int part_y = get_pixel_y(p.y);
+		if(part_x>=partitions.size()){
+			log("%f %d %d %f %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size());
+		}
+//		if(part_y>=partitions[0].size()){
+//			log("%f %d %d %f %d %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size(),partitions[part_x][part_y].status);
+//		}
+		assert(part_x<partitions.size());
+		assert(part_y<partitions[0].size());
+
 		if(partitions[part_x][part_y].status==IN){
 			ctx->rastor_only = true;
 			return true;
@@ -68,6 +78,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		ctx->rastor_only = false;
 		bool ret = false;
 		if(ctx->query_vector){
+			assert(partitions[part_x][part_y].status==BORDER);
 			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
 				// segment i->j intersect with line y=p.y
 				if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
@@ -92,6 +103,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 				}
 			}
 		}
+		ctx->edges_checked += get_num_vertices();
 		return ret;
 	}
 }
@@ -106,15 +118,48 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	}
 	// test all the pixels
 	int txstart = this->get_pixel_x(b->low[0]);
-	int txend = this->get_pixel_x(b->high[0]);
 	int tystart = this->get_pixel_y(b->low[1]);
-	int tyend = this->get_pixel_y(b->high[1]);
+
 	int incount = 0;
 	int outcount = 0;
 	int total = 0;
 
-	for(int i=txstart;i<=txend;i++){
-		for(int j=tystart;j<=tyend;j++){
+	double width_d = (b->high[0]-b->low[0]+this->step_x*0.9999999)/this->step_x;
+	int width = double_to_int(width_d);
+
+	double height_d = (b->high[1]-b->low[1]+this->step_y*0.9999999)/this->step_y;
+	int height = double_to_int(height_d);
+
+//	//log("%f",abs(b->high[0]-this->step_x*width-b->low[0]));
+//
+//	if(b->high[0]-this->step_x*width-b->low[0]<0.000001){
+//		width--;
+//	}
+//
+
+//	//log("%f",abs(b->high[1]-this->step_y*height-b->low[1]));
+//
+//	if(b->high[1]-this->step_y*height-b->low[1]<0.000001){
+//		height--;
+//	}
+//
+//	txend = txstart + width;
+//	tyend = tystart + height;
+//	if(txend==partitions.size()){
+//		txend--;
+//	}
+//	if(tyend == partitions[0].size()){
+//		tyend--;
+//	}
+
+	//log("%d\t%d",width,height);
+
+	//log("%d %d %d %d %d %d",txstart, txend, txend-txstart, tystart,tyend,tyend-tystart);
+
+
+
+	for(int i=txstart;i<txstart+width;i++){
+		for(int j=tystart;j<tystart+height;j++){
 			total++;
 			if(partitions[i][j].status==OUT){
 				outcount++;

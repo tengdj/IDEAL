@@ -382,7 +382,7 @@ void MyPolygon::print_partition(query_context qt){
 	MyMultiPolygon *outpolys = new MyMultiPolygon();
 
 	if(qt.use_qtree){
-		QTNode *qtree = get_qtree();
+		partition_qtree(qt.vpr);
 		log("leaf count %d",qtree->leaf_count());
 		log("size in bytes %d",qtree->size());
 		std::stack<QTNode *> ws;
@@ -407,6 +407,7 @@ void MyPolygon::print_partition(query_context qt){
 		}
 	}
 	if(qt.use_grid){
+		partition(qt.vpr);
 		for(int i=0;i<partitions.size();i++){
 			for(int j=0;j<partitions[0].size();j++){
 				MyPolygon *m = partitions[i][j].to_polygon();

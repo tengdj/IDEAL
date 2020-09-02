@@ -224,8 +224,8 @@ public:
 	double distance = 0;
 	bool gpu = false;
 	size_t query_count = 0;
-	size_t inout_check = 0;
-	size_t border_check = 1;
+	size_t raster_checked = 0;
+	size_t vector_check = 0;
 	size_t edges_checked = 0;
 	bool rastor_only = false;
 	float sample_rate = 1.0;
@@ -249,8 +249,8 @@ public:
 	query_context operator + (query_context const &obj) {
 		query_context res = *this;
 		res.query_count += obj.query_count;
-		res.inout_check += obj.inout_check;
-		res.border_check += obj.border_check;
+		res.raster_checked += obj.raster_checked;
+		res.vector_check += obj.vector_check;
 		res.found += obj.found;
 		res.edges_checked += obj.edges_checked;
 		res.total_data_size += obj.total_data_size;
@@ -463,12 +463,10 @@ public:
 	}
 
 	void reset_grid_partition(){
-		pthread_mutex_lock(&partition_lock);
 		for(vector<Pixel> &rows:partitions){
 			rows.clear();
 		}
 		partitions.clear();
-		pthread_mutex_unlock(&partition_lock);
 	}
 
 	bool is_grid_partitioned(){
@@ -493,11 +491,13 @@ public:
 	}
 	inline int get_pixel_x(double xval){
 		assert(mbb);
-		return (xval-mbb->low[0])/step_x;
+		int x = double_to_int((xval-mbb->low[0])/step_x);
+		return x;
 	}
 	inline int get_pixel_y(double yval){
 		assert(mbb);
-		return (yval-mbb->low[1])/step_y;
+		int y = double_to_int((yval-mbb->low[1])/step_y);
+		return y;
 	}
 	inline int getid(){
 		return id;

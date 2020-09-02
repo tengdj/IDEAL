@@ -41,7 +41,7 @@ int partition_count = 0;
 int batch_num = 100;
 void *partition_unit(void *args){
 	query_context *ctx = (query_context *)args;
-	log("thread %d is started",ctx->thread_id);
+	//log("thread %d is started",ctx->thread_id);
 	int local_count = 0;
 	while(source_index!=source.size()){
 		int local_cur = 0;
@@ -66,6 +66,7 @@ void *partition_unit(void *args){
 			if(ctx->use_grid){
 				source[i]->partition(ctx->vpr);
 				ctx->partitions_count += source[i]->get_num_partitions();
+				//log("%d %d",source[i]->get_num_vertices(),source[i]->get_num_partitions());
 			}
 			if(ctx->use_qtree){
 				QTNode *qtree = source[i]->partition_qtree(ctx->vpr);
@@ -76,7 +77,7 @@ void *partition_unit(void *args){
 			int num_vertices = source[i]->get_num_vertices();
 			ctx->report_latency(num_vertices, latency);
 			if(latency>10000||num_vertices>200000){
-				logt("partition %d vertices takes",start,num_vertices);
+				logt("partition %d vertices",start,num_vertices);
 			}
 //			if(num_vertices>400000){
 //				cout<<source[i]->to_string()<<endl;
@@ -99,7 +100,7 @@ void *partition_unit(void *args){
 	partition_count += local_count;
 	global_ctx = global_ctx + *ctx;
 	pthread_mutex_unlock(&report_lock);
-	log("thread %d done his job",ctx->thread_id);
+
 	return NULL;
 }
 
@@ -108,36 +109,33 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	// query with parition
 	if(ctx->use_grid){
-		if(!poly->is_grid_partitioned()){
-			poly->partition(ctx->vpr);
-		}
+		assert(poly->is_grid_partitioned());
 		ctx->found += poly->contain(ctx->target_p,ctx);
 		if(ctx->rastor_only){
-			ctx->inout_check++;
+			ctx->raster_checked++;
 		}else{
-			ctx->border_check++;
+			ctx->vector_check++;
 		}
 	}else if(ctx->use_qtree){
-		if(!poly->is_grid_partitioned()){
-			 poly->partition_qtree(ctx->vpr);
-		}
+		assert(poly->is_qtree_partitioned());
 		QTNode *tnode = poly->get_qtree()->retrieve(ctx->target_p);
 		if(tnode->exterior||tnode->interior){
 			ctx->found += tnode->interior;
-			ctx->inout_check++;
+			ctx->raster_checked++;
 		}else if(ctx->query_vector){
 			ctx->found += poly->contain(ctx->target_p,ctx);
-			ctx->border_check++;
+			ctx->vector_check++;
 		}
 	}else{
 		ctx->found += poly->contain(ctx->target_p,ctx);
+		ctx->vector_check++;
 	}
 	return true;
 }
 
 void *query(void *args){
 	query_context *ctx = (query_context *)args;
-	log("thread %d is started",ctx->thread_id);
+	//log("thread %d is started",ctx->thread_id);
 	while(cur_index!=total_points){
 		int local_cur = 0;
 		int local_end = 0;
@@ -193,7 +191,6 @@ int main(int argc, char** argv) {
 		("partition_only", "partition only")
 		("rasterize,r", "partition with rasterization")
 		("qtree,q", "partition with qtree")
-		("active_partition,a", "partitioning source polygons before query")
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
@@ -233,7 +230,7 @@ int main(int argc, char** argv) {
 		ctx[i].thread_id = i;
 	}
 
-	if(vm.count("rasterize")&&vm.count("active_partition")){
+	if(vm.count("rasterize")||vm.count("qtree")){
 		for(int i=0;i<num_threads;i++){
 			pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
 		}
@@ -245,19 +242,8 @@ int main(int argc, char** argv) {
 		logt("partitioned %d polygons with %ld average partitions", start, partition_count, global_ctx.partitions_count/source.size());
 	}
 
-	if(vm.count("qtree")&&vm.count("active_partition")){
-		for(int i=0;i<num_threads;i++){
-			pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
-		}
 
-		for(int i = 0; i < num_threads; i++ ){
-			void *status;
-			pthread_join(threads[i], &status);
-		}
-		logt("partitioned %d polygons with %ld average partitions", start, partition_count, global_ctx.partitions_count/source.size());
-	}
-
-	if(vm.count("partition_only")){
+	if(vm.count("raster_only")){
 //		for(auto it:global_ctx.partition_vertex_number){
 //			cout<<it.first<<"\t"<<global_ctx.partition_latency[it.first]/it.second<<endl;
 //		}
@@ -300,8 +286,8 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons %ld rastor %ld vector %ld edges per vector %ld found",start,global_ctx.query_count,global_ctx.inout_check,global_ctx.border_check
-			,global_ctx.edges_checked/global_ctx.border_check, global_ctx.found);
+	logt("queried %d polygons %ld rastor %ld vector %ld edges per vector %ld found",start,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_check
+			,global_ctx.vector_check==0?0:global_ctx.edges_checked/global_ctx.vector_check, global_ctx.found);
 	for(MyPolygon *p:source){
 		delete p;
 	}

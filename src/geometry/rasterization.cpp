@@ -411,6 +411,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 
 	this->partition(dimx, dimy);
 	int box_count = 4;
+	int cur_level = 1;
 
 	qtree = new QTNode(*(this->getMBB()));
 	std::stack<QTNode *> ws;
@@ -422,6 +423,15 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	//breadth first traverse
 	query_context qc;
 	while(box_count<num_boxes||!ws.empty()){
+
+		if(cur_level>level){
+			dimx *= 2;
+			dimy *= 2;
+			level = cur_level;
+			this->reset_grid_partition();
+			this->partition(dimx, dimy);
+		}
+
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
 			ws.pop();
@@ -436,6 +446,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 			}
 		}
 
+
 		for(QTNode *n:level_nodes){
 			if(box_count<num_boxes){
 				n->split();
@@ -445,8 +456,10 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 				break;
 			}
 		}
+		cur_level++;
 		level_nodes.clear();
 	}
+	//assert(box_count>=num_boxes);
 
 	pthread_mutex_unlock(&partition_lock);
 

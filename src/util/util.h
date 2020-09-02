@@ -28,6 +28,14 @@ namespace{
 
 // some utility function
 
+inline int double_to_int(double val){
+	int vi = (int)val;
+	if(abs(1.0*(vi+1)-val)<0.00000001){
+		vi++;
+	}
+	return vi;
+}
+
 inline bool is_number(char ch){
 	return ch=='-'||ch=='.'||(ch<='9'&&ch>='0')||ch=='e';
 }

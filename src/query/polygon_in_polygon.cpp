@@ -20,7 +20,6 @@ int element_size = 100;
 
 // some shared parameters
 pthread_mutex_t poly_lock;
-bool stop = false;
 
 pthread_mutex_t report_lock;
 query_context global_ctx;
@@ -86,7 +85,6 @@ void *partition_unit(void *args){
 	partition_count += local_count;
 	global_ctx = global_ctx + *ctx;
 	pthread_mutex_unlock(&report_lock);
-	log("thread %d done his job",ctx->thread_id);
 	return NULL;
 }
 
@@ -101,10 +99,10 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 
 		if(ctx->rastor_only){
-			ctx->inout_check++;
+			ctx->raster_checked++;
 			ctx->found += isfound;
 		}else{
-			ctx->border_check++;
+			ctx->vector_check++;
 			ctx->found += poly->contain(target, ctx);
 		}
 	}else if(ctx->use_qtree){
@@ -112,10 +110,10 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			 poly->partition_qtree(ctx->vpr);
 		}
 		if(poly->get_qtree()->determine_contain(*(target->getMBB()))){
-			ctx->inout_check++;
+			ctx->raster_checked++;
 		}else{
 			ctx->found += poly->contain(target,ctx);
-			ctx->border_check++;
+			ctx->vector_check++;
 		}
 	}else{
 		ctx->found += poly->contain(target,ctx);
@@ -129,7 +127,7 @@ void *query(void *args){
 	pthread_mutex_lock(&poly_lock);
 	log("thread %d is started",ctx->thread_id);
 	pthread_mutex_unlock(&poly_lock);
-	while(!stop||shared_queue.size()>0){
+	while(shared_queue.size()>0){
 		queue_element *elem = NULL;
 		pthread_mutex_lock(&poly_lock);
 		if(!shared_queue.empty()){
@@ -177,14 +175,11 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	bool in_memory = false;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
 		("rasterize,r", "partition with rasterization")
 		("qtree,q", "partition with qtree")
-		("active_partition,a", "partitioning source polygons before query")
-		("in_memory,m", "data will be loaded into memory and start")
 		("source,s", po::value<string>(&source_path), "path to the source")
 		("target,t", po::value<string>(&target_path), "path to the target")
 		("threads,n", po::value<int>(&num_threads), "number of threads")
@@ -200,9 +195,6 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	po::notify(vm);
-	if(vm.count("in_memory")){
-		in_memory = true;
-	}
 	if(!vm.count("source")||!vm.count("target")){
 		cout << desc << "\n";
 		return 0;
@@ -223,8 +215,7 @@ int main(int argc, char** argv) {
 	source = MyPolygon::load_binary_file(source_path.c_str(),global_ctx);
 	logt("loaded %ld polygons", start, source.size());
 
-	if((vm.count("rasterize")&&vm.count("active_partition"))
-			||(vm.count("qtree")&&vm.count("active_partition"))){
+	if(vm.count("rasterize")||vm.count("qtree")){
 		for(int i=0;i<num_threads;i++){
 			pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
 		}
@@ -241,12 +232,6 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %d nodes", start,source.size());
 
-	if(!in_memory){
-		for(int i=0;i<num_threads;i++){
-			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
-		}
-	}
-
 	ifstream is;
 	is.open(target_path.c_str(), ios::in | ios::binary);
 	int eid = 0;
@@ -261,38 +246,29 @@ int main(int argc, char** argv) {
 		poly->setid(pid++);
 		elem->polys.push_back(poly);
 		if(elem->polys.size()==element_size){
-			while(!in_memory&&shared_queue.size()>10*num_threads){
-				usleep(10);
-			}
-			pthread_mutex_lock(&poly_lock);
 			shared_queue.push(elem);
-			pthread_mutex_unlock(&poly_lock);
 			elem = new queue_element(eid++);
 		}
-		if(in_memory&&++loaded%100000==0){
+		if(++loaded%100000==0){
 			log("loaded %d polygons",loaded);
 		}
 	}
 	if(elem->polys.size()>0){
-		pthread_mutex_lock(&poly_lock);
 		shared_queue.push(elem);
-		pthread_mutex_unlock(&poly_lock);
 	}else{
 		delete elem;
 	}
-	stop = true;
 
-	if(in_memory){
-		logt("loaded %d polygons",start,loaded);
-		for(int i=0;i<num_threads;i++){
-			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
-		}
+	logt("loaded %d polygons",start,loaded);
+	for(int i=0;i<num_threads;i++){
+		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
 	}
+
 	for(int i = 0; i < num_threads; i++ ){
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons %ld rastor %ld vector %ld found",start,global_ctx.query_count,global_ctx.inout_check,global_ctx.border_check
+	logt("queried %d polygons %ld rastor %ld vector %ld found",start,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_check
 			,global_ctx.found);
 
 //	for(MyPolygon *p:source){

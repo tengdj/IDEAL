@@ -35,7 +35,19 @@ int main(int argc, char **argv){
 	ctx.use_grid = !ctx.use_qtree;
 
 	MyPolygon *poly = MyMultiPolygon::read_one_polygon();
-	poly->print_partition(ctx);
+	if(ctx.use_grid){
+		poly->partition(ctx.vpr);
+	}
+	if(ctx.use_qtree){
+		poly->partition_qtree(ctx.vpr);
+	}
+	if(vm.count("print")){
+		poly->print_partition(ctx);
+		ctx.use_grid = true;
+		ctx.use_qtree = false;
+		//poly->print_partition(ctx);
+	}
+
 
 	delete poly;
 	return 0;
