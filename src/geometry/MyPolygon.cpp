@@ -422,8 +422,6 @@ void MyPolygon::print_partition(query_context qt){
 		}
 	}
 
-	cout<<"polygon:"<<endl;
-	print();
 	cout<<"border:"<<endl;
 	borderpolys->print();
 	cout<<"in:"<<endl;

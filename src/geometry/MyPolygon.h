@@ -240,6 +240,11 @@ public:
 
 	bool sort_polygons = false;
 
+	size_t distance_inex_checked = 0;
+	size_t distance_boundary_checked = 0;
+	size_t distance_edges_checked = 0;
+	size_t distance_checked = 0;
+
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
 	map<int, int> partition_vertex_number;
 	map<int, double> partition_latency;
@@ -256,6 +261,10 @@ public:
 		res.total_data_size += obj.total_data_size;
 		res.total_partition_size += obj.total_partition_size;
 		res.partitions_count += obj.partitions_count;
+		res.distance_boundary_checked += obj.distance_boundary_checked;
+		res.distance_edges_checked += obj.distance_edges_checked;
+		res.distance_inex_checked += obj.distance_inex_checked;
+		res.distance_checked += obj.distance_checked;
 		for(auto &it :obj.partition_vertex_number){
 
 			const double lt = obj.partition_latency.at(it.first);

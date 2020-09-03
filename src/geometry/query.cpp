@@ -319,6 +319,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		double radius = min(step_x,step_y);
 		bool is_contained = false;
 		if(mbr->contain(p)){
+			return 0;
 			if(partitions[part_x][part_y].status==IN){
 				return 0;
 			}
@@ -343,7 +344,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		}
 
 
-		double mindist = 1000;
+		ctx->distance_checked++;;
+
+		double mindist = 10000000;
 		int index = 0;
 		while(true){
 			double sx = 360;
@@ -471,6 +474,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 //				printf("%f\n",radius*radius-(xval-p.x)*(xval-p.x));
 //				cout<<pixx<<" "<<ty<<" "<<pixy<<" "<<partitions.size()<<" "<<partitions[0].size()<<endl;
 
+				//cout<<pixx<<" "<<pixy<<endl;
+
 				if(partitions[pixx][pixy].status==BORDER){
 					for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
 						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
@@ -478,17 +483,24 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							mindist = dist;
 							//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
 						}
+						ctx->distance_edges_checked++;
 					}
+					ctx->distance_boundary_checked++;
+				}else{
+					ctx->distance_inex_checked++;
 				}
 			}
-			if(mindist<=1000){
-				break;
+			if(mindist<=radius){
+				return mindist;
 			}
 			radius += step_x;
 			if(index++>10000){
+				this->print();
+				this->print_partition(*ctx);
 				mbr->print();
 				p.print();
 				printf("%f %f %f %f %ld %ld \n",radius,sx,ex,step_x,partitions.size(),partitions[0].size());
+				printf("%d %d %d\n",part_x, part_y,partitions[part_x][part_y].status);
 				exit(0);
 			}
 		}
