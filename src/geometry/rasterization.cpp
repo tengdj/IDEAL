@@ -437,7 +437,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 			ws.pop();
 			bool inside = this->contain_try_partition(&cur->mbb, &qc);
 
-			if(!qc.rastor_only){
+			if(!qc.raster_checked_only){
 				level_nodes.push_back(cur);
 			}else if(inside){
 				cur->interior = true;
@@ -552,4 +552,67 @@ char *MyPolygon::encode_partition(vector<vector<Pixel>> partitions){
 		}
 	}
 	return data;
+}
+
+void *partition_unit(void *args){
+	query_context *ctx = (query_context *)args;
+	query_context *gctx = ctx->global_ctx;
+	//log("thread %d is started",ctx->thread_id);
+	int local_count = 0;
+	while(ctx->next_batch(1)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			struct timeval start = get_cur_time();
+
+			if(ctx->use_grid){
+				gctx->source_polygons[i]->partition(ctx->vpr);
+				ctx->partitions_count += gctx->source_polygons[i]->get_num_partitions();
+			}
+			if(ctx->use_qtree){
+				QTNode *qtree = gctx->source_polygons[i]->partition_qtree(ctx->vpr);
+				ctx->total_partition_size += qtree->size();
+				ctx->partitions_count += qtree->leaf_count();
+			}
+			double latency = get_time_elapsed(start);
+			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
+			ctx->report_latency(num_vertices, latency);
+			if(latency>10000||num_vertices>200000){
+				logt("partition %d vertices",start,num_vertices);
+			}
+
+			ctx->total_data_size += gctx->source_polygons[i]->get_data_size();
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void process_partition(query_context *gctx){
+
+	gctx->index = 0;
+	size_t former = gctx->target_num;
+	gctx->target_num = gctx->source_polygons.size();
+	struct timeval start = get_cur_time();
+	pthread_t threads[gctx->num_threads];
+	query_context ctx[gctx->num_threads];
+	for(int i=0;i<gctx->num_threads;i++){
+		ctx[i] = *gctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = gctx;
+	}
+
+	for(int i=0;i<gctx->num_threads;i++){
+		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < gctx->num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+	logt("partitioned %d polygons with %ld average partitions", start,
+			gctx->source_polygons.size(),
+			gctx->partitions_count/gctx->source_polygons.size());
+	gctx->index = 0;
+	gctx->query_count = 0;
+	gctx->target_num = former;
 }

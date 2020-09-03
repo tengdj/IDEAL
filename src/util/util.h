@@ -18,6 +18,7 @@
 #include <sys/syscall.h>
 #include <time.h>
 #include <sstream>
+#include <math.h>
 
 using namespace std;
 
@@ -27,6 +28,17 @@ namespace{
 #define OSM_SRID 4326
 
 // some utility function
+
+const double degree_per_kilometer_latitude = 360.0/40076.0;
+
+inline double degree_per_kilometer_longitude(double latitude){
+	double absla = abs(latitude);
+	if(absla==90){
+		absla = 89;
+	}
+	assert(absla<90);
+	return 360.0/(sin((90-absla)/90)*40076);
+}
 
 inline int double_to_int(double val){
 	int vi = (int)val;
@@ -154,7 +166,7 @@ inline bool get_rand_sample(int rate){
 
 inline bool tryluck(float possibility){
 	assert(possibility<=1&&possibility>=0);
-	return (rand()*1.0)/RAND_MAX<possibility;
+	return possibility>=1.0||(rand()*1.0)/RAND_MAX<possibility;
 }
 
 inline bool is_dir(const char* path) {

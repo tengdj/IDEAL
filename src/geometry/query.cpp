@@ -51,7 +51,6 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 	}
 	if(mbb->low[0]>p.x||mbb->low[1]>p.y||
 	   mbb->high[0]<p.x||mbb->high[1]<p.y){
-		log();
 		return false;
 	}
 
@@ -68,14 +67,14 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		assert(part_y<partitions[0].size());
 
 		if(partitions[part_x][part_y].status==IN){
-			ctx->rastor_only = true;
+			ctx->raster_checked_only = true;
 			return true;
 		}
 		if(partitions[part_x][part_y].status==OUT){
-			ctx->rastor_only = true;
+			ctx->raster_checked_only = true;
 			return false;
 		}
-		ctx->rastor_only = false;
+		ctx->raster_checked_only = false;
 		bool ret = false;
 		if(ctx->query_vector){
 			assert(partitions[part_x][part_y].status==BORDER);
@@ -111,7 +110,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 
 bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 
-	ctx->rastor_only = true;
+	ctx->raster_checked_only = true;
 	Pixel *a = getMBB();
 	if(!a->contain(b)){
 		return false;
@@ -177,7 +176,7 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	}
 	//log("%d %d %d",total,incount,outcount);
 
-	ctx->rastor_only = false;
+	ctx->raster_checked_only = false;
 	return false;
 }
 
@@ -344,7 +343,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		}
 
 
-		ctx->distance_checked++;;
+		ctx->checked_count++;;
 
 		double mindist = 10000000;
 		int index = 0;
@@ -483,11 +482,11 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							mindist = dist;
 							//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
 						}
-						ctx->distance_edges_checked++;
+						ctx->edges_checked++;
 					}
-					ctx->distance_boundary_checked++;
+					ctx->vector_checked++;
 				}else{
-					ctx->distance_inex_checked++;
+					ctx->raster_checked++;
 				}
 			}
 			if(mindist<=radius){

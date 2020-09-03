@@ -188,9 +188,7 @@ void *query(void *args){
 			}
 		}
 	}
-	pthread_mutex_lock(&report_lock);
-	global_ctx = global_ctx+*ctx;
-	pthread_mutex_unlock(&report_lock);
+	ctx->merge_global();
 	return NULL;
 }
 
@@ -200,7 +198,6 @@ int main(int argc, char** argv) {
 	string source_path;
 	string target_path;
 	int num_threads = get_num_threads();
-	float sample_rate = 1;
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
@@ -209,7 +206,7 @@ int main(int argc, char** argv) {
 		("threads,n", po::value<int>(&num_threads), "number of threads")
 		("big_threshold,b", po::value<int>(&global_ctx.big_threshold), "up threshold for complex polygon")
 		("small_threshold", po::value<int>(&global_ctx.small_threshold), "low threshold for complex polygon")
-		("sample_rate,r", po::value<float>(&sample_rate), "sample rate")
+		("sample_rate,r", po::value<float>(&global_ctx.sample_rate), "sample rate")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -261,8 +258,7 @@ int main(int argc, char** argv) {
 	logt("built R-Tree with %d nodes", start,sources.size());
 	/*---------------------------------------------------------------------*/
 
-	query_context lc;
-	lc.sample_rate = sample_rate;
+	query_context lc = global_ctx;
 	lc.big_threshold = 100;
 	lc.small_threshold = 0;
 	target_polygons = MyPolygon::load_binary_file(target_path.c_str(),lc);

@@ -136,7 +136,6 @@ bool MySearchCallback(Geometry *poly, void* arg){
 
 	//exact query
 	ctx->found += poly->contains(p);
-	ctx->checked++;
 	return true;
 }
 
@@ -164,12 +163,10 @@ void *query(void *args){
 		cur_index = local_end;
 		pthread_mutex_unlock(&poly_lock);
 		for(int i=local_cur;i<local_end;i++){
-			if(ctx->sample_rate<1.0 && !tryluck(ctx->sample_rate)){
+			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
 			ctx->target = (void *)(targets[i]);
-			ctx->checked = 0;
-			ctx->found = 0;
 			tree.Search(points+2*i, points+2*i, MySearchCallback, (void *)ctx);
 			if(++local_count==1000){
 				pthread_mutex_lock(&report_lock);

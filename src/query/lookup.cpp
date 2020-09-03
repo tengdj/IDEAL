@@ -18,11 +18,12 @@ RTree<MyPolygon *, double, 2, double> tree;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
+	Point p = *(Point *)ctx->target;
 	// MBB check
-	if(!poly->getMBB()->contain(ctx->target_p)){
+	if(!poly->getMBB()->contain(p)){
 		return true;
 	}
-	if(poly->contain(ctx->target_p, ctx)){
+	if(poly->contain(p, ctx)){
 		poly->print();
 	}
 
@@ -64,8 +65,8 @@ int main(int argc, char** argv) {
 	logt("building R-Tree", start);
 	query_context ctx;
 	ctx.use_grid = true;
-	ctx.target_p.x = point[0];
-	ctx.target_p.y = point[1];
+	Point p(point[0],point[1]);
+	ctx.target = (void *)&p;
 	tree.Search(point, point, MySearchCallback, (void *)&ctx);
 
 	for(MyPolygon *p:source){

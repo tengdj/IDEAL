@@ -15,9 +15,13 @@
 #include <stack>
 #include <map>
 #include <bits/stdc++.h>
-
 #include "../util/util.h"
+
+
+#include <boost/program_options.hpp>
+namespace po = boost::program_options;
 using namespace std;
+
 const static char *multipolygon_char = "MULTIPOLYGON";
 const static char *polygon_char = "POLYGON";
 const static char *point_char = "POINT";
@@ -209,86 +213,6 @@ public:
 	double area();
 };
 
-class query_context{
-public:
-	int thread_id = 0;
-	void *target = NULL;
-	Point target_p;
-	int vpr = 10;
-	bool use_grid = false;
-	bool use_qtree = false;
-	bool query_vector = true;
-
-	int found = 0;
-	int checked = 0;
-	double distance = 0;
-	bool gpu = false;
-	size_t query_count = 0;
-	size_t raster_checked = 0;
-	size_t vector_check = 0;
-	size_t edges_checked = 0;
-	bool rastor_only = false;
-	float sample_rate = 1.0;
-
-	int small_threshold = 500;
-	int big_threshold = 1000000;
-
-	size_t total_data_size = 0;
-	size_t total_partition_size = 0;
-
-	size_t partitions_count = 0;
-
-	bool sort_polygons = false;
-
-	size_t distance_inex_checked = 0;
-	size_t distance_boundary_checked = 0;
-	size_t distance_edges_checked = 0;
-	size_t distance_checked = 0;
-
-	vector<pair<MyPolygon *, MyPolygon *>> candidates;
-	map<int, int> partition_vertex_number;
-	map<int, double> partition_latency;
-
-	query_context(){}
-	~query_context(){candidates.clear();}
-	query_context operator + (query_context const &obj) {
-		query_context res = *this;
-		res.query_count += obj.query_count;
-		res.raster_checked += obj.raster_checked;
-		res.vector_check += obj.vector_check;
-		res.found += obj.found;
-		res.edges_checked += obj.edges_checked;
-		res.total_data_size += obj.total_data_size;
-		res.total_partition_size += obj.total_partition_size;
-		res.partitions_count += obj.partitions_count;
-		res.distance_boundary_checked += obj.distance_boundary_checked;
-		res.distance_edges_checked += obj.distance_edges_checked;
-		res.distance_inex_checked += obj.distance_inex_checked;
-		res.distance_checked += obj.distance_checked;
-		for(auto &it :obj.partition_vertex_number){
-
-			const double lt = obj.partition_latency.at(it.first);
-			if(res.partition_vertex_number.find(it.first)!=res.partition_vertex_number.end()){
-				res.partition_vertex_number[it.first] = res.partition_vertex_number[it.first]+it.second;
-				res.partition_latency[it.first] = res.partition_latency[it.first]+lt;
-			}else{
-				res.partition_vertex_number[it.first] = it.second;
-				res.partition_latency[it.first] = lt;
-			}
-		}
-		return res;
-	}
-	void report_latency(int num_v, double latency){
-		if(partition_vertex_number.find(num_v)==partition_vertex_number.end()){
-			partition_vertex_number[num_v] = 1;
-			partition_latency[num_v] = latency;
-		}else{
-			partition_vertex_number[num_v] = partition_vertex_number[num_v]+1;
-			partition_latency[num_v] = partition_latency[num_v]+latency;
-		}
-
-	}
-};
 
 
 enum QT_Direction{
@@ -414,6 +338,97 @@ public:
 
 };
 
+class query_context{
+public:
+	//configuration
+	int thread_id = 0;
+	int num_threads = 0;
+	int vpr = 10;
+	int vpr_end = 10;
+	bool use_grid = false;
+	bool use_qtree = false;
+	bool query_vector = true;
+	bool gpu = false;
+	float sample_rate = 1.0;
+	int small_threshold = 500;
+	int big_threshold = 1000000;
+	bool sort_polygons = false;
+	int report_gap = 1000000;
+	int distance_buffer_size = 10;
+	string source_path;
+	string target_path;
+
+	//query target
+	void *target = NULL;
+	query_context *global_ctx = NULL;
+
+	//shared staff
+	size_t index = 0;
+	size_t index_end = 0;
+	pthread_mutex_t lock;
+
+
+	//result
+	double distance = 0;
+	bool raster_checked_only = false;
+
+	//query statistic
+	size_t found = 0;
+	size_t query_count = 0;
+	size_t checked_count = 0;
+	size_t raster_checked = 0;
+	size_t vector_checked = 0;
+	size_t edges_checked = 0;
+
+
+	//partition statistics
+	size_t total_data_size = 0;
+	size_t total_partition_size = 0;
+	size_t partitions_count = 0;
+
+	vector<MyPolygon *> source_polygons;
+	vector<MyPolygon *> target_polygons;
+	double *points = NULL;
+	size_t target_num = 0;
+
+
+	vector<pair<MyPolygon *, MyPolygon *>> candidates;
+	map<int, int> partition_vertex_number;
+	map<int, double> partition_latency;
+
+	query_context();
+	~query_context();
+	query_context(query_context &t);
+	query_context operator + (query_context const &obj);
+	query_context& operator=(query_context const &obj);
+
+	void report_latency(int num_v, double latency);
+	void load_points();
+	void report_progress();
+	void merge_global();
+	bool next_batch(int batch_num=1);
+	void reset_stats(){
+		//query statistic
+		found = 0;
+		query_count = 0;
+		checked_count = 0;
+		raster_checked = 0;
+		vector_checked = 0;
+		edges_checked = 0;
+
+
+		//partition statistics
+		total_data_size = 0;
+		total_partition_size = 0;
+		partitions_count = 0;
+
+		index = 0;
+	}
+};
+
+
+query_context get_parameters(int argc, char **argv);
+
 class MyPolygon{
 	Pixel *mbb = NULL;
 	vector<vector<Pixel>> partitions;
@@ -435,7 +450,7 @@ public:
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
 	static MyPolygon *read_one_polygon();
 
-	static vector<MyPolygon *> load_binary_file(const char *path, query_context ctx);
+	static vector<MyPolygon *> load_binary_file(const char *path, query_context ctx, bool sample=false);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
 	bool contain(Point p, query_context *ctx);
@@ -601,5 +616,11 @@ public:
 		return ds;
 	}
 };
+
+
+//utility functions
+
+void process_partition(query_context *ctx);
+
 
 #endif /* SRC_MYPOLYGON_H_ */

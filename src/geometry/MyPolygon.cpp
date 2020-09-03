@@ -108,7 +108,7 @@ inline bool compareIterator(MyPolygon *p1, MyPolygon *p2){
 	return p1->get_num_vertices()>p2->get_num_vertices();
 }
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context ctx){
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context ctx, bool sample){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -124,14 +124,13 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 		if(!poly){
 			continue;
 		}
-
 		if(poly->get_num_vertices()<ctx.small_threshold||
 			  poly->get_num_vertices()>ctx.big_threshold||
 				poly->area()<=0){
 			delete poly;
 			continue;
 		}
-		if(ctx.sample_rate<1.0 && !tryluck(ctx.sample_rate)){
+		if(sample&&!tryluck(ctx.sample_rate)){
 			if(poly){
 				delete poly;
 			}
@@ -139,7 +138,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 		}
 		poly->setid(id++);
 		polygons.push_back(poly);
-		if(id%1000000==0){
+		if(id%ctx.report_gap==0){
 			log("read %d polygons",id);
 		}
 	}
