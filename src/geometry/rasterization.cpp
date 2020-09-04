@@ -574,7 +574,7 @@ void *partition_unit(void *args){
 			}
 			double latency = get_time_elapsed(start);
 			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
-			ctx->report_latency(num_vertices, latency);
+			//ctx->report_latency(num_vertices, latency);
 			if(latency>10000||num_vertices>200000){
 				logt("partition %d vertices",start,num_vertices);
 			}

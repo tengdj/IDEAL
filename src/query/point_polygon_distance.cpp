@@ -26,7 +26,14 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		}
 	}
 	Point p = *(Point *)ctx->target;
+
+	timeval start = get_cur_time();
 	ctx->distance = poly->distance(p,ctx);
+	int nv = poly->get_num_vertices();
+	if(nv<5000){
+		nv = 100*(nv/100);
+		ctx->report_latency(nv, get_time_elapsed(start));
+	}
 	return true;
 }
 
@@ -108,7 +115,9 @@ int main(int argc, char** argv) {
 			1.0*global_ctx.vector_checked/global_ctx.checked_count,
 			global_ctx.edges_checked/global_ctx.checked_count,
 			global_ctx.edges_checked/global_ctx.vector_checked);
-
+	for(auto it:global_ctx.vertex_number){
+		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
+	}
 	return 0;
 }
 

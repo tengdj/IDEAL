@@ -71,15 +71,14 @@ query_context query_context::operator+ (query_context const &obj) {
 
 	return res;
 }
-void query_context::report_latency(int num_v, double latency){
-	if(partition_vertex_number.find(num_v)==partition_vertex_number.end()){
-		partition_vertex_number[num_v] = 1;
-		partition_latency[num_v] = latency;
+void query_context::report_latency(int num_v, double lt){
+	if(vertex_number.find(num_v)==vertex_number.end()){
+		vertex_number[num_v] = 1;
+		latency[num_v] = lt;
 	}else{
-		partition_vertex_number[num_v] = partition_vertex_number[num_v]+1;
-		partition_latency[num_v] = partition_latency[num_v]+latency;
+		vertex_number[num_v] = vertex_number[num_v]+1;
+		latency[num_v] = latency[num_v]+lt;
 	}
-
 }
 
 void query_context::load_points(){
@@ -125,14 +124,14 @@ void query_context::merge_global(){
 	global_ctx->total_partition_size += total_partition_size;
 	global_ctx->partitions_count += partitions_count;
 
-	for(auto &it :partition_vertex_number){
-		const double lt = partition_latency.at(it.first);
-		if(global_ctx->partition_vertex_number.find(it.first)!=global_ctx->partition_vertex_number.end()){
-			global_ctx->partition_vertex_number[it.first] = global_ctx->partition_vertex_number[it.first]+it.second;
-			global_ctx->partition_latency[it.first] = global_ctx->partition_latency[it.first]+lt;
+	for(auto &it :vertex_number){
+		const double lt = latency.at(it.first);
+		if(global_ctx->vertex_number.find(it.first)!=global_ctx->vertex_number.end()){
+			global_ctx->vertex_number[it.first] = global_ctx->vertex_number[it.first]+it.second;
+			global_ctx->latency[it.first] = global_ctx->latency[it.first]+lt;
 		}else{
-			global_ctx->partition_vertex_number[it.first] = it.second;
-			global_ctx->partition_latency[it.first] = lt;
+			global_ctx->vertex_number[it.first] = it.second;
+			global_ctx->latency[it.first] = lt;
 		}
 	}
 	pthread_mutex_unlock(&global_ctx->lock);

@@ -25,10 +25,16 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	// query with parition
 	if(ctx->use_grid){
 		assert(poly->is_grid_partitioned());
+		struct timeval start = get_cur_time();
 		ctx->found += poly->contain(p,ctx);
 		if(ctx->raster_checked_only){
 			ctx->raster_checked++;
 		}else{
+			int nv = poly->get_num_vertices();
+			if(nv<5000){
+				nv = 100*(nv/100);
+				ctx->report_latency(nv, get_time_elapsed(start));
+			}
 			ctx->vector_checked++;
 		}
 	}else if(ctx->use_qtree){
@@ -122,6 +128,10 @@ int main(int argc, char** argv) {
 	logt("queried %d polygons %ld rastor %ld vector %ld edges per vector %ld found",start,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
 			,global_ctx.vector_checked==0?0:global_ctx.edges_checked/global_ctx.vector_checked, global_ctx.found);
 
+
+	for(auto it:global_ctx.vertex_number){
+		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
+	}
 
 	return 0;
 }

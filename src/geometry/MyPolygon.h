@@ -393,8 +393,8 @@ public:
 
 
 	vector<pair<MyPolygon *, MyPolygon *>> candidates;
-	map<int, int> partition_vertex_number;
-	map<int, double> partition_latency;
+	map<int, int> vertex_number;
+	map<int, double> latency;
 
 	query_context();
 	~query_context();

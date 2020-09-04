@@ -20,6 +20,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->is_grid_partitioned()){
 			poly->partition(ctx->vpr);
 		}
+		timeval start = get_cur_time();
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 
 		if(ctx->raster_checked_only){
@@ -28,6 +29,11 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		}else{
 			ctx->vector_checked++;
 			ctx->found += poly->contain(target, ctx);
+			int nv = poly->get_num_vertices();
+			if(nv<5000){
+				nv = 100*(nv/100);
+				ctx->report_latency(nv, get_time_elapsed(start));
+			}
 		}
 	}else if(ctx->use_qtree){
 		if(!poly->is_grid_partitioned()){
@@ -125,7 +131,9 @@ int main(int argc, char** argv) {
 		}
 
 	}
-
+	for(auto it:global_ctx.vertex_number){
+		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
+	}
 //	for(MyPolygon *p:source){
 //		delete p;
 //	}
