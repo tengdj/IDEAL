@@ -115,6 +115,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 		return polygons;
 	}
 	log("loading polygon from %s",path);
+	struct timeval start = get_cur_time();
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
 	int id = 0;
@@ -146,6 +147,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	if(ctx.sort_polygons){
 		std::sort(polygons.begin(),polygons.end(),compareIterator);
 	}
+	logt("loaded %ld polygons", start, polygons.size());
 	return polygons;
 }
 

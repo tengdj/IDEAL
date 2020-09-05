@@ -14,6 +14,9 @@ CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
 
+GEOS_SRCS := $(wildcard geos/*.cpp)
+GEOS_OBJS := $(patsubst %.cpp,%.o,$(GEOS_SRCS))
+
 #compile all the cu files
 CU_SRCS := $(wildcard cuda/*.cu)
 CU_OBJS := $(patsubst %.cu,%_cu.o,$(CU_SRCS))
@@ -41,13 +44,13 @@ point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 
-resque_polygon_in_polygon:	query/resque_polygon_in_polygon.o $(GEOMETRY_OBJS)
+geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-resque_point_polygon_distance:	query/resque_point_polygon_distance.o $(GEOMETRY_OBJS)
+geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-resque_point_in_polygon:	query/resque_point_in_polygon.o $(GEOMETRY_OBJS)
+geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 	

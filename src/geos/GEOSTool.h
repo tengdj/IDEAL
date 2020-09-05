@@ -1,12 +1,12 @@
 /*
- * resque_util.h
+ * GEOSTool.h
  *
- *  Created on: Aug 28, 2020
+ *  Created on: Sep 4, 2020
  *      Author: teng
  */
 
-#ifndef SRC_QUERY_RESQUE_UTIL_H_
-#define SRC_QUERY_RESQUE_UTIL_H_
+#ifndef SRC_GEOMETRY_GEOSTOOL_H_
+#define SRC_GEOMETRY_GEOSTOOL_H_
 
 #include <geos/geom/PrecisionModel.h>
 #include <geos/geom/GeometryFactory.h>
@@ -16,6 +16,7 @@
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
 #include <geos/opBuffer.h>
+#include "../geometry/MyPolygon.h"
 
 
 using namespace geos;
@@ -26,22 +27,8 @@ using namespace geos::operation::distance;
 
 
 using namespace std;
-
-class resque_queue_element{
-public:
-	int id = 0;
-	vector<Geometry *> geoms;
-	resque_queue_element(int i){
-		id = i;
-	}
-	~resque_queue_element(){
-		for(Geometry *p:geoms){
-			delete p;
-		}
-		geoms.clear();
-	}
-};
+vector<Geometry *> process_geometries(vector<MyPolygon *> &polys);
+vector<Geometry *> process_points(double *points, size_t point_num);
 
 
-
-#endif /* SRC_QUERY_RESQUE_UTIL_H_ */
+#endif /* SRC_GEOMETRY_GEOSTOOL_H_ */
