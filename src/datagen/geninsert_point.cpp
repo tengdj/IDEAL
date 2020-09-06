@@ -35,8 +35,10 @@ int main(int argc, char** argv) {
 	}
 	for(int i=0;i<max_count;i++){
 		Point p(qc.points[2*i],qc.points[2*i+1]) ;
-		printf("%d%s\"",i+1,del.c_str());
+		printf("%d%s'",i+1,del.c_str());
 		p.print_without_return();
-		printf("\"\n");
+		printf("'\n");
 	}
 }
+
+//BULK INSERT polygon FROM '/gisdata/polygon.csv' WITH (FIELDTERMINATOR = ',',ROWTERMINATOR = '\n')

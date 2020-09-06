@@ -77,6 +77,12 @@ public:
 		printf("POINT (%f %f)",x,y);
 		//printf("x: %f y: %f\n",x,y);
 	}
+	string to_string(){
+		std::stringstream ss;
+		char double_str[200];
+		ss<<"POINT("<<x<<" "<<y<<")";
+		return ss.str();
+	}
 	static Point *read_one_point(string &str);
 };
 
