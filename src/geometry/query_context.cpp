@@ -41,6 +41,7 @@ query_context::query_context(query_context &t){
 	distance_buffer_size = t.distance_buffer_size;
 	source_path = t.source_path;
 	target_path = t.target_path;
+	query_type = t.query_type;
 	pthread_mutex_init(&lock, NULL);
 }
 
@@ -61,7 +62,8 @@ query_context& query_context::operator=(query_context const &t){
 	distance_buffer_size = t.distance_buffer_size;
 	source_path = t.source_path;
 	target_path = t.target_path;
-	pthread_mutex_init(&lock, NULL);
+    query_type = t.query_type;
+    pthread_mutex_init(&lock, NULL);
 	return *this;
 
 }

@@ -42,7 +42,19 @@ inline double point_to_segment_distance(const double x, const double y, const do
   return sqrt(dx * dx + dy * dy);
 }
 
-
+bool MyPolygon::contain(Point p){
+    bool ret = false;
+    for (int i = 0; i < get_num_vertices()-1; i++) {
+        // segment i->j intersect with line y=p.y
+        if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
+            double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
+            if(p.x - getx(i) < a * (p.y-gety(i))){
+                ret = !ret;
+            }
+        }
+    }
+    return ret;
+}
 
 bool MyPolygon::contain(Point p, query_context *ctx){
 
@@ -92,18 +104,8 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 
 		return ret;
 	}else{
-		bool ret = false;
-		for (int i = 0; i < get_num_vertices()-1; i++) {
-			// segment i->j intersect with line y=p.y
-			if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-				double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-				if(p.x - getx(i) < a * (p.y-gety(i))){
-					ret = !ret;
-				}
-			}
-		}
-		ctx->edges_checked += get_num_vertices();
-		return ret;
+        ctx->edges_checked += get_num_vertices();
+        return contain(p);
 	}
 }
 
@@ -310,15 +312,29 @@ bool MyPolygon::intersect_segment(Pixel *target){
 	return false;
 }
 
+double MyPolygon::distance(Point &p){
+    double mindist = DBL_MAX;
+    for (int i = 0; i < get_num_vertices()-1; i++) {
+        double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+        if(dist<mindist){
+            mindist = dist;
+        }
+    }
+    return mindist;
+}
+
 double MyPolygon::distance(Point &p, query_context *ctx){
 	Pixel *mbr = getMBB();
+	//todo: for debugging
+	if(mbr->contain(p)){
+	    return 0;
+	}
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
 		double radius = min(step_x,step_y);
 		bool is_contained = false;
 		if(mbr->contain(p)){
-			return 0;
 			if(partitions[part_x][part_y].status==IN){
 				return 0;
 			}
@@ -345,12 +361,14 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 		ctx->checked_count++;;
 
-		double mindist = 10000000;
+		double mindist = 10000000.0;
+		int border_checked = 0;
 		int index = 0;
 		while(true){
 			double sx = 360;
 			double ex = -360;
 
+			// initialize the radius considering inside or outside the MBR
 			if(is_contained){
 				sx = max(mbr->low[0],p.x-radius);
 				ex = min(mbr->high[0],p.x+radius);
@@ -451,14 +469,11 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 //			if(mindist<360){
 //				return mindist;
 //			}
+            // the first batch of border pixels can be used as a filter.
+            // the polygon is within only when at least the first batch of
+            // border pixels are within the distance
 
-//
-//
-//			if(abs(p.x-(155.091526))<0.00001 && abs(p.y-39.771422)<0.00001){
-//				printf("radius: %f\n",radius);
-//				printf("start x: %f\n",sx);
-//				printf("end x: %f\n\n",ex);
-//			}
+			// one iteration of pixel checking
 			for(double xval=sx;xval<=ex;xval+=step_x){
 				double ty = sqrt(abs(radius*radius-(xval-p.x)*(xval-p.x)));
 				double yval = ty+p.y;
@@ -470,13 +485,22 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				}
 				int pixx = get_pixel_x(xval);
 				int pixy = get_pixel_y(yval);
-//				printf("%f\n",radius*radius-(xval-p.x)*(xval-p.x));
-//				cout<<pixx<<" "<<ty<<" "<<pixy<<" "<<partitions.size()<<" "<<partitions[0].size()<<endl;
 
-				//cout<<pixx<<" "<<pixy<<endl;
+                if(partitions[pixx][pixy].status==BORDER){
+                    border_checked++;
+				    // no need to check the edges of this pixel
+                    if(ctx->query_type==QueryType::within){
+                        if(partitions[pixx][pixy].distance_geography(p)>ctx->distance_buffer_size){
+                            ctx->raster_checked++;
+                            continue;
+                        }else if(ctx->use_qtree){//grid indexing
+                            ctx->vector_checked++;
+                            return distance(p);
+                        }
+                    }
 
-				if(partitions[pixx][pixy].status==BORDER){
-					for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
+                    ctx->vector_checked++;
+                    for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
 						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
 						if(dist<mindist){
 							mindist = dist;
@@ -484,11 +508,19 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 						}
 						ctx->edges_checked++;
 					}
-					ctx->vector_checked++;
 				}else{
 					ctx->raster_checked++;
 				}
 			}
+			// for within query, if all firstly processed boundary pixels
+			// are not within the distance, simply return not in
+			if(ctx->query_type==QueryType::within){
+			    if(border_checked>0&&mindist==10000000.0){
+                    return mindist;
+                }
+			}
+
+
 			if(mindist<=radius){
 				return mindist;
 			}
@@ -504,29 +536,14 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 		}
 		return mindist;
-	}else{
-		bool ret = false;
-		for (int i = 0; i < get_num_vertices()-1; i++) {
-			// segment i->j intersect with line y=p.y
-			if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-				double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-				if(p.x - getx(i) < a * (p.y-gety(i))){
-					ret = !ret;
-				}
-			}
-		}
-		if(ret){
+	}else{//SIMPVEC
+        ctx->checked_count++;
+        ctx->vector_checked++;
+        if(contain(p)){
 			return 0;
+		}else{
+		    return distance(p);
 		}
-
-		double mindist = DBL_MAX;
-		for (int i = 0; i < get_num_vertices()-1; i++) {
-			double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
-			if(dist<mindist){
-				mindist = dist;
-			}
-		}
-		return mindist;
 	}
 }
 

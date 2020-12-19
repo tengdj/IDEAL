@@ -38,4 +38,4 @@ build/
 .cproject
 .project
 .settings/
-
+.idea/

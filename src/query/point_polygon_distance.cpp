@@ -26,6 +26,10 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		}
 	}
 	Point p = *(Point *)ctx->target;
+	if(poly->getMBB()->distance_geography(p)>ctx->distance_buffer_size){
+        //printf("%f\n",poly->getMBB()->distance_geography(p));
+        return true;
+	}
 
 	timeval start = get_cur_time();
 	ctx->distance = poly->distance(p,ctx);
@@ -74,14 +78,21 @@ void *query(void *args){
 int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
+	global_ctx.query_type = QueryType::within;
+	bool use_qtree = global_ctx.use_qtree;
 
 	timeval start = get_cur_time();
 
     global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
-	logt("loaded %ld points", start, global_ctx.source_polygons.size());
+	logt("loaded %ld polygons", start, global_ctx.source_polygons.size());
+	if(use_qtree){
+        global_ctx.use_grid = true;
+        global_ctx.use_qtree = false;
+	}
 	if(global_ctx.use_grid){
 		process_partition(&global_ctx);
 	}
+    global_ctx.use_qtree = use_qtree;
 
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
@@ -92,8 +103,8 @@ int main(int argc, char** argv) {
 	global_ctx.load_points();
 
 	start = get_cur_time();
-
-	pthread_t threads[global_ctx.num_threads];
+	
+    pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = query_context(global_ctx);

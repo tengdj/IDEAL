@@ -35,6 +35,12 @@ enum PartitionStatus{
 
 const static char *direction_str = "lrtb";
 
+enum QueryType{
+    contain = 0,
+    distance = 1,
+    within = 2
+};
+
 enum Direction{
 	LEFT = 0,
 	RIGHT = 1,
@@ -125,6 +131,14 @@ public:
 		double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
 		return sqrt(dx * dx + dy * dy);
 	}
+
+    double distance_geography(Point &p){
+        double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
+        double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
+        dx = dx/degree_per_kilometer_latitude;
+        dy = dy/degree_per_kilometer_longitude(p.y);
+        return sqrt(dx * dx + dy * dy);
+    }
 
 	vector<cross_info> crosses;
 	void enter(double val, Direction d, int vnum);
@@ -361,6 +375,7 @@ public:
 	bool sort_polygons = false;
 	int report_gap = 1000000;
 	int distance_buffer_size = 10;
+	QueryType query_type = QueryType::contain;
 	string source_path;
 	string target_path;
 
@@ -459,12 +474,14 @@ public:
 	static vector<MyPolygon *> load_binary_file(const char *path, query_context ctx, bool sample=false);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
+	bool contain(Point p);// brute-forcely check containment
 	bool contain(Point p, query_context *ctx);
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
 	bool contain(Pixel *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx);
+	double distance(Point &p);// brute-forcely calculate distance
 
 	bool contain_try_partition(Pixel *target, query_context *ctx);
 

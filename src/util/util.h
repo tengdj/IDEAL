@@ -92,8 +92,8 @@ inline string time_string(){
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	struct tm *nowtm;
-	char tmbuf[64];
-	char buf[64];
+	char tmbuf[100];
+	char buf[256];
 	nowtm = localtime(&tv.tv_sec);
 	strftime(tmbuf, sizeof tmbuf, "%H:%M:%S", nowtm);
 	sprintf(buf,"%s.%04ld", tmbuf, tv.tv_usec/1000);
