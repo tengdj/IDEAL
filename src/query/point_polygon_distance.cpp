@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
 	global_ctx.load_points();
 
 	start = get_cur_time();
-	
+
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
