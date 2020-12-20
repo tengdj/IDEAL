@@ -570,6 +570,9 @@ public:
 		return boundary->num_vertices;
 	}
 	inline double getx(int index){
+		if(index>=boundary->num_vertices){
+			printf("error %d\n",index);
+		}
 		assert(boundary&&index<boundary->num_vertices);
 		return boundary->x[index];
 	}

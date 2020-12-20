@@ -395,6 +395,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 						}else if(ctx->use_qtree){
 							ctx->vector_checked++;
 							ctx->edges_checked += this->get_num_vertices();
+							needprocess.clear();
 							//grid indexing return
 							return distance(p);
 						}
@@ -412,16 +413,16 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					ctx->raster_checked++;
 				}
 			}
+			needprocess.clear();
 
 			//printf("step:%d radius:%f mindist:%f\n",step,mbrdist+step*step_size,mindist);
 
 			// for within query, if all firstly processed boundary pixels
 			// are not within the distance, it is for sure no edge will
 			// be in the specified distance
-			if(ctx->query_type==QueryType::within){
-			    if(border_checked>0&&mindist==10000000.0){
-                    return mindist;
-                }
+			if(ctx->query_type==QueryType::within
+					&&border_checked>0&&mindist==10000000.0){
+				return mindist;
 			}
 
 			if(mindist<mbrdist+step*step_size){
@@ -429,7 +430,6 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 
 			step++;
-			needprocess.clear();
 		}
 		// IDEAL return
 		return mindist;
