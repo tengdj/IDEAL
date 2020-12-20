@@ -430,8 +430,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			for(double xval=sx;xval<=ex;xval+=step_x){
 				double ty = sqrt(abs(radius*radius-(xval-p.x)*(xval-p.x)));
 				int op = -1;
-				for(int t=0;t<2;t++){
+				for(int t=0;t<(ty==0?1:2);t++){
 					double yval = p.y+ty*op;
+
 					op *= -1;
 					if(yval>mbr->high[1]||yval<mbr->low[1]){
 						continue;
@@ -439,7 +440,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 					int pixx = get_pixel_x(xval);
 					int pixy = get_pixel_y(yval);
-					cout<<"radius:\t"<<radius<<" "<<pixx<<" "<<pixy<<endl;
+					printf("radius:%f pixx:%d pixy:%d xval:%f yval:%f\n",radius,pixx,pixy,xval,yval);
 
 					if(partitions[pixx][pixy].status==BORDER){
 						border_checked++;
@@ -482,10 +483,10 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 			//otherwise, enlarge the buffer circle
-			radius += step;
+			radius += step/2;
 
 			//todo: for debugging only, should not happen
-			if(index++>10000){
+			if(index++>this->partitions.size()||index>this->partitions[0].size()){
 				this->print();
 				this->print_partition(*ctx);
 				mbr->print();
