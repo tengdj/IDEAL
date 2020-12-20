@@ -340,6 +340,7 @@ void MyPolygon::print_without_head(bool print_hole){
 }
 
 void MyPolygon::print(bool print_hole){
+	cout<<"id:\t"<<this->id<<endl;
 	cout<<"POLYGON";
 	print_without_head(print_hole);
 	cout<<endl;

@@ -127,12 +127,18 @@ public:
 	}
 
 	double distance(Point &p){
+		if(this->contain(p)){
+			return 0;
+		}
 		double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
 		double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
 		return sqrt(dx * dx + dy * dy);
 	}
 
     double distance_geography(Point &p){
+    	if(this->contain(p)){
+    		return 0.0;
+    	}
         double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
         double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
         dx = dx/degree_per_kilometer_latitude;
@@ -369,6 +375,7 @@ public:
 	bool use_qtree = false;
 	bool query_vector = true;
 	bool gpu = false;
+	bool collect_latency = false;
 	float sample_rate = 1.0;
 	int small_threshold = 500;
 	int big_threshold = 1000000;

@@ -324,40 +324,21 @@ double MyPolygon::distance(Point &p){
 }
 
 double MyPolygon::distance(Point &p, query_context *ctx){
-	Pixel *mbr = getMBB();
-	//todo: for debugging
-	if(mbr->contain(p)){
-	    return 0;
-	}
+
+
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		int part_x = this->get_pixel_x(p.x);
 		int part_y = this->get_pixel_y(p.y);
-		double radius = min(step_x,step_y);
+		Pixel *mbr = getMBB();
+
+		double radius = mbr->distance(p)+min(step_x,step_y)/2;
 		bool is_contained = false;
 		if(mbr->contain(p)){
-			if(partitions[part_x][part_y].status==IN){
+			if(this->contain(p,ctx)){
 				return 0;
 			}
-			if(partitions[part_x][part_y].status==BORDER){
-				bool ret = false;
-				for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
-					// segment i->j intersect with line y=p.y
-					if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-						double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-						if(p.x - getx(i) < a * (p.y-gety(i))){
-							ret = !ret;
-						}
-					}
-				}
-				if(ret){
-					return 0;
-				}
-			}
 			is_contained = true;
-		}else{
-			radius = mbr->distance(p)+step_x/2;
 		}
-
 
 		ctx->checked_count++;;
 
@@ -368,7 +349,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			double sx = 360;
 			double ex = -360;
 
-			// initialize the radius considering inside or outside the MBR
+			// initialize the x range considering inside or outside the MBR
 			if(is_contained){
 				sx = max(mbr->low[0],p.x-radius);
 				ex = min(mbr->high[0],p.x+radius);
@@ -438,110 +419,88 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 				}
 			}
-//			mbr->print();
-//			p.print();
-//			printf("%f %f %f\n",radius, sx,ex);
+
 			if(sx<mbr->low[0]||sx>mbr->high[0]||ex<mbr->low[0]||ex>mbr->high[0]){
 				break;
 			}
-//			assert(sx>=mbr->low[0]&&sx<=mbr->high[0]);
-//			assert(ex>=mbr->low[0]&&ex<=mbr->high[0]);
-
-//			double sy = max(mbr->low[1],p.y-radius);
-//			double ey = min(mbr->high[1],p.y+radius);
-//			int pixxs = get_pixel_x(sx);
-//			int pixxe = get_pixel_x(ex);
-//			int pixys = get_pixel_y(sy);
-//			int pixye = get_pixel_y(ey);
-//			for(int pixx=pixxs;pixx<=pixxe;pixx++){
-//				for(int pixy=pixys;pixy<=pixye;pixy++){
-//					if(partitions[pixx][pixy].status==BORDER){
-//						for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
-//							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
-//							if(dist<mindist){
-//								mindist = dist;
-//								//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
-//							}
-//						}
-//					}
-//				}
-//			}
-//			if(mindist<360){
-//				return mindist;
-//			}
-            // the first batch of border pixels can be used as a filter.
-            // the polygon is within only when at least the first batch of
-            // border pixels are within the distance
 
 			// one iteration of pixel checking
 			for(double xval=sx;xval<=ex;xval+=step_x){
 				double ty = sqrt(abs(radius*radius-(xval-p.x)*(xval-p.x)));
-				double yval = ty+p.y;
-				if(yval>mbr->high[1]||yval<mbr->low[1]){
-					yval = p.y-ty;
-				}
-				if(yval>mbr->high[1]||yval<mbr->low[1]){
-					continue;
-				}
-				int pixx = get_pixel_x(xval);
-				int pixy = get_pixel_y(yval);
-
-                if(partitions[pixx][pixy].status==BORDER){
-                    border_checked++;
-				    // no need to check the edges of this pixel
-                    if(ctx->query_type==QueryType::within){
-                        if(partitions[pixx][pixy].distance_geography(p)>ctx->distance_buffer_size){
-                            ctx->raster_checked++;
-                            continue;
-                        }else if(ctx->use_qtree){//grid indexing
-                            ctx->vector_checked++;
-                            return distance(p);
-                        }
-                    }
-
-                    ctx->vector_checked++;
-                    for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
-						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
-						if(dist<mindist){
-							mindist = dist;
-							//cout<<"teng: "<<radius<<" "<<dist<<" "<<pixx<<" "<<pixy<<" "<<p.x<<" "<<p.y<<endl;
-						}
-						ctx->edges_checked++;
+				int op = -1;
+				for(int t=0;t<2;t++){
+					double yval = p.y+ty*op;
+					op *= -1;
+					if(yval>mbr->high[1]||yval<mbr->low[1]){
+						continue;
 					}
-				}else{
-					ctx->raster_checked++;
+
+					int pixx = get_pixel_x(xval);
+					int pixy = get_pixel_y(yval);
+
+					if(partitions[pixx][pixy].status==BORDER){
+						border_checked++;
+						// no need to check the edges of this pixel
+						if(ctx->query_type==QueryType::within){
+							if(partitions[pixx][pixy].distance_geography(p)>ctx->distance_buffer_size){
+								ctx->raster_checked++;
+								continue;
+							}else if(ctx->use_qtree){//grid indexing
+								ctx->vector_checked++;
+								ctx->edges_checked += this->get_num_vertices();
+								return distance(p);
+							}
+						}
+						ctx->vector_checked++;
+						for (int i = partitions[pixx][pixy].vstart; i <= partitions[pixx][pixy].vend; i++) {
+							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+							if(dist<mindist){
+								mindist = dist;
+							}
+							ctx->edges_checked++;
+						}
+					}else{
+						ctx->raster_checked++;
+					}
 				}
+
 			}
 			// for within query, if all firstly processed boundary pixels
-			// are not within the distance, simply return not in
+			// are not within the distance, it is for sure no edge will
+			// be in the specified distance
 			if(ctx->query_type==QueryType::within){
 			    if(border_checked>0&&mindist==10000000.0){
                     return mindist;
                 }
 			}
 
-
+			//minimum distance is found
 			if(mindist<=radius){
 				return mindist;
 			}
+			//otherwise, enlarge the buffer circle
 			radius += step_x;
+
+			//todo: for debugging only, should not happen
 			if(index++>10000){
 				this->print();
 				this->print_partition(*ctx);
 				mbr->print();
 				p.print();
-				printf("%f %f %f %f %ld %ld \n",radius,sx,ex,step_x,partitions.size(),partitions[0].size());
-				printf("%d %d %d\n",part_x, part_y,partitions[part_x][part_y].status);
+				printf("radius:\t%f\nstart_x:\t%f\nend_x:\t%f\nstep_x:\t%f\ndimension_x:\t%ld\ndimension_y:\t%ld\n"
+						,radius,sx,ex,step_x,partitions.size(),partitions[0].size());
+				printf("pixel_x:\t%d\npixel_y:\t%d\nstatus:\t%d\n",part_x, part_y,partitions[part_x][part_y].status);
 				exit(0);
 			}
 		}
 		return mindist;
 	}else{//SIMPVEC
-        ctx->checked_count++;
-        ctx->vector_checked++;
         if(contain(p)){
 			return 0;
 		}else{
+	        ctx->checked_count++;
+	        ctx->vector_checked++;
+	        ctx->edges_checked += this->get_num_vertices();
 		    return distance(p);
 		}
 	}

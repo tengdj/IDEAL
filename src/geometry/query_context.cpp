@@ -42,6 +42,7 @@ query_context::query_context(query_context &t){
 	source_path = t.source_path;
 	target_path = t.target_path;
 	query_type = t.query_type;
+	collect_latency = t.collect_latency;
 	pthread_mutex_init(&lock, NULL);
 }
 
@@ -63,6 +64,7 @@ query_context& query_context::operator=(query_context const &t){
 	source_path = t.source_path;
 	target_path = t.target_path;
     query_type = t.query_type;
+    collect_latency = t.collect_latency;
     pthread_mutex_init(&lock, NULL);
 	return *this;
 
@@ -174,6 +176,7 @@ query_context get_parameters(int argc, char **argv){
 		("big_threshold,b", po::value<int>(&global_ctx.big_threshold), "up threshold for complex polygon")
 		("small_threshold", po::value<int>(&global_ctx.small_threshold), "low threshold for complex polygon")
 		("sample_rate", po::value<float>(&global_ctx.sample_rate), "sample rate")
+		("latency,l","collect the latency information")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -190,6 +193,7 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
 	global_ctx.query_vector = !vm.count("raster_only");
+	global_ctx.collect_latency = vm.count("latency");
 
 	assert(!(global_ctx.use_grid&&global_ctx.use_qtree));
 	return global_ctx;

@@ -26,17 +26,18 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		}
 	}
 	Point p = *(Point *)ctx->target;
-	if(poly->getMBB()->distance_geography(p)>ctx->distance_buffer_size){
-        //printf("%f\n",poly->getMBB()->distance_geography(p));
+	if(poly->getMBB()->distance_geography(p)>(double)ctx->distance_buffer_size){
         return true;
 	}
 
 	timeval start = get_cur_time();
 	ctx->distance = poly->distance(p,ctx);
-	int nv = poly->get_num_vertices();
-	if(nv<5000){
-		nv = 100*(nv/100);
-		ctx->report_latency(nv, get_time_elapsed(start));
+	if(ctx->collect_latency){
+		int nv = poly->get_num_vertices();
+		if(nv<5000){
+			nv = 100*(nv/100);
+			ctx->report_latency(nv, get_time_elapsed(start));
+		}
 	}
 	return true;
 }
@@ -101,7 +102,6 @@ int main(int argc, char** argv) {
 
 	// read all the points
 	global_ctx.load_points();
-
 	start = get_cur_time();
 
     pthread_t threads[global_ctx.num_threads];
@@ -119,6 +119,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+
 	logt("queried %ld points %ld distance calculated %f exterior checked %f boundary checked %ld edges checked %ld edges per boundary pixel",start,
 			global_ctx.query_count,
 			global_ctx.checked_count,
@@ -126,8 +127,10 @@ int main(int argc, char** argv) {
 			1.0*global_ctx.vector_checked/global_ctx.checked_count,
 			global_ctx.edges_checked/global_ctx.checked_count,
 			global_ctx.edges_checked/global_ctx.vector_checked);
-	for(auto it:global_ctx.vertex_number){
-		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
+	if(global_ctx.collect_latency){
+		for(auto it:global_ctx.vertex_number){
+			cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
+		}
 	}
 	return 0;
 }
