@@ -440,7 +440,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 					int pixx = get_pixel_x(xval);
 					int pixy = get_pixel_y(yval);
-					printf("radius:%f pixx:%d pixy:%d xval:%f yval:%f\n",radius,pixx,pixy,xval,yval);
+					//printf("radius:%f pixx:%d pixy:%d xval:%f yval:%f\n",radius,pixx,pixy,xval,yval);
 
 					if(partitions[pixx][pixy].status==BORDER){
 						border_checked++;
