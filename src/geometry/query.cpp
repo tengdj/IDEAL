@@ -487,6 +487,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 			//todo: for debugging only, should not happen
 			if(index++>this->partitions.size()||index>this->partitions[0].size()){
+				lock();
 				this->print();
 				this->print_partition(*ctx);
 				mbr->print();

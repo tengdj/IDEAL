@@ -100,6 +100,15 @@ inline string time_string(){
 	return string(buf);
 }
 
+static pthread_mutex_t general_lock;
+inline void lock(){
+	pthread_mutex_lock(&general_lock);
+}
+
+inline void unlock(){
+	pthread_mutex_unlock(&general_lock);
+}
+
 static pthread_mutex_t print_lock;
 inline void logt(const char *format, struct timeval &start, ...){
 	pthread_mutex_lock(&print_lock);
