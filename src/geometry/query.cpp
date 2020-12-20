@@ -437,6 +437,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 					int pixx = get_pixel_x(xval);
 					int pixy = get_pixel_y(yval);
+					cout<<pixx<<" "<<pixy<<endl;
 
 					if(partitions[pixx][pixy].status==BORDER){
 						border_checked++;
