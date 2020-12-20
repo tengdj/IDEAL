@@ -182,6 +182,18 @@ public:
 	MyPolygon *to_polygon();
 	bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
 	void print(){
+		switch(status){
+		case IN:
+			printf("I-");
+			break;
+		case OUT:
+			printf("O-");
+			break;
+		case BORDER:
+			printf("B-");
+			break;
+		}
+		printf("%3d %3d-",id[0],id[1]);
 		printf("low_x: %f low_y %f high_x %f high_y %f\n",low[0],low[1],high[0],high[1]);
 	}
 
@@ -525,13 +537,14 @@ public:
 	string to_string(bool clockwise = true);
 	Pixel *getMBB();
 
-	void evaluate_border(const int dimx, const int dimy);
+	void evaluate_edges(const int dimx, const int dimy);
 	void spread_pixels(const int dimx, const int dimy);
 
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
 	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
+	Pixel *get_closest_pixel(Point p);
 	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){
 		return qtree;

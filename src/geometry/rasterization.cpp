@@ -9,7 +9,7 @@
 #include <math.h>
 #include <stack>
 
-void MyPolygon::evaluate_border(const int dimx, const int dimy){
+void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 	// normalize
 	assert(mbb);
 	const double start_x = mbb->low[0];
@@ -58,6 +58,7 @@ void MyPolygon::evaluate_border(const int dimx, const int dimy){
 		if(cur_endy==dimy){
 			cur_endy--;
 		}
+		// should not happen for normal cases
 		if(cur_startx>=dimx||cur_endx>=dimx||cur_starty>=dimy||cur_endy>=dimy){
 			cout<<"xrange\t"<<cur_startx<<" "<<cur_endx<<endl;
 			cout<<"yrange\t"<<cur_starty<<" "<<cur_endy<<endl;
@@ -258,7 +259,7 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 		step_y = 0.00001;
 		dimy = (end_y-start_y)/step_y+1;
 	}
-	evaluate_border(dimx,dimy);
+	evaluate_edges(dimx,dimy);
 	for(vector<Pixel> &parts:partitions){
 		for(Pixel &p:parts){
 			p.process_enter_leave();
@@ -268,6 +269,26 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 	spread_pixels(dimx,dimy);
 
 	return partitions;
+}
+
+Pixel *MyPolygon::get_closest_pixel(Point p){
+	assert(this->is_grid_partitioned());
+	int pixx = this->get_pixel_x(p.x);
+	int pixy = this->get_pixel_y(p.y);
+	if(pixx<0){
+		pixx = 0;
+	}
+	if(pixx>=partitions.size()){
+		pixx = partitions.size()-1;
+	}
+	if(pixy<0){
+		pixy = 0;
+	}
+	if(pixy>=partitions[0].size()){
+		pixy = partitions[0].size()-1;
+	}
+	return &partitions[pixx][pixy];
+
 }
 
 
@@ -302,7 +323,7 @@ vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
 		dimy = (end_y-start_y)/step_y+1;
 	}
 	//
-	evaluate_border(dimx, dimy);
+	evaluate_edges(dimx, dimy);
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &p:rows){
 			if(p.crosses.size()>0){
@@ -310,6 +331,8 @@ vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
 			}
 		}
 	}
+
+	//scanline rendering
 	for(int y=1;y<dimy;y++){
 		bool isin = false;
 		for(int x=0;x<dimx;x++){
