@@ -107,8 +107,8 @@ int main(int argc, char** argv) {
 	//global_ctx.load_points();
 	global_ctx.target_num=1;
 	global_ctx.points = new double[2];
-	global_ctx.points = -3.132255;
-	global_ctx.points = 53.249742;
+	global_ctx.points[0] = -3.132255;
+	global_ctx.points[1] = 53.249742;
 
 	start = get_cur_time();
 
