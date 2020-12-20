@@ -383,6 +383,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 
 			for(Pixel *cur:needprocess){
+				assert(cur->id[0]<partitions.size()&&cur->id[1]<partitions[0].size());
 				//cur->print();
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){
