@@ -578,8 +578,8 @@ public:
 	}
 	inline double gety(int index){
 		if(!boundary){
-			this->print();
 			printf("boundary is empty");
+			this->print();
 		}
 		if(index>=boundary->num_vertices){
 			printf("error %d\n",index);
