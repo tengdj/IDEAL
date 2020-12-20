@@ -570,19 +570,13 @@ public:
 		return boundary->num_vertices;
 	}
 	inline double getx(int index){
-		if(index>=boundary->num_vertices){
-			printf("error %d\n",index);
-		}
 		assert(boundary&&index<boundary->num_vertices);
 		return boundary->x[index];
 	}
 	inline double gety(int index){
-		if(!boundary){
-			printf("boundary is empty");
-			this->print();
-		}
-		if(index>=boundary->num_vertices){
+		if(!boundary||index<boundary->num_vertices){
 			printf("error %d\n",index);
+			exit(0);
 		}
 		assert(boundary&&index<boundary->num_vertices);
 		return boundary->y[index];
