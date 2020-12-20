@@ -96,12 +96,20 @@ int main(int argc, char** argv) {
     global_ctx.use_qtree = use_qtree;
 
 	for(MyPolygon *p:global_ctx.source_polygons){
+		if(p->getid()!=216624){
+			continue;
+		}
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
 
 	// read all the points
-	global_ctx.load_points();
+	//global_ctx.load_points();
+	global_ctx.target_num=1;
+	global_ctx.points = new double[2];
+	global_ctx.points = -3.132255;
+	global_ctx.points = 53.249742;
+
 	start = get_cur_time();
 
     pthread_t threads[global_ctx.num_threads];
