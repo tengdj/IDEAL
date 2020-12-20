@@ -354,7 +354,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				int xmin = max(0,start_pixx-step);
 				int xmax = min((int)partitions.size()-1,start_pixx+step);
 				int ymin = max(0,start_pixy-step);
-				int ymax = min((int)partitions.size()-1,start_pixx+step);
+				int ymax = min((int)partitions[0].size()-1,start_pixy+step);
 
 				//left scan
 				if(start_pixx-step>=0){
