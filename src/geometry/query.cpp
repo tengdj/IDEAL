@@ -61,8 +61,7 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 	if(!mbb){
 		getMBB();
 	}
-	if(mbb->low[0]>p.x||mbb->low[1]>p.y||
-	   mbb->high[0]<p.x||mbb->high[1]<p.y){
+	if(!mbb->contain(p)){
 		return false;
 	}
 
@@ -323,36 +322,54 @@ double MyPolygon::distance(Point &p){
     return mindist;
 }
 
+int iindex = 0;
+
 double MyPolygon::distance(Point &p, query_context *ctx){
 
+	if(contain(p,ctx)){
+		return 0;
+	}
+
+	ctx->checked_count++;
 
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
-		int part_x = this->get_pixel_x(p.x);
-		int part_y = this->get_pixel_y(p.y);
+
 		Pixel *mbr = getMBB();
 
-		const double step = min(step_x,step_y);
-
-		double radius = mbr->distance(p)+step/2;
-		bool is_contained = false;
-		if(mbr->contain(p)){
-			if(this->contain(p,ctx)){
-				return 0;
-			}
-			is_contained = true;
-		}
-
-		ctx->checked_count++;;
+		const double step = min(step_x,step_y)/2;
+		double radius = mbr->distance(p)+step;
+		double max_dist = mbr->max_distance(p);
 
 		double mindist = 10000000.0;
 		int border_checked = 0;
-		int index = 0;
 		while(true){
+
+			//todo: for debugging only, should not happen
+			if(radius>max_dist){
+				return distance(p);
+				//cout<<iindex++<<endl;
+				return 0;
+				lock();
+				this->print();
+				this->print_partition(*ctx);
+				mbr->print();
+				p.print();
+				printf("max_dist:\t%f\nradius:\t%f\nstep_x:\t%f\ndimension_x:\t%ld\ndimension_y:\t%ld\n",
+						max_dist,radius,step,partitions.size(),partitions[0].size());
+				if(mbr->contain(p)){
+					int part_x = this->get_pixel_x(p.x);
+					int part_y = this->get_pixel_y(p.y);
+					printf("pixel_x:\t%d\npixel_y:\t%d\nstatus:\t%d\n",part_x, part_y,partitions[part_x][part_y].status);
+				}
+				exit(0);
+			}
+
+
 			double sx = 360;
 			double ex = -360;
 
 			// initialize the x range considering inside or outside the MBR
-			if(is_contained){
+			if(mbr->contain(p)){
 				sx = max(mbr->low[0],p.x-radius);
 				ex = min(mbr->high[0],p.x+radius);
 			}else{
@@ -422,17 +439,17 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				}
 			}
 
+
 			if(sx<mbr->low[0]||sx>mbr->high[0]||ex<mbr->low[0]||ex>mbr->high[0]){
 				break;
 			}
 
 			// one iteration of pixel checking
-			for(double xval=sx;xval<=ex;xval+=step_x){
+			for(double xval=sx;xval<=ex;xval+=step){
 				double ty = sqrt(abs(radius*radius-(xval-p.x)*(xval-p.x)));
 				int op = -1;
-				for(int t=0;t<(ty==0?1:2);t++){
+				for(int t=0;t<(ty==0.0?1:2);t++){
 					double yval = p.y+ty*op;
-
 					op *= -1;
 					if(yval>mbr->high[1]||yval<mbr->low[1]){
 						continue;
@@ -440,7 +457,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 					int pixx = get_pixel_x(xval);
 					int pixy = get_pixel_y(yval);
-					//printf("radius:%f pixx:%d pixy:%d xval:%f yval:%f\n",radius,pixx,pixy,xval,yval);
+					//printf("radius:%f pixx:%d pixy:%d Point(%f %f)\n",radius,pixx,pixy,xval,yval);
 
 					if(partitions[pixx][pixy].status==BORDER){
 						border_checked++;
@@ -483,31 +500,16 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 			//otherwise, enlarge the buffer circle
-			radius += step/2;
+			radius += step;
 
-			//todo: for debugging only, should not happen
-			if(index++>this->partitions.size()||index>this->partitions[0].size()){
-				lock();
-				this->print();
-				this->print_partition(*ctx);
-				mbr->print();
-				p.print();
-				printf("radius:\t%f\nstart_x:\t%f\nend_x:\t%f\nstep_x:\t%f\ndimension_x:\t%ld\ndimension_y:\t%ld\n"
-						,radius,sx,ex,step,partitions.size(),partitions[0].size());
-				printf("pixel_x:\t%d\npixel_y:\t%d\nstatus:\t%d\n",part_x, part_y,partitions[part_x][part_y].status);
-				exit(0);
-			}
+
 		}
 		return mindist;
 	}else{//SIMPVEC
-        if(contain(p)){
-			return 0;
-		}else{
-	        ctx->checked_count++;
-	        ctx->vector_checked++;
-	        ctx->edges_checked += this->get_num_vertices();
-		    return distance(p);
-		}
+
+		ctx->vector_checked++;
+		ctx->edges_checked += this->get_num_vertices();
+		return distance(p);
 	}
 }
 

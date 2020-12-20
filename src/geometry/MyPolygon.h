@@ -126,6 +126,27 @@ public:
 			   p.y<=high[1];
 	}
 
+	double max_distance(Point p){
+		double md = 0;
+		double dist = (p.x-low[0])*(p.x-low[0])+(p.y-low[1])*(p.y-low[1]);
+		if(dist>md){
+			md = dist;
+		}
+		dist = (p.x-low[0])*(p.x-low[0])+(p.y-high[1])*(p.y-high[1]);
+		if(dist>md){
+			md = dist;
+		}
+		dist = (p.x-high[0])*(p.x-high[0])+(p.y-low[1])*(p.y-low[1]);
+		if(dist>md){
+			md = dist;
+		}
+		dist = (p.x-high[0])*(p.x-high[0])+(p.y-high[1])*(p.y-high[1]);
+		if(dist>md){
+			md = dist;
+		}
+		return sqrt(md);
+	}
+
 	double distance(Point &p){
 		if(this->contain(p)){
 			return 0;
