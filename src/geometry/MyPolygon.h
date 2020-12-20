@@ -574,7 +574,7 @@ public:
 		return boundary->x[index];
 	}
 	inline double gety(int index){
-		if(!boundary||index<boundary->num_vertices){
+		if(!boundary||index>=boundary->num_vertices){
 			printf("error %d\n",index);
 			printf("%d\n",boundary->num_vertices);
 			exit(0);
