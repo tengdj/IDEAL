@@ -331,7 +331,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		int part_y = this->get_pixel_y(p.y);
 		Pixel *mbr = getMBB();
 
-		double radius = mbr->distance(p)+min(step_x,step_y)/2;
+		const double step = min(step_x,step_y);
+
+		double radius = mbr->distance(p)+step/2;
 		bool is_contained = false;
 		if(mbr->contain(p)){
 			if(this->contain(p,ctx)){
@@ -480,7 +482,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 			//otherwise, enlarge the buffer circle
-			radius += step_x;
+			radius += step;
 
 			//todo: for debugging only, should not happen
 			if(index++>10000){
@@ -489,7 +491,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				mbr->print();
 				p.print();
 				printf("radius:\t%f\nstart_x:\t%f\nend_x:\t%f\nstep_x:\t%f\ndimension_x:\t%ld\ndimension_y:\t%ld\n"
-						,radius,sx,ex,step_x,partitions.size(),partitions[0].size());
+						,radius,sx,ex,step,partitions.size(),partitions[0].size());
 				printf("pixel_x:\t%d\npixel_y:\t%d\nstatus:\t%d\n",part_x, part_y,partitions[part_x][part_y].status);
 				exit(0);
 			}
