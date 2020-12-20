@@ -426,7 +426,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 
-			if(mindist<mbrdist+step*step_size){
+			if(mindist<mbrdist+step*step_size||mindist<10000000.0){
 				break;
 			}
 
