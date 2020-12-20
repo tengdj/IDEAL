@@ -381,6 +381,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 				}
 			}
+			if(needprocess.size()==0){
+				return distance(p);
+			}
 
 			for(Pixel *cur:needprocess){
 				assert(cur->id[0]<partitions.size()&&cur->id[1]<partitions[0].size());
@@ -426,7 +429,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 
-			if(mindist<mbrdist+step*step_size||mindist<10000000.0){
+			if(mindist<mbrdist+step*step_size){
 				break;
 			}
 
