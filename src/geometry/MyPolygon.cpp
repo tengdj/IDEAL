@@ -120,6 +120,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	infile.open(path, ios::in | ios::binary);
 	int id = 0;
 	int iii = 0;
+	size_t num_edges = 0;
 	while(!infile.eof()){
 		MyPolygon *poly = read_polygon_binary_file(infile);
 		if(!poly){
@@ -137,6 +138,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 			}
 			continue;
 		}
+		num_edges += poly->get_num_vertices();
 		poly->setid(id++);
 		polygons.push_back(poly);
 		if(id%ctx.report_gap==0){
@@ -147,7 +149,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	if(ctx.sort_polygons){
 		std::sort(polygons.begin(),polygons.end(),compareIterator);
 	}
-	logt("loaded %ld polygons", start, polygons.size());
+	logt("loaded %ld polygons each with %ld edges", start, polygons.size(),num_edges/polygons.size());
 	return polygons;
 }
 

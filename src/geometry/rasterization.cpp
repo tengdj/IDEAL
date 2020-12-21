@@ -9,12 +9,10 @@
 #include <math.h>
 #include <stack>
 
-void MyPolygon::evaluate_edges(const int dimx, const int dimy){
-	// normalize
+void MyPolygon::init_partition(const int dimx, const int dimy){
 	assert(mbb);
 	const double start_x = mbb->low[0];
 	const double start_y = mbb->low[1];
-
 	for(double i=0;i<=dimx;i++){
 		vector<Pixel> v;
 		for(double j=0;j<=dimy;j++){
@@ -28,7 +26,14 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 			v.push_back(m);
 		}
 		partitions.push_back(v);
-	}
+	};
+}
+
+void MyPolygon::evaluate_edges(const int dimx, const int dimy){
+	// normalize
+	assert(mbb);
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
 
 	for(int i=0;i<get_num_vertices()-1;i++){
 		double x1 = getx(i);
@@ -173,6 +178,7 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 						}
 					}
 				}
+				// for debugging, should never happen
 				if(!passed){
 					this->print(true);
 					cout<<"dim\t"<<dimx<<" "<<dimy<<endl;
@@ -188,87 +194,14 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 			}
 		}
 	}
-}
 
-void MyPolygon::spread_pixels(const int dimx, const int dimy){
-	for(int i=0;i<dimx;i++){
-		for(int j=0;j<dimy;j++){
-			// bottom up
-			if(partitions[i][j].border[TOP]==IN&&partitions[i][j+1].status==OUT){
-				partitions[i][j+1].setin();
-			}else if(partitions[i][j+1].border[BOTTOM]==IN&&partitions[i][j].status==OUT){
-				partitions[i][j].setin();
-			}
-			// left to right
-			if(partitions[i][j].border[RIGHT]==IN&&partitions[i+1][j].status==OUT){
-				partitions[i+1][j].setin();
-			}else if(partitions[i+1][j].border[LEFT]==IN&&partitions[i][j].status==OUT){
-				partitions[i][j].setin();
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &p:rows){
+			if(p.crosses.size()>0){
+				p.status = BORDER;
 			}
 		}
 	}
-}
-
-vector<vector<Pixel>> MyPolygon::partition(int vpr){
-	assert(vpr>0);
-	pthread_mutex_lock(&partition_lock);
-	if(is_grid_partitioned()){
-		pthread_mutex_unlock(&partition_lock);
-		return partitions;
-	}
-
-	getMBB();
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
-
-	double multi = abs((end_y-start_y)/(end_x-start_x));
-	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
-	int dimy = dimx*multi;
-
-	if(dimx==0){
-		dimx = 1;
-	}
-	if(dimy==0){
-		dimy = 1;
-	}
-	partitions = partition(dimx, dimy);
-
-	pthread_mutex_unlock(&partition_lock);
-	return partitions;
-}
-
-
-vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
-
-	getMBB();
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
-
-	step_x = (end_x-start_x)/dimx;
-	step_y = (end_y-start_y)/dimy;
-
-	if(step_x<0.00001){
-		step_x = 0.00001;
-		dimx = (end_x-start_x)/step_x+1;
-	}
-	if(step_y<0.00001){
-		step_y = 0.00001;
-		dimy = (end_y-start_y)/step_y+1;
-	}
-	evaluate_edges(dimx,dimy);
-	for(vector<Pixel> &parts:partitions){
-		for(Pixel &p:parts){
-			p.process_enter_leave();
-		}
-	}
-	//spread the in/out with edge information
-	spread_pixels(dimx,dimy);
-
-	return partitions;
 }
 
 Pixel *MyPolygon::get_closest_pixel(Point p){
@@ -292,10 +225,30 @@ Pixel *MyPolygon::get_closest_pixel(Point p){
 }
 
 
-
-
-vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
+vector<vector<Pixel>> MyPolygon::partition(int vpr){
 	assert(vpr>0);
+
+	getMBB();
+	const double start_x = mbb->low[0];
+	const double start_y = mbb->low[1];
+	const double end_x = mbb->high[0];
+	const double end_y = mbb->high[1];
+
+	double multi = abs((end_y-start_y)/(end_x-start_x));
+	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
+	int dimy = dimx*multi;
+
+	if(dimx==0){
+		dimx = 1;
+	}
+	if(dimy==0){
+		dimy = 1;
+	}
+
+	return partition(dimx, dimy);;
+}
+
+vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 	pthread_mutex_lock(&partition_lock);
 	if(is_grid_partitioned()){
 		pthread_mutex_unlock(&partition_lock);
@@ -306,10 +259,6 @@ vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
 	const double start_y = mbb->low[1];
 	const double end_x = mbb->high[0];
 	const double end_y = mbb->high[1];
-
-	double multi = abs((end_y-start_y)/(end_x-start_x));
-	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
-	int dimy = multi*dimx;
 
 	step_x = (end_x-start_x)/dimx;
 	step_y = (end_y-start_y)/dimy;
@@ -322,15 +271,12 @@ vector<vector<Pixel>> MyPolygon::partition_scanline(int vpr){
 		step_y = 0.00001;
 		dimy = (end_y-start_y)/step_y+1;
 	}
-	//
+
+	init_partition(dimx, dimy);
+
+	// edge crossing
 	evaluate_edges(dimx, dimy);
-	for(vector<Pixel> &rows:partitions){
-		for(Pixel &p:rows){
-			if(p.crosses.size()>0){
-				p.status = BORDER;
-			}
-		}
-	}
+
 
 	//scanline rendering
 	for(int y=1;y<dimy;y++){
@@ -588,12 +534,9 @@ void *partition_unit(void *args){
 
 			if(ctx->use_grid){
 				gctx->source_polygons[i]->partition(ctx->vpr);
-				ctx->partitions_count += gctx->source_polygons[i]->get_num_partitions();
 			}
 			if(ctx->use_qtree){
-				QTNode *qtree = gctx->source_polygons[i]->partition_qtree(ctx->vpr);
-				ctx->total_partition_size += qtree->size();
-				ctx->partitions_count += qtree->leaf_count();
+				gctx->source_polygons[i]->partition_qtree(ctx->vpr);
 			}
 			double latency = get_time_elapsed(start);
 			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
@@ -601,8 +544,6 @@ void *partition_unit(void *args){
 			if(latency>10000||num_vertices>200000){
 				logt("partition %d vertices",start,num_vertices);
 			}
-
-			ctx->total_data_size += gctx->source_polygons[i]->get_data_size();
 			ctx->report_progress();
 		}
 	}
@@ -632,9 +573,16 @@ void process_partition(query_context *gctx){
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+
+	//collect partitioning status
+	size_t num_partitions = 0;
+	for(MyPolygon *poly:gctx->source_polygons){
+		num_partitions += poly->get_num_partitions();
+	}
+
 	logt("partitioned %d polygons with %ld average partitions", start,
 			gctx->source_polygons.size(),
-			gctx->partitions_count/gctx->source_polygons.size());
+			num_partitions/gctx->source_polygons.size());
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;

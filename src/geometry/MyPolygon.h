@@ -98,14 +98,11 @@ public:
 	double low[2];
 	double high[2];
 	PartitionStatus status = OUT;
-	PartitionStatus border[4];
+
 	int vstart = -1;
 	int vend = -1;
 	Pixel(){
-		border[0] = OUT;
-		border[1] = OUT;
-		border[2] = OUT;
-		border[3] = OUT;
+
 	}
 	bool intersect(Pixel *target){
 		return !(target->low[0]>high[0]||
@@ -170,17 +167,9 @@ public:
 	vector<cross_info> crosses;
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);
-	void process_enter_leave();
-	void setin(){
-		status = IN;
-		border[0] = IN;
-		border[1] = IN;
-		border[2] = IN;
-		border[3] = IN;
-	}
 
 	MyPolygon *to_polygon();
-	bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
+
 	void print(){
 		switch(status){
 		case IN:
@@ -437,16 +426,14 @@ public:
 	size_t found = 0;
 	size_t query_count = 0;
 	size_t checked_count = 0;
-	size_t raster_checked = 0;
-	size_t vector_checked = 0;
+	size_t pixel_checked = 0;
+	size_t border_checked = 0;
 	size_t edges_checked = 0;
+	double pixel_check_time = 0;
+	double edges_check_time = 0;
 
 
-	//partition statistics
-	size_t total_data_size = 0;
-	size_t total_partition_size = 0;
-	size_t partitions_count = 0;
-
+	// temporary storage for query processing
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
 	double *points = NULL;
@@ -457,6 +444,8 @@ public:
 	map<int, int> vertex_number;
 	map<int, double> latency;
 
+
+	// functions
 	query_context();
 	~query_context();
 	query_context(query_context &t);
@@ -473,18 +462,15 @@ public:
 		found = 0;
 		query_count = 0;
 		checked_count = 0;
-		raster_checked = 0;
-		vector_checked = 0;
+		pixel_checked = 0;
+		border_checked = 0;
 		edges_checked = 0;
-
-
-		//partition statistics
-		total_data_size = 0;
-		total_partition_size = 0;
-		partitions_count = 0;
-
+		pixel_check_time = 0;
+		edges_check_time = 0;
 		index = 0;
 	}
+
+	void print_stats();
 };
 
 
@@ -537,12 +523,13 @@ public:
 	string to_string(bool clockwise = true);
 	Pixel *getMBB();
 
+	void init_partition(const int dimx, const int dimy);
 	void evaluate_edges(const int dimx, const int dimy);
 	void spread_pixels(const int dimx, const int dimy);
 
+
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
-	vector<vector<Pixel>> partition_scanline(int vertex_per_raster);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
 	Pixel *get_closest_pixel(Point p);
 	QTNode *partition_qtree(const int vpr);

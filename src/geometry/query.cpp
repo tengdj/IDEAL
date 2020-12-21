@@ -64,18 +64,28 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 	if(!mbb->contain(p)){
 		return false;
 	}
-
+	if(ctx->query_type==QueryType::contain){
+		ctx->checked_count++;
+	}
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
+		if(ctx->query_type==QueryType::contain){
+			ctx->pixel_checked++;
+		}
+		struct timeval pixel_start = get_cur_time();
 		int part_x = get_pixel_x(p.x);
 		int part_y = get_pixel_y(p.y);
-		if(part_x>=partitions.size()){
-			log("%f %d %d %f %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size());
+		if(ctx->query_type==QueryType::contain){
+			ctx->pixel_check_time += get_time_elapsed(pixel_start);
 		}
+//		if(part_x>=partitions.size()){
+//			log("%f %d %d %f %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size());
+//		}
 //		if(part_y>=partitions[0].size()){
 //			log("%f %d %d %f %d %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size(),partitions[part_x][part_y].status);
 //		}
 		assert(part_x<partitions.size());
 		assert(part_y<partitions[0].size());
+
 
 		if(partitions[part_x][part_y].status==IN){
 			ctx->raster_checked_only = true;
@@ -85,9 +95,13 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 			ctx->raster_checked_only = true;
 			return false;
 		}
+
+
 		ctx->raster_checked_only = false;
+
 		bool ret = false;
 		if(ctx->query_vector){
+			struct timeval border_start = get_cur_time();
 			assert(partitions[part_x][part_y].status==BORDER);
 			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
 				// segment i->j intersect with line y=p.y
@@ -98,12 +112,17 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 					}
 				}
 			}
-			ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
+			if(ctx->query_type==QueryType::contain){
+				ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
+				ctx->border_checked++;
+				ctx->edges_check_time += get_time_elapsed(border_start);
+			}
 		}
-
 		return ret;
 	}else{
-        ctx->edges_checked += get_num_vertices();
+		if(ctx->query_type==QueryType::contain){
+			ctx->edges_checked += get_num_vertices();
+		}
         return contain(p);
 	}
 }
@@ -338,8 +357,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 		//initialize the starting pixel
 		Pixel *center_pixel = this->get_closest_pixel(p);
-		int start_pixx = center_pixel->id[0];
-		int start_pixy = center_pixel->id[1];
+		const int start_pixx = center_pixel->id[0];
+		const int start_pixy = center_pixel->id[1];
 		int step = 0;
 		double step_size = min(step_x,step_y);
 
@@ -348,6 +367,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		// for filtering
 		int border_checked = 0;
 		while(true){
+			struct timeval pixel_start = get_cur_time();
 			if(step==0){
 				needprocess.push_back(center_pixel);
 			}else{
@@ -381,40 +401,39 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 				}
 			}
+			ctx->pixel_check_time += get_time_elapsed(pixel_start);
 			if(needprocess.size()==0){
 				return distance(p);
 			}
+			ctx->pixel_checked += needprocess.size();
 
 			for(Pixel *cur:needprocess){
 				assert(cur->id[0]<partitions.size()&&cur->id[1]<partitions[0].size());
 				//cur->print();
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){
+					struct timeval border_start = get_cur_time();
 					border_checked++;
 					// no need to check the edges of this pixel
 					if(ctx->query_type==QueryType::within){
 						if(cur->distance_geography(p)>ctx->distance_buffer_size){
-							ctx->raster_checked++;
 							continue;
 						}else if(ctx->use_qtree){
-							ctx->vector_checked++;
-							ctx->edges_checked += this->get_num_vertices();
 							needprocess.clear();
 							//grid indexing return
 							return distance(p);
 						}
 					}
 					// the vector model need be checked.
-					ctx->vector_checked++;
+					ctx->border_checked++;
+					ctx->edges_checked += cur->vend-cur->vstart;
 					for (int i = cur->vstart; i <= cur->vend; i++) {
 						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
 						if(dist<mindist){
 							mindist = dist;
 						}
-						ctx->edges_checked++;
 					}
-				}else{
-					ctx->raster_checked++;
+					ctx->edges_check_time += get_time_elapsed(border_start);
 				}
 			}
 			needprocess.clear();
@@ -439,8 +458,6 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		return mindist;
 
 	}else{
-
-		ctx->vector_checked++;
 		ctx->edges_checked += this->get_num_vertices();
 		//SIMPVEC return
 		return distance(p);

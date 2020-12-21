@@ -27,29 +27,26 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		assert(poly->is_grid_partitioned());
 		struct timeval start = get_cur_time();
 		ctx->found += poly->contain(p,ctx);
-		if(ctx->raster_checked_only){
-			ctx->raster_checked++;
-		}else{
+		if(!ctx->raster_checked_only){
 			int nv = poly->get_num_vertices();
 			if(nv<5000){
 				nv = 100*(nv/100);
 				ctx->report_latency(nv, get_time_elapsed(start));
 			}
-			ctx->vector_checked++;
 		}
 	}else if(ctx->use_qtree){
 		assert(poly->is_qtree_partitioned());
 		QTNode *tnode = poly->get_qtree()->retrieve(p);
 		if(tnode->exterior||tnode->interior){
 			ctx->found += tnode->interior;
-			ctx->raster_checked++;
+			ctx->pixel_checked++;
 		}else if(ctx->query_vector){
 			ctx->found += poly->contain(p,ctx);
-			ctx->vector_checked++;
+			ctx->border_checked++;
 		}
 	}else{
 		ctx->found += poly->contain(p,ctx);
-		ctx->vector_checked++;
+		ctx->border_checked++;
 	}
 	return true;
 }
@@ -80,21 +77,26 @@ int main(int argc, char** argv) {
 
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
+	global_ctx.query_type = QueryType::contain;
 
-	timeval start = get_cur_time();
 	global_ctx.sort_polygons = true;
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
-	logt("loaded %ld polygons", start, global_ctx.source_polygons.size());
 
+	timeval start = get_cur_time();
 	if(global_ctx.use_grid||global_ctx.use_qtree){
 		process_partition(&global_ctx);
 		start = get_cur_time();
 		if(!global_ctx.query_vector){
-	//		for(auto it:global_ctx.partition_vertex_number){
-	//			cout<<it.first<<"\t"<<global_ctx.partition_latency[it.first]/it.second<<endl;
-	//		}
-			//source[0]->print_partition(global_ctx);
-			log("%ld %ld",global_ctx.total_data_size,global_ctx.total_partition_size);
+			//collect partitioning status
+			size_t total_data_size = 0;
+			size_t total_partition_size = 0;
+			for(MyPolygon *poly:global_ctx.source_polygons){
+				total_data_size += poly->get_data_size();
+				if(global_ctx.use_qtree){
+					total_partition_size += poly->get_qtree()->size();
+				}
+			}
+			log("%ld %ld",total_data_size,total_partition_size);
 			return 0;
 		}
 	}
@@ -125,13 +127,9 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons %ld rastor %ld vector %ld edges per vector %ld found",start,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
-			,global_ctx.vector_checked==0?0:global_ctx.edges_checked/global_ctx.vector_checked, global_ctx.found);
+	global_ctx.print_stats();
+	logt("total query",start);
 
-
-	for(auto it:global_ctx.vertex_number){
-		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
-	}
 
 	return 0;
 }

@@ -92,7 +92,7 @@ void *partition(void *args){
 						cross_count[k]+=partitions[i][j].crosses.size();
 					}
 				}
-				poly->reset_partition();
+				poly->reset_grid_partition();
 			}
 		}
 		delete elem;

@@ -120,13 +120,11 @@ void query_context::merge_global(){
 	global_ctx->found += found;
 	global_ctx->query_count += query_count;
 	global_ctx->checked_count += checked_count;
-	global_ctx->raster_checked += raster_checked;
-	global_ctx->vector_checked += vector_checked;
+	global_ctx->pixel_checked += pixel_checked;
+	global_ctx->border_checked += border_checked;
 	global_ctx->edges_checked += edges_checked;
-
-	global_ctx->total_data_size += total_data_size;
-	global_ctx->total_partition_size += total_partition_size;
-	global_ctx->partitions_count += partitions_count;
+	global_ctx->pixel_check_time += pixel_check_time;
+	global_ctx->edges_check_time += edges_check_time;
 
 	for(auto &it :vertex_number){
 		const double lt = latency.at(it.first);
@@ -156,6 +154,32 @@ bool query_context::next_batch(int batch_num){
 	global_ctx->index = index_end;
 	pthread_mutex_unlock(&global_ctx->lock);
 	return true;
+}
+
+void query_context::print_stats(){
+
+	log("query count:\t%ld",query_count);
+	log("checked count:\t%ld",checked_count);
+	if(checked_count>0){
+		log("pixel/checked:\t%f",(double)pixel_checked/checked_count);
+		log("border/checked:\t%f",(double)border_checked/checked_count);
+		log("edges/checked:\t%f",(double)edges_checked/checked_count);
+	}
+	if(border_checked>0){
+		log("edges/border:\t%f",(double)edges_checked/border_checked);
+	}
+	if(pixel_check_time>0){
+		log("latency/pixel:\t%f",pixel_check_time/pixel_checked);
+	}
+	if(edges_check_time>0){
+		log("latency/edge:\t%f",edges_check_time/edges_checked);
+	}
+
+	if(collect_latency){
+		for(auto it:vertex_number){
+			cout<<it.first<<"\t"<<latency[it.first]/it.second<<endl;
+		}
+	}
 }
 
 

@@ -24,10 +24,10 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 
 		if(ctx->raster_checked_only){
-			ctx->raster_checked++;
+			ctx->pixel_checked++;
 			ctx->found += isfound;
 		}else{
-			ctx->vector_checked++;
+			ctx->border_checked++;
 			ctx->found += poly->contain(target, ctx);
 			int nv = poly->get_num_vertices();
 			if(nv<5000){
@@ -40,10 +40,10 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			 poly->partition_qtree(ctx->vpr);
 		}
 		if(poly->get_qtree()->determine_contain(*(target->getMBB()))){
-			ctx->raster_checked++;
+			ctx->pixel_checked++;
 		}else{
 			ctx->found += poly->contain(target,ctx);
-			ctx->vector_checked++;
+			ctx->border_checked++;
 		}
 	}else{
 		ctx->found += poly->contain(target,ctx);
@@ -123,16 +123,14 @@ int main(int argc, char** argv) {
 			void *status;
 			pthread_join(threads[i], &status);
 		}
-		logt("vpr %d: queried %d polygons %ld rastor %ld vector %ld found",start,vpr,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
-				,global_ctx.found);
-
+//		logt("vpr %d: queried %d polygons %ld rastor %ld vector %ld found",start,vpr,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
+//				,global_ctx.found);
+		global_ctx.print_stats();
+		logt("query time",start);
 		for(MyPolygon *p:global_ctx.source_polygons){
 			p->reset_grid_partition();
 		}
 
-	}
-	for(auto it:global_ctx.vertex_number){
-		cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
 	}
 //	for(MyPolygon *p:source){
 //		delete p;

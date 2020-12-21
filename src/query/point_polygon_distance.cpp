@@ -121,18 +121,8 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 	}
 
-	logt("queried %ld points %ld distance calculated %f exterior checked %f boundary checked %ld edges checked %ld edges per boundary pixel",start,
-			global_ctx.query_count,
-			global_ctx.checked_count,
-			1.0*global_ctx.raster_checked/global_ctx.checked_count,
-			1.0*global_ctx.vector_checked/global_ctx.checked_count,
-			global_ctx.edges_checked/global_ctx.checked_count,
-			global_ctx.edges_checked/global_ctx.vector_checked);
-	if(global_ctx.collect_latency){
-		for(auto it:global_ctx.vertex_number){
-			cout<<it.first<<"\t"<<global_ctx.latency[it.first]/it.second<<endl;
-		}
-	}
+	global_ctx.print_stats();
+	logt("total query",start);
 	return 0;
 }
 
