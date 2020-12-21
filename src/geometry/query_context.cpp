@@ -176,7 +176,7 @@ void query_context::print_stats(){
 		log("latency/edge:\t%f",edges_check_time/edges_checked);
 	}
 	if(check_time>0){
-		log("latency/checked:\t%f",(check_time-edges_check_time)/checked_count);
+		log("latency/checked:\t%f",(check_time-edges_check_time-pixel_check_time)/checked_count);
 	}
 
 	if(collect_latency){
