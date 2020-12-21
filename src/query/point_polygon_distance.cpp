@@ -58,6 +58,7 @@ void *query(void *args){
 			if(!tryluck(gctx->sample_rate)){
 				continue;
 			}
+			struct timeval query_start = get_cur_time();
 			Point p(gctx->points[2*i],gctx->points[2*i+1]);
 			ctx->target = (void *)&p;
 			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
@@ -68,6 +69,7 @@ void *query(void *args){
 			buffer_high[1] = gctx->points[2*i+1]+shifty;
 			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
+			ctx->check_time += get_time_elapsed(query_start);
 		}
 	}
 	ctx->merge_global();
