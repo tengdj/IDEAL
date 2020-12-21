@@ -125,6 +125,7 @@ void query_context::merge_global(){
 	global_ctx->edges_checked += edges_checked;
 	global_ctx->pixel_check_time += pixel_check_time;
 	global_ctx->edges_check_time += edges_check_time;
+	global_ctx->check_time += check_time;
 
 	for(auto &it :vertex_number){
 		const double lt = latency.at(it.first);
@@ -173,6 +174,9 @@ void query_context::print_stats(){
 	}
 	if(edges_check_time>0){
 		log("latency/edge:\t%f",edges_check_time/edges_checked);
+	}
+	if(check_time>0){
+		log("latency/checked:\t%f",(check_time-edges_check_time)/checked_count);
 	}
 
 	if(collect_latency){

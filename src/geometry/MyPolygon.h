@@ -431,6 +431,7 @@ public:
 	size_t edges_checked = 0;
 	double pixel_check_time = 0;
 	double edges_check_time = 0;
+	double check_time = 0;
 
 
 	// temporary storage for query processing
@@ -467,6 +468,7 @@ public:
 		edges_checked = 0;
 		pixel_check_time = 0;
 		edges_check_time = 0;
+		check_time = 0;
 		index = 0;
 	}
 

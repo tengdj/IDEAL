@@ -553,9 +553,13 @@ void *partition_unit(void *args){
 
 void process_partition(query_context *gctx){
 
+	// must be non-empty
+	assert(gctx->source_polygons.size()>0);
+
 	gctx->index = 0;
 	size_t former = gctx->target_num;
 	gctx->target_num = gctx->source_polygons.size();
+
 	struct timeval start = get_cur_time();
 	pthread_t threads[gctx->num_threads];
 	query_context ctx[gctx->num_threads];

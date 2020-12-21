@@ -85,7 +85,6 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 
     global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
-	logt("loaded %ld polygons", start, global_ctx.source_polygons.size());
 	if(use_qtree){
         global_ctx.use_grid = true;
         global_ctx.use_qtree = false;

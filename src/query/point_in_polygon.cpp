@@ -27,7 +27,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		assert(poly->is_grid_partitioned());
 		struct timeval start = get_cur_time();
 		ctx->found += poly->contain(p,ctx);
-		if(!ctx->raster_checked_only){
+		if(!ctx->raster_checked_only&&ctx->collect_latency){
 			int nv = poly->get_num_vertices();
 			if(nv<5000){
 				nv = 100*(nv/100);
@@ -60,9 +60,11 @@ void *query(void *args){
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
+			struct timeval start = get_cur_time();
 			Point p(gctx->points[2*i],gctx->points[2*i+1]);
 			ctx->target = (void *)&p;
 			tree.Search(gctx->points+2*i, gctx->points+2*i, MySearchCallback, (void *)ctx);
+			ctx->check_time += get_time_elapsed(start);
 			ctx->report_progress();
 		}
 	}

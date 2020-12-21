@@ -405,9 +405,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			if(needprocess.size()==0){
 				return distance(p);
 			}
-			ctx->pixel_checked += needprocess.size();
 
 			for(Pixel *cur:needprocess){
+				ctx->pixel_checked++;
 				assert(cur->id[0]<partitions.size()&&cur->id[1]<partitions[0].size());
 				//cur->print();
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
@@ -419,6 +419,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 						if(cur->distance_geography(p)>ctx->distance_buffer_size){
 							continue;
 						}else if(ctx->use_qtree){
+							ctx->border_checked++;
+							ctx->edges_checked += this->get_num_vertices();
 							needprocess.clear();
 							//grid indexing return
 							return distance(p);
