@@ -75,9 +75,9 @@ int main(int argc, char** argv) {
 		bool grid = global_ctx.use_grid;
 		global_ctx.use_grid = true;
 		process_partition(&global_ctx);
+		process_mer(&global_ctx);
 		global_ctx.use_grid = grid;
 
-		process_mer(&global_ctx);
 	}
 
 	if(global_ctx.use_grid||global_ctx.use_qtree){
