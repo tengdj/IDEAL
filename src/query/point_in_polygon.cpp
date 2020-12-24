@@ -67,22 +67,19 @@ int main(int argc, char** argv) {
 	global_ctx.sort_polygons = true;
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
+	if(global_ctx.use_grid||global_ctx.use_qtree){
+		process_partition(&global_ctx);
+	}
+
 	if(global_ctx.use_convex_hall){
 		process_convex_hull(&global_ctx);
 	}
 
 	if(global_ctx.use_mer){
-		bool grid = global_ctx.use_grid;
-		global_ctx.use_grid = true;
-		process_partition(&global_ctx);
 		process_mer(&global_ctx);
-		global_ctx.use_grid = grid;
-
 	}
 
-	if(global_ctx.use_grid||global_ctx.use_qtree){
-		process_partition(&global_ctx);
-	}
+
 
 	timeval start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){

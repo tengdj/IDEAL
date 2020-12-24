@@ -205,6 +205,13 @@ MyPolygon::~MyPolygon(){
 	if(mer){
 		delete mer;
 	}
+	for(vector<Pixel> &pt:partitions){
+		pt.clear();
+	}
+	partitions.clear();
+	if(qtree){
+		delete qtree;
+	}
 }
 
 

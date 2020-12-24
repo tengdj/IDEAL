@@ -94,7 +94,9 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	if(mer){
 		return mer;
 	}
-
+	if(!is_grid_partitioned()){
+		partition(ctx->vpr);
+	}
 
 	assert(this->is_grid_partitioned());
 	vector<int> interiors;
@@ -279,6 +281,7 @@ VertexSequence *convexHull(VertexSequence *boundary){
    ch->x[ch->num_vertices] = ch->x[0];
    ch->y[ch->num_vertices++] = ch->y[0];
 
+   free(points);
    return ch;
 }
 
@@ -296,14 +299,14 @@ void *convex_hull_unit(void *args){
 	query_context *gctx = ctx->global_ctx;
 	//log("thread %d is started",ctx->thread_id);
 	int local_count = 0;
-	while(ctx->next_batch(1)){
+	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			struct timeval start = get_cur_time();
 			VertexSequence *ch = gctx->source_polygons[i]->get_convex_hull();
 			double latency = get_time_elapsed(start);
 			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
 			if(latency>10000){
-				logt("partition %d vertices",start,num_vertices);
+				logt("get convex hull from polygon with %d vertices",start,num_vertices);
 			}
 			ctx->report_progress();
 		}
@@ -359,12 +362,9 @@ void *mer_unit(void *args){
 	query_context *gctx = ctx->global_ctx;
 	//log("thread %d is started",ctx->thread_id);
 	int local_count = 0;
-	while(ctx->next_batch(1)){
+	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			struct timeval start = get_cur_time();
 			gctx->source_polygons[i]->getMER(ctx);
-			double latency = get_time_elapsed(start);
-			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
 			ctx->report_progress();
 		}
 	}
@@ -400,14 +400,18 @@ void process_mer(query_context *gctx){
 	}
 
 	//collect convex hull status
-	size_t num_vertexes = 0;
+	double mbr_size = 0;
+	double mer_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		num_vertexes += poly->get_convex_hull()->num_vertices;
+		mbr_size = poly->getMBB()->area();
+		if(poly->getMER()){
+			mer_size = poly->getMER()->area();
+		}
 	}
 
-	logt("get mer for %d polygons with %ld average vertices", start,
+	logt("get mer for %d polygons with %f mer/mbr", start,
 			gctx->source_polygons.size(),
-			num_vertexes/gctx->source_polygons.size());
+			mer_size/mbr_size);
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;
