@@ -79,8 +79,6 @@ int main(int argc, char** argv) {
 		process_mer(&global_ctx);
 	}
 
-
-
 	timeval start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
