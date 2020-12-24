@@ -42,13 +42,13 @@ inline double point_to_segment_distance(const double x, const double y, const do
   return sqrt(dx * dx + dy * dy);
 }
 
-bool MyPolygon::contain(Point p){
+bool VertexSequence::contain(Point p){
     bool ret = false;
-    for (int i = 0; i < get_num_vertices()-1; i++) {
+    for (int i = 0; i < this->num_vertices; i++) {
         // segment i->j intersect with line y=p.y
-        if ( ((gety(i)>p.y) != (gety(i+1)>p.y))){
-            double a = (getx(i+1)-getx(i)) / (gety(i+1)-gety(i));
-            if(p.x - getx(i) < a * (p.y-gety(i))){
+        if ( ((y[i]>p.y) != (y[i+1]>p.y))){
+            double a = (x[i+1]-x[i]) / (y[i+1]-y[i]);
+            if(p.x - x[i] < a * (p.y-y[i])){
                 ret = !ret;
             }
         }
@@ -56,17 +56,27 @@ bool MyPolygon::contain(Point p){
     return ret;
 }
 
+bool MyPolygon::contain(Point p){
+
+    return boundary->contain(p);
+}
+
 bool MyPolygon::contain(Point p, query_context *ctx){
 
-	if(!mbb){
-		getMBB();
-	}
-	if(!mbb->contain(p)){
-		return false;
-	}
-	if(ctx->query_type==QueryType::contain){
+	ctx->filter_checked_only = true;
+
+	// the MBB may not be checked yet
+	if(ctx->query_type==QueryType::within){
+		if(!mbr){
+			getMBB();
+		}
+		if(!mbr->contain(p)){
+			return false;
+		}
+	}else{
 		ctx->checked_count++;
 	}
+
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
 		if(ctx->query_type==QueryType::contain){
 			ctx->pixel_checked++;
@@ -77,30 +87,25 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		if(ctx->query_type==QueryType::contain){
 			ctx->pixel_check_time += get_time_elapsed(pixel_start);
 		}
-//		if(part_x>=partitions.size()){
-//			log("%f %d %d %f %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size());
-//		}
-//		if(part_y>=partitions[0].size()){
-//			log("%f %d %d %f %d %d %d",(p.x-mbb->low[0])/step_x,part_x,partitions.size(),(p.y-mbb->low[1])/step_y,part_y,partitions[0].size(),partitions[part_x][part_y].status);
-//		}
 		assert(part_x<partitions.size());
 		assert(part_y<partitions[0].size());
 
 
 		if(partitions[part_x][part_y].status==IN){
-			ctx->raster_checked_only = true;
 			return true;
 		}
 		if(partitions[part_x][part_y].status==OUT){
-			ctx->raster_checked_only = true;
 			return false;
 		}
 
-
-		ctx->raster_checked_only = false;
+		if(ctx->query_type==QueryType::contain){
+			ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
+			ctx->border_checked++;
+		}
+		ctx->filter_checked_only = false;
 
 		bool ret = false;
-		if(ctx->query_vector){
+		if(ctx->perform_refine){
 			struct timeval border_start = get_cur_time();
 			assert(partitions[part_x][part_y].status==BORDER);
 			for (int i = partitions[part_x][part_y].vstart; i < partitions[part_x][part_y].vend; i++) {
@@ -113,24 +118,57 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 				}
 			}
 			if(ctx->query_type==QueryType::contain){
-				ctx->edges_checked += partitions[part_x][part_y].vend-partitions[part_x][part_y].vstart;
-				ctx->border_checked++;
 				ctx->edges_check_time += get_time_elapsed(border_start);
 			}
+
 		}
 		return ret;
+	}else if(ctx&&ctx->use_qtree){
+		assert(is_qtree_partitioned());
+		QTNode *tnode = get_qtree()->retrieve(p);
+		ctx->pixel_checked++;
+		if(tnode->exterior){
+			return false;
+		}else if(tnode->interior){
+			return true;
+		}else{
+			ctx->border_checked++;
+			ctx->edges_checked += get_num_vertices();
+			ctx->filter_checked_only = false;
+			 if(ctx->perform_refine){
+				 return contain(p);
+			 }else{
+				 return false;
+			 }
+		}
 	}else{
+
+		// check the maximum enclosed rectangle (MER)
+		if(mer&&mer->contain(p)){
+			return true;
+		}
+		// check the convex hull
+		if(convex_hull&&!convex_hull->contain(p)){
+			return false;
+		}
+
 		if(ctx->query_type==QueryType::contain){
+			ctx->border_checked++;
 			ctx->edges_checked += get_num_vertices();
 		}
-        return contain(p);
+		ctx->filter_checked_only = false;
+		 if(ctx->perform_refine){
+			 return contain(p);
+		 }else{
+			 return false;
+		 }
 	}
 }
 
 
 bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 
-	ctx->raster_checked_only = true;
+	ctx->filter_checked_only = true;
 	Pixel *a = getMBB();
 	if(!a->contain(b)){
 		return false;
@@ -196,7 +234,7 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	}
 	//log("%d %d %d",total,incount,outcount);
 
-	ctx->raster_checked_only = false;
+	ctx->filter_checked_only = false;
 	return false;
 }
 

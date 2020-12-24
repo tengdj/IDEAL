@@ -31,7 +31,10 @@ query_context::query_context(query_context &t){
 	vpr_end = t.vpr_end;
 	use_grid = t.use_grid;
 	use_qtree = t.use_qtree;
-	query_vector = t.query_vector;
+	use_mer = t.use_mer;
+	mer_sample_round = t.mer_sample_round;
+	use_convex_hall = t.use_convex_hall;
+	perform_refine = t.perform_refine;
 	gpu = t.gpu;
 	sample_rate = t.sample_rate;
 	small_threshold = t.small_threshold;
@@ -53,7 +56,10 @@ query_context& query_context::operator=(query_context const &t){
 	vpr_end = t.vpr_end;
 	use_grid = t.use_grid;
 	use_qtree = t.use_qtree;
-	query_vector = t.query_vector;
+	use_mer = t.use_mer;
+	mer_sample_round = t.mer_sample_round;
+	use_convex_hall = t.use_convex_hall;
+	perform_refine = t.perform_refine;
 	gpu = t.gpu;
 	sample_rate = t.sample_rate;
 	small_threshold = t.small_threshold;
@@ -196,6 +202,10 @@ query_context get_parameters(int argc, char **argv){
 		("rasterize,r", "partition with rasterization")
 		("qtree,q", "partition with qtree")
 		("raster_only", "query with raster only")
+		("convex_hull", "use convex hall for filtering")
+		("mer", "use maximum enclosed rectangle")
+		("mer_sample_round", "how many rounds of sampling needed for MER generating")
+
 		("source,s", po::value<string>(&global_ctx.source_path), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
@@ -220,8 +230,11 @@ query_context get_parameters(int argc, char **argv){
 	}
 	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
-	global_ctx.query_vector = !vm.count("raster_only");
+	global_ctx.perform_refine = !vm.count("raster_only");
 	global_ctx.collect_latency = vm.count("latency");
+	global_ctx.use_convex_hall = vm.count("convex_hull");
+	global_ctx.use_mer = vm.count("mer");
+
 
 	assert(!(global_ctx.use_grid&&global_ctx.use_qtree));
 	return global_ctx;

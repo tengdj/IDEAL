@@ -104,6 +104,7 @@ public:
 	Pixel(){
 
 	}
+
 	bool intersect(Pixel *target){
 		return !(target->low[0]>high[0]||
 				 target->high[0]<low[0]||
@@ -142,6 +143,10 @@ public:
 			md = dist;
 		}
 		return sqrt(md);
+	}
+
+	double area(){
+		return (high[0]-low[0])*(high[1]-low[1]);
 	}
 
 	double distance(Point &p){
@@ -256,9 +261,21 @@ public:
 		memcpy((void *)ret->y,(void *)y,sizeof(double)*num_vertices);
 		return ret;
 	}
+	void print(){
+		cout<<"(";
+		for(int i=0;i<num_vertices;i++){
+			if(i!=0){
+				cout<<",";
+			}
+			printf("%f ",x[i]);
+			printf("%f",y[i]);
+		}
+		cout<<")";
+	}
 	bool clockwise();
 	void reverse();
 	double area();
+	bool contain(Point p);
 };
 
 
@@ -276,28 +293,28 @@ public:
 
 	bool isleaf = true;
 	QTNode *children[4];
-	Pixel mbb;
+	Pixel mbr;
 	bool interior = false;
 	bool exterior = false;
 	int level = 0;
 
 	QTNode(double low_x, double low_y, double high_x, double high_y){
-		mbb.low[0] = low_x;
-		mbb.low[1] = low_y;
-		mbb.high[0] = high_x;
-		mbb.high[1] = high_y;
+		mbr.low[0] = low_x;
+		mbr.low[1] = low_y;
+		mbr.high[0] = high_x;
+		mbr.high[1] = high_y;
 	}
 	QTNode(Pixel m){
-		mbb = m;
+		mbr = m;
 	}
 	void split(){
 		isleaf = false;
-		double mid_x = (mbb.high[0]+mbb.low[0])/2;
-		double mid_y = (mbb.high[1]+mbb.low[1])/2;
-		children[bottom_left] = new QTNode(mbb.low[0],mbb.low[1],mid_x,mid_y);
-		children[bottom_right] = new QTNode(mid_x,mbb.low[1],mbb.high[0],mid_y);
-		children[top_left] = new QTNode(mbb.low[0],mid_y,mid_x,mbb.high[1]);
-		children[top_right] = new QTNode(mid_x,mid_y,mbb.high[0],mbb.high[1]);
+		double mid_x = (mbr.high[0]+mbr.low[0])/2;
+		double mid_y = (mbr.high[1]+mbr.low[1])/2;
+		children[bottom_left] = new QTNode(mbr.low[0],mbr.low[1],mid_x,mid_y);
+		children[bottom_right] = new QTNode(mid_x,mbr.low[1],mbr.high[0],mid_y);
+		children[top_left] = new QTNode(mbr.low[0],mid_y,mid_x,mbr.high[1]);
+		children[top_right] = new QTNode(mid_x,mid_y,mbr.high[0],mbr.high[1]);
 		for(int i=0;i<4;i++){
 			children[i]->level = level+1;
 		}
@@ -340,19 +357,19 @@ public:
 		if(this->isleaf){
 			return this;
 		}else{
-			int offset =  2*(p.y>(mbb.low[1]+mbb.high[1])/2)+(p.x>(mbb.low[0]+mbb.high[0])/2);
+			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
 			return children[offset]->retrieve(p);
 		}
 	}
 
 	bool determine_contain(Point &p){
-		assert(mbb.contain(p));
+		assert(mbr.contain(p));
 		QTNode *n = retrieve(p);
 		return n->interior||n->exterior;
 	}
 
 	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex){
-		if(!mbb.intersect(&p)){
+		if(!mbr.intersect(&p)){
 			return true;
 		}
 		if(isleaf){
@@ -395,7 +412,10 @@ public:
 	int vpr_end = 10;
 	bool use_grid = false;
 	bool use_qtree = false;
-	bool query_vector = true;
+	bool use_convex_hall = false;
+	bool use_mer = false;
+	int mer_sample_round = 20;
+	bool perform_refine = true;
 	bool gpu = false;
 	bool collect_latency = false;
 	float sample_rate = 1.0;
@@ -420,12 +440,14 @@ public:
 
 	//result
 	double distance = 0;
-	bool raster_checked_only = false;
+	bool filter_checked_only = false;
 
 	//query statistic
 	size_t found = 0;
 	size_t query_count = 0;
 	size_t checked_count = 0;
+	size_t refine_count = 0;
+
 	size_t pixel_checked = 0;
 	size_t border_checked = 0;
 	size_t edges_checked = 0;
@@ -463,6 +485,7 @@ public:
 		found = 0;
 		query_count = 0;
 		checked_count = 0;
+		refine_count = 0;
 		pixel_checked = 0;
 		border_checked = 0;
 		edges_checked = 0;
@@ -479,18 +502,22 @@ public:
 query_context get_parameters(int argc, char **argv);
 
 class MyPolygon{
-	Pixel *mbb = NULL;
+	Pixel *mbr = NULL;
+	Pixel *mer = NULL;
 	vector<vector<Pixel>> partitions;
 	QTNode *qtree = NULL;
 	double step_x = 0;
 	double step_y = 0;
 	int id = 0;
 	double area_buffer = -1;
-	pthread_mutex_t partition_lock;
+	pthread_mutex_t ideal_partition_lock;
+	pthread_mutex_t qtree_partition_lock;
+
 
 public:
 	unsigned int offset = 0;
 	VertexSequence *boundary = NULL;
+	VertexSequence *convex_hull = NULL;
 	vector<VertexSequence *> internal_polygons;
 
 
@@ -516,7 +543,8 @@ public:
 	void internal_partition();
 	MyPolygon *clone();
 	MyPolygon(){
-	    pthread_mutex_init(&partition_lock, NULL);
+	    pthread_mutex_init(&ideal_partition_lock, NULL);
+	    pthread_mutex_init(&qtree_partition_lock, NULL);
 	}
 	~MyPolygon();
 	void print_without_head(bool print_hole = false);
@@ -524,11 +552,19 @@ public:
 	void print_without_return(bool print_hole=false);
 	string to_string(bool clockwise = true);
 	Pixel *getMBB();
+	Pixel *getMER(){
+		query_context ctx;
+		return getMER(&ctx);
+	}
+	Pixel *getMER(query_context *ctx);
+	Pixel *generateMER(int cx, int cy);
 
 	void init_partition(const int dimx, const int dimy);
 	void evaluate_edges(const int dimx, const int dimy);
 	void spread_pixels(const int dimx, const int dimy);
 
+
+	VertexSequence *get_convex_hull();
 
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
@@ -567,13 +603,13 @@ public:
 		return boundary->y[index];
 	}
 	inline int get_pixel_x(double xval){
-		assert(mbb);
-		int x = double_to_int((xval-mbb->low[0])/step_x);
+		assert(mbr);
+		int x = double_to_int((xval-mbr->low[0])/step_x);
 		return x;
 	}
 	inline int get_pixel_y(double yval){
-		assert(mbb);
-		int y = double_to_int((yval-mbb->low[1])/step_y);
+		assert(mbr);
+		int y = double_to_int((yval-mbr->low[1])/step_y);
 		return y;
 	}
 	inline int getid(){
@@ -674,6 +710,8 @@ public:
 //utility functions
 
 void process_partition(query_context *ctx);
+void process_convex_hull(query_context *ctx);
+void process_mer(query_context *ctx);
 
 
 #endif /* SRC_MYPOLYGON_H_ */

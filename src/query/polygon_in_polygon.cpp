@@ -23,7 +23,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		timeval start = get_cur_time();
 		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 
-		if(ctx->raster_checked_only){
+		if(ctx->filter_checked_only){
 			ctx->pixel_checked++;
 			ctx->found += isfound;
 		}else{

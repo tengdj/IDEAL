@@ -13,6 +13,7 @@
 #include <float.h>
 #include <sstream>
 #include <vector>
+#include <thread>
 
 using namespace std;
 
@@ -198,8 +199,11 @@ MyPolygon::~MyPolygon(){
 		}
 	}
 	internal_polygons.clear();
-	if(mbb){
-		delete mbb;
+	if(mbr){
+		delete mbr;
+	}
+	if(mer){
+		delete mer;
 	}
 }
 
@@ -240,19 +244,19 @@ size_t MyPolygon::decode_from(char *source){
 }
 
 MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_y){
-	MyPolygon *mbb = new MyPolygon();
-	mbb->boundary = new VertexSequence(5);
-	mbb->boundary->x[0] = min_x;
-	mbb->boundary->y[0] = min_y;
-	mbb->boundary->x[1] = min_x;
-	mbb->boundary->y[1] = max_y;
-	mbb->boundary->x[2] = max_x;
-	mbb->boundary->y[2] = max_y;
-	mbb->boundary->x[3] = max_x;
-	mbb->boundary->y[3] = min_y;
-	mbb->boundary->x[4] = min_x;
-	mbb->boundary->y[4] = min_y;
-	return mbb;
+	MyPolygon *mbr = new MyPolygon();
+	mbr->boundary = new VertexSequence(5);
+	mbr->boundary->x[0] = min_x;
+	mbr->boundary->y[0] = min_y;
+	mbr->boundary->x[1] = min_x;
+	mbr->boundary->y[1] = max_y;
+	mbr->boundary->x[2] = max_x;
+	mbr->boundary->y[2] = max_y;
+	mbr->boundary->x[3] = max_x;
+	mbr->boundary->y[3] = min_y;
+	mbr->boundary->x[4] = min_x;
+	mbr->boundary->y[4] = min_y;
+	return mbr;
 }
 
 vector<Point> MyPolygon::generate_test_points(int num){
@@ -260,8 +264,8 @@ vector<Point> MyPolygon::generate_test_points(int num){
 	vector<Point> points;
 	for(int i=0;i<num;i++){
 		Point p;
-		p.x = get_rand_double()*(mbb->high[0]-mbb->low[0])+mbb->low[0];
-		p.y = get_rand_double()*(mbb->high[1]-mbb->low[1])+mbb->low[1];
+		p.x = get_rand_double()*(mbr->high[0]-mbr->low[0])+mbr->low[0];
+		p.y = get_rand_double()*(mbr->high[1]-mbr->low[1])+mbr->low[1];
 		points.push_back(p);
 	}
 	return points;
@@ -272,11 +276,11 @@ vector<MyPolygon *> MyPolygon::generate_test_polygons(int num){
 	getMBB();
 	vector<MyPolygon *> polys;
 	for(int i=0;i<num;i++){
-		double start_x = get_rand_double()*(mbb->high[0]-mbb->low[0])+mbb->low[0];
-		double start_y = get_rand_double()*(mbb->high[1]-mbb->low[1])+mbb->low[1];
+		double start_x = get_rand_double()*(mbr->high[0]-mbr->low[0])+mbr->low[0];
+		double start_y = get_rand_double()*(mbr->high[1]-mbr->low[1])+mbr->low[1];
 
-		double end_x = get_rand_double()*(mbb->high[0]-mbb->low[0])/100+start_x;
-		double end_y = get_rand_double()*(mbb->high[1]-mbb->low[1])/100+start_y;
+		double end_x = get_rand_double()*(mbr->high[0]-mbr->low[0])/100+start_x;
+		double end_y = get_rand_double()*(mbr->high[1]-mbr->low[1])/100+start_y;
 		MyPolygon *m = gen_box(start_x, start_y, end_x, end_y);
 		polys.push_back(m);
 	}
@@ -287,8 +291,8 @@ vector<MyPolygon *> MyPolygon::generate_test_polygons(int num){
 
 
 Pixel *MyPolygon::getMBB(){
-	if(this->mbb){
-		return mbb;
+	if(this->mbr){
+		return mbr;
 	}
 
 	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
@@ -306,36 +310,25 @@ Pixel *MyPolygon::getMBB(){
 			max_y = boundary->y[i];
 		}
 	}
-	mbb = new Pixel();
-	mbb->low[0] = min_x;
-	mbb->low[1] = min_y;
-	mbb->high[0] = max_x;
-	mbb->high[1] = max_y;
-	return mbb;
+	mbr = new Pixel();
+	mbr->low[0] = min_x;
+	mbr->low[1] = min_y;
+	mbr->high[0] = max_x;
+	mbr->high[1] = max_y;
+	return mbr;
 }
+
+
 
 void MyPolygon::print_without_head(bool print_hole){
 	assert(boundary);
-	cout<<"((";
-	for(int i=0;i<boundary->num_vertices;i++){
-		if(i!=0){
-			cout<<",";
-		}
-		printf("%f ",boundary->x[i]);
-		printf("%f",boundary->y[i]);
-	}
-	cout<<")";
+	cout<<"(";
+
+	boundary->print();
 	if(print_hole){
 		for(VertexSequence *vs:this->internal_polygons){
-			cout<<", (";
-			for(int i=0;i<vs->num_vertices;i++){
-				if(i!=0){
-					cout<<",";
-				}
-				printf("%f ",vs->x[i]);
-				printf("%f",vs->y[i]);
-			}
-			cout<<")";
+			cout<<", ";
+			vs->print();
 		}
 	}
 	cout<<")";
@@ -396,13 +389,13 @@ void MyPolygon::print_partition(query_context qt){
 			ws.pop();
 			if(cur->isleaf){
 				if(cur->interior){
-					MyPolygon *m = cur->mbb.to_polygon();
+					MyPolygon *m = cur->mbr.to_polygon();
 					inpolys->insert_polygon(m);
 				}else if(cur->exterior){
-					MyPolygon *m = cur->mbb.to_polygon();
+					MyPolygon *m = cur->mbr.to_polygon();
 					outpolys->insert_polygon(m);
 				}else{
-					MyPolygon *m = cur->mbb.to_polygon();
+					MyPolygon *m = cur->mbr.to_polygon();
 					borderpolys->insert_polygon(m);
 				}
 			}else{

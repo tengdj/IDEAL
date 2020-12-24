@@ -22,31 +22,14 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 
 	Point p = *(Point *)ctx->target;
-	// query with parition
-	if(ctx->use_grid){
-		assert(poly->is_grid_partitioned());
-		struct timeval start = get_cur_time();
-		ctx->found += poly->contain(p,ctx);
-		if(!ctx->raster_checked_only&&ctx->collect_latency){
-			int nv = poly->get_num_vertices();
-			if(nv<5000){
-				nv = 100*(nv/100);
-				ctx->report_latency(nv, get_time_elapsed(start));
-			}
+	struct timeval start = get_cur_time();
+	ctx->found += poly->contain(p, ctx);
+	if(ctx->collect_latency){
+		int nv = poly->get_num_vertices();
+		if(nv<5000){
+			nv = 100*(nv/100);
+			ctx->report_latency(nv, get_time_elapsed(start));
 		}
-	}else if(ctx->use_qtree){
-		assert(poly->is_qtree_partitioned());
-		QTNode *tnode = poly->get_qtree()->retrieve(p);
-		if(tnode->exterior||tnode->interior){
-			ctx->found += tnode->interior;
-			ctx->pixel_checked++;
-		}else if(ctx->query_vector){
-			ctx->found += poly->contain(p,ctx);
-			ctx->border_checked++;
-		}
-	}else{
-		ctx->found += poly->contain(p,ctx);
-		ctx->border_checked++;
 	}
 	return true;
 }
@@ -84,26 +67,24 @@ int main(int argc, char** argv) {
 	global_ctx.sort_polygons = true;
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
-	timeval start = get_cur_time();
-	if(global_ctx.use_grid||global_ctx.use_qtree){
-		process_partition(&global_ctx);
-		start = get_cur_time();
-		if(!global_ctx.query_vector){
-			//collect partitioning status
-			size_t total_data_size = 0;
-			size_t total_partition_size = 0;
-			for(MyPolygon *poly:global_ctx.source_polygons){
-				total_data_size += poly->get_data_size();
-				if(global_ctx.use_qtree){
-					total_partition_size += poly->get_qtree()->size();
-				}
-			}
-			log("%ld %ld",total_data_size,total_partition_size);
-			return 0;
-		}
+	if(global_ctx.use_convex_hall){
+		process_convex_hull(&global_ctx);
 	}
 
-	start = get_cur_time();
+	if(global_ctx.use_mer){
+		bool grid = global_ctx.use_grid;
+		global_ctx.use_grid = true;
+		process_partition(&global_ctx);
+		global_ctx.use_grid = grid;
+
+		process_mer(&global_ctx);
+	}
+
+	if(global_ctx.use_grid||global_ctx.use_qtree){
+		process_partition(&global_ctx);
+	}
+
+	timeval start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}

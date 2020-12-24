@@ -10,9 +10,9 @@
 #include <stack>
 
 void MyPolygon::init_partition(const int dimx, const int dimy){
-	assert(mbb);
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
+	assert(mbr);
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
 	for(double i=0;i<=dimx;i++){
 		vector<Pixel> v;
 		for(double j=0;j<=dimy;j++){
@@ -31,9 +31,9 @@ void MyPolygon::init_partition(const int dimx, const int dimy){
 
 void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 	// normalize
-	assert(mbb);
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
+	assert(mbr);
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
 
 	for(int i=0;i<get_num_vertices()-1;i++){
 		double x1 = getx(i);
@@ -229,10 +229,10 @@ vector<vector<Pixel>> MyPolygon::partition(int vpr){
 	assert(vpr>0);
 
 	getMBB();
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
+	const double end_x = mbr->high[0];
+	const double end_y = mbr->high[1];
 
 	double multi = abs((end_y-start_y)/(end_x-start_x));
 	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
@@ -249,16 +249,16 @@ vector<vector<Pixel>> MyPolygon::partition(int vpr){
 }
 
 vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
-	pthread_mutex_lock(&partition_lock);
+	pthread_mutex_lock(&ideal_partition_lock);
 	if(is_grid_partitioned()){
-		pthread_mutex_unlock(&partition_lock);
+		pthread_mutex_unlock(&ideal_partition_lock);
 		return partitions;
 	}
 	getMBB();
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
+	const double end_x = mbr->high[0];
+	const double end_y = mbr->high[1];
 
 	step_x = (end_x-start_x)/dimx;
 	step_y = (end_y-start_y)/dimy;
@@ -296,24 +296,24 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 		}
 	}
 
-	pthread_mutex_unlock(&partition_lock);
+	pthread_mutex_unlock(&ideal_partition_lock);
 	return partitions;
 }
 
 
 vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 	assert(vpr>0);
-	pthread_mutex_lock(&partition_lock);
+	pthread_mutex_lock(&ideal_partition_lock);
 	if(is_grid_partitioned()){
-		pthread_mutex_unlock(&partition_lock);
+		pthread_mutex_unlock(&ideal_partition_lock);
 		return partitions;
 	}
 	// normalize
 	getMBB();
-	const double start_x = mbb->low[0];
-	const double start_y = mbb->low[1];
-	const double end_x = mbb->high[0];
-	const double end_y = mbb->high[1];
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
+	const double end_x = mbr->high[0];
+	const double end_y = mbr->high[1];
 
 	double multi = abs((end_y-start_y)/(end_x-start_x));
 	int dimx = std::pow((get_num_vertices()/vpr)/multi,0.5);
@@ -358,18 +358,19 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 		partitions.push_back(v);
 	}
 
-	pthread_mutex_unlock(&partition_lock);
+	pthread_mutex_unlock(&ideal_partition_lock);
 	return partitions;
 }
 
 
 QTNode *MyPolygon::partition_qtree(const int vpr){
 
-	pthread_mutex_lock(&partition_lock);
+	pthread_mutex_lock(&qtree_partition_lock);
 	if(this->is_qtree_partitioned()){
-		pthread_mutex_unlock(&partition_lock);
+		pthread_mutex_unlock(&qtree_partition_lock);
 		return qtree;
 	}
+
 	int num_boxes = get_num_vertices()/vpr;
 	int level = 1;
 	while(pow(4,level)<num_boxes){
@@ -379,6 +380,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	int dimy = dimx;
 
 	this->partition(dimx, dimy);
+
 	int box_count = 4;
 	int cur_level = 1;
 
@@ -392,7 +394,6 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	//breadth first traverse
 	query_context qc;
 	while(box_count<num_boxes||!ws.empty()){
-
 		if(cur_level>level){
 			dimx *= 2;
 			dimy *= 2;
@@ -404,9 +405,9 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
 			ws.pop();
-			bool inside = this->contain_try_partition(&cur->mbb, &qc);
+			bool inside = this->contain_try_partition(&cur->mbr, &qc);
 
-			if(!qc.raster_checked_only){
+			if(!qc.filter_checked_only){
 				level_nodes.push_back(cur);
 			}else if(inside){
 				cur->interior = true;
@@ -430,7 +431,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	}
 	//assert(box_count>=num_boxes);
 
-	pthread_mutex_unlock(&partition_lock);
+	pthread_mutex_unlock(&qtree_partition_lock);
 
 	return qtree;
 }
