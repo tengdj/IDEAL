@@ -461,7 +461,11 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							ctx->edges_checked += this->get_num_vertices();
 							needprocess.clear();
 							//grid indexing return
-							return distance(p);
+							if(ctx->perform_refine){
+								return distance(p);
+							}else{
+								return DBL_MAX;
+							}
 						}
 					}
 					// the vector model need be checked.
