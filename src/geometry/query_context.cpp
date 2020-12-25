@@ -167,6 +167,8 @@ void query_context::print_stats(){
 
 	log("query count:\t%ld",query_count);
 	log("checked count:\t%ld",checked_count);
+	log("found count:\t%ld",found);
+
 	if(checked_count>0){
 		log("pixel/checked:\t%f",(double)pixel_checked/checked_count);
 		log("border/checked:\t%f",(double)border_checked/checked_count);

@@ -197,8 +197,11 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &p:rows){
-			if(p.crosses.size()>0){
-				p.status = BORDER;
+			for(int i=0;i<4;i++){
+				if(p.crosses[i].size()>0){
+					p.status = BORDER;
+					break;
+				}
 			}
 		}
 	}
@@ -221,6 +224,20 @@ Pixel *MyPolygon::get_closest_pixel(Point p){
 		pixy = partitions[0].size()-1;
 	}
 	return &partitions[pixx][pixy];
+
+}
+
+vector<Pixel *> MyPolygon::get_pixels(PartitionStatus status){
+
+	vector<Pixel *> pixels;
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &p:rows){
+			if(p.status==status){
+				pixels.push_back(&p);
+			}
+		}
+	}
+	return pixels;
 
 }
 
@@ -288,10 +305,8 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 				}
 				continue;
 			}
-			for(cross_info &c:partitions[x][y].crosses){
-				if(c.direction==BOTTOM){
-					isin = !isin;
-				}
+			for(cross_info &c:partitions[x][y].crosses[BOTTOM]){
+				isin = !isin;
 			}
 		}
 	}

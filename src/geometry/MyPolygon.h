@@ -58,9 +58,7 @@ enum cross_type{
 class cross_info{
 public:
 	cross_type type;
-	Direction direction;
 	double vertex;
-	static bool overwrites(cross_info &enter1, cross_info &leave1, cross_info &enter2, cross_info &leave2);
 };
 
 class Point{
@@ -169,7 +167,7 @@ public:
         return sqrt(dx * dx + dy * dy);
     }
 
-	vector<cross_info> crosses;
+	vector<cross_info> crosses[4];
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);
 
@@ -298,108 +296,21 @@ public:
 	bool exterior = false;
 	int level = 0;
 
-	QTNode(double low_x, double low_y, double high_x, double high_y){
-		mbr.low[0] = low_x;
-		mbr.low[1] = low_y;
-		mbr.high[0] = high_x;
-		mbr.high[1] = high_y;
-	}
-	QTNode(Pixel m){
-		mbr = m;
-	}
-	void split(){
-		isleaf = false;
-		double mid_x = (mbr.high[0]+mbr.low[0])/2;
-		double mid_y = (mbr.high[1]+mbr.low[1])/2;
-		children[bottom_left] = new QTNode(mbr.low[0],mbr.low[1],mid_x,mid_y);
-		children[bottom_right] = new QTNode(mid_x,mbr.low[1],mbr.high[0],mid_y);
-		children[top_left] = new QTNode(mbr.low[0],mid_y,mid_x,mbr.high[1]);
-		children[top_right] = new QTNode(mid_x,mid_y,mbr.high[0],mbr.high[1]);
-		for(int i=0;i<4;i++){
-			children[i]->level = level+1;
-		}
-	}
-	void push(std::stack<QTNode *> &ws){
-		if(!isleaf){
-			for(int i=0;i<4;i++){
-				ws.push(children[i]);
-			}
-		}
-	}
-	~QTNode(){
-		if(!isleaf){
-			for(int i=0;i<4;i++){
-				delete children[i];
-			}
-		}
-	}
-	int size(){
-		int cs = 2+4*8;
-		if(!isleaf){
-			for(int i=0;i<4;i++){
-				cs += children[i]->size();
-			}
-		}
-		return cs;
-	}
-	int leaf_count(){
-		if(isleaf){
-			return 1;
-		}else{
-			int lc = 0;
-			for(int i=0;i<4;i++){
-				lc += children[i]->leaf_count();
-			}
-			return lc;
-		}
-	}
-	QTNode *retrieve(Point &p){
-		if(this->isleaf){
-			return this;
-		}else{
-			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
-			return children[offset]->retrieve(p);
-		}
-	}
+	QTNode(double low_x, double low_y, double high_x, double high_y);
+	QTNode(Pixel m);
+	~QTNode();
 
-	bool determine_contain(Point &p){
-		assert(mbr.contain(p));
-		QTNode *n = retrieve(p);
-		return n->interior||n->exterior;
-	}
+	void split();
+	void push(std::stack<QTNode *> &ws);
+	int size();
+	int leaf_count();
 
-	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex){
-		if(!mbr.intersect(&p)){
-			return true;
-		}
-		if(isleaf){
-			//border box
-			if(!interior&&!exterior){
-				return false;
-			}
-			has_ex |= exterior;
-			has_in |= interior;
-			//cross box
-			if(has_in&&has_ex){
-				return false;
-			}
-		}else{
-			for(int i=0;i<4;i++){
-				if(!children[i]->determine_contain(p, has_in, has_ex)){
-					return false;
-				}
-			}
-		}
-		return true;
-	}
-
-	bool determine_contain(Pixel &p){
-		assert(this->level==0);
-		bool has_in = false;
-		bool has_out = false;
-		return determine_contain(p, has_in, has_out);
-	}
-
+	bool within(Point &p, double within_dist);
+	void retrieve_within(Point &p, vector<QTNode *> &candidates, double within_dist);
+	QTNode *retrieve(Point &p);
+	bool determine_contain(Point &p);
+	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex);
+	bool determine_contain(Pixel &p);
 
 };
 
@@ -495,6 +406,13 @@ public:
 		index = 0;
 	}
 
+	bool is_within_query(){
+		return query_type == QueryType::within;
+	}
+
+	bool is_contain_query(){
+		return query_type == QueryType::contain;
+	}
 	void print_stats();
 };
 
@@ -569,6 +487,8 @@ public:
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
+	vector<Pixel *> get_pixels(PartitionStatus status);
+
 	Pixel *get_closest_pixel(Point p);
 	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){

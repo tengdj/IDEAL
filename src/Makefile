@@ -67,6 +67,9 @@ lookup:	query/lookup.o $(GEOMETRY_OBJS)
 	
 debug_distance:	query/debug_distance.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+debug_contain:	query/debug_contain.o $(GEOMETRY_OBJS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # micro tests
 partition:	stats/partition.o $(GEOMETRY_OBJS)

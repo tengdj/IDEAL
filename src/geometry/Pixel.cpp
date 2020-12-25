@@ -21,8 +21,7 @@ void Pixel::enter(double val, Direction d, int vnum){
 	cross_info ci;
 	ci.type = ENTER;
 	ci.vertex = val;
-	ci.direction = d;
-	crosses.push_back(ci);
+	crosses[d].push_back(ci);
 	if(vstart==-1){
 		vstart = vnum;
 	}
@@ -39,8 +38,7 @@ void Pixel::leave(double val, Direction d, int vnum){
 	cross_info ci;
 	ci.type = LEAVE;
 	ci.vertex = val;
-	ci.direction = d;
-	crosses.push_back(ci);
+	crosses[d].push_back(ci);
 	if(vstart==-1){
 		vstart = vnum;
 	}
