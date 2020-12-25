@@ -96,6 +96,14 @@ int main(int argc, char** argv) {
 	}
     global_ctx.use_qtree = use_qtree;
 
+	if(global_ctx.use_convex_hull){
+		process_convex_hull(&global_ctx);
+	}
+
+	if(global_ctx.use_mer){
+		process_mer(&global_ctx);
+	}
+
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}

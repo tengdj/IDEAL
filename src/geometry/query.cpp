@@ -498,6 +498,28 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		return mindist;
 
 	}else{
+
+		//checking convex
+		if(ctx->query_type==QueryType::within&&
+				ctx->use_convex_hull&&ctx->use_convex_hull){
+			assert(convex_hull);
+			double min_dist = DBL_MAX;
+			for(int i=0;i<convex_hull->num_vertices-1;i++){
+				double dx = p.x-convex_hull->x[i];
+				double dy = p.y-convex_hull->y[i];
+				dx = dx/degree_per_kilometer_latitude;
+				dy = dy/degree_per_kilometer_longitude(p.y);
+				double dist = sqrt(dx * dx + dy * dy);
+				if(dist<min_dist){
+					min_dist = dist;
+				}
+			}
+			if(min_dist>ctx->distance_buffer_size){
+				return min_dist;
+			}
+		}
+
+		ctx->border_checked++;
 		ctx->edges_checked += this->get_num_vertices();
 		//SIMPVEC return
 		return distance(p);

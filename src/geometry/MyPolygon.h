@@ -412,7 +412,7 @@ public:
 	int vpr_end = 10;
 	bool use_grid = false;
 	bool use_qtree = false;
-	bool use_convex_hall = false;
+	bool use_convex_hull = false;
 	bool use_mer = false;
 	int mer_sample_round = 20;
 	bool perform_refine = true;

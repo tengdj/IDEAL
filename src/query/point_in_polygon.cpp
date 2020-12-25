@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
 		process_partition(&global_ctx);
 	}
 
-	if(global_ctx.use_convex_hall){
+	if(global_ctx.use_convex_hull){
 		process_convex_hull(&global_ctx);
 	}
 
