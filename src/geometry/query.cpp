@@ -388,7 +388,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 	ctx->checked_count++;
 
-	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
+	if(is_grid_partitioned()){
 
 		Pixel *mbr = getMBB();
 		double mbrdist = mbr->distance(p);
@@ -477,6 +477,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							mindist = dist;
 						}
 					}
+
 					ctx->edges_check_time += get_time_elapsed(border_start);
 				}
 			}
@@ -526,7 +527,11 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		ctx->border_checked++;
 		ctx->edges_checked += this->get_num_vertices();
 		//SIMPVEC return
-		return distance(p);
+		if(ctx->perform_refine){
+			return distance(p);
+		}else{
+			return DBL_MAX;
+		}
 	}
 }
 

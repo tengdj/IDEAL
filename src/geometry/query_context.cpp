@@ -114,7 +114,7 @@ void query_context::report_progress(){
 		pthread_mutex_lock(&global_ctx->lock);
 		global_ctx->query_count += query_count;
 		if(global_ctx->query_count%global_ctx->report_gap==0){
-			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count/global_ctx->target_num);
+			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/global_ctx->target_num);
 		}
 		query_count = 0;
 		pthread_mutex_unlock(&global_ctx->lock);

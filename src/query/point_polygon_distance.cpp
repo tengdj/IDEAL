@@ -82,19 +82,13 @@ int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::within;
-	bool use_qtree = global_ctx.use_qtree;
 
 	timeval start = get_cur_time();
 
     global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
-	if(use_qtree){
-        global_ctx.use_grid = true;
-        global_ctx.use_qtree = false;
-	}
-	if(global_ctx.use_grid){
+	if(global_ctx.use_grid||global_ctx.use_qtree){
 		process_partition(&global_ctx);
 	}
-    global_ctx.use_qtree = use_qtree;
 
 	if(global_ctx.use_convex_hull){
 		process_convex_hull(&global_ctx);
