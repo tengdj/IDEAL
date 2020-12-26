@@ -208,7 +208,7 @@ query_context get_parameters(int argc, char **argv){
 		("mer", "use maximum enclosed rectangle")
 		("mer_sample_round", "how many rounds of sampling needed for MER generating")
 
-		("source,s", po::value<string>(&global_ctx.source_path), "path to the source")
+		("source,s", po::value<string>(&global_ctx.source_path)->required(), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
 		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")
@@ -226,10 +226,10 @@ query_context get_parameters(int argc, char **argv){
 	}
 	po::notify(vm);
 
-	if(!vm.count("source")||!vm.count("target")){
-		cout << desc << "\n";
-		exit(0);
-	}
+//	if(!vm.count("source")||!vm.count("target")){
+//		cout << desc << "\n";
+//		exit(0);
+//	}
 	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
 	global_ctx.perform_refine = !vm.count("raster_only");

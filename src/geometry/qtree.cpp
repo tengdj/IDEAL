@@ -44,7 +44,9 @@ QTNode::~QTNode(){
 	}
 }
 int QTNode::size(){
-	int cs = 2+4*8;
+	// each nodes need 1 byte for node status
+	// 2 bytes each for four children
+	int cs = 2+4*2;
 	if(!isleaf){
 		for(int i=0;i<4;i++){
 			cs += children[i]->size();

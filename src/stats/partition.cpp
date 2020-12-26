@@ -15,41 +15,49 @@ using namespace std;
 
 int main(int argc, char **argv){
 
-	po::options_description desc("query usage");
-	query_context ctx;
+	query_context global_ctx;
+	global_ctx = get_parameters(argc, argv);
 
-	desc.add_options()
-		("help,h", "produce help message")
-		("print,p", "print the pixels")
-		("quad_tree,q", "partition with Q-tree")
-		("vertices_per_raster,v", po::value<int>(&ctx.vpr), "number of vertices per raster")
-		;
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	if (vm.count("help")) {
-		cout << desc << "\n";
-		return 0;
+	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	if(global_ctx.use_grid||global_ctx.use_qtree){
+		process_partition(&global_ctx);
 	}
-	po::notify(vm);
-	ctx.use_qtree = vm.count("quad_tree");
-	ctx.use_grid = !ctx.use_qtree;
+	if(global_ctx.use_convex_hull){
+		process_convex_hull(&global_ctx);
+	}
 
-	MyPolygon *poly = MyMultiPolygon::read_one_polygon();
-	if(ctx.use_grid){
-		poly->partition(ctx.vpr);
-	}
-	if(ctx.use_qtree){
-		poly->partition_qtree(ctx.vpr);
-	}
-	if(vm.count("print")){
-		poly->print_partition(ctx);
-		ctx.use_grid = true;
-		ctx.use_qtree = false;
-		//poly->print_partition(ctx);
+	if(global_ctx.use_mer){
+		process_mer(&global_ctx);
 	}
 
 
-	delete poly;
+	size_t data_size = 0;
+	size_t partition_size = 0;
+	for(MyPolygon *poly:global_ctx.source_polygons){
+		data_size += poly->get_data_size();
+		if(global_ctx.use_grid){
+			partition_size += poly->partition_size();
+		}
+		if(global_ctx.use_qtree){
+			const int lfc = poly->get_qtree()->leaf_count();
+			int tlfc = lfc;
+			int bits = 1;
+			while(tlfc>0){
+				bits++;
+				tlfc /= 2;
+			}
+			int bits_per_child = (bits+7)/8*8;
+			partition_size += lfc*(bits_per_child*4+2)/8;
+		}
+		if(global_ctx.use_convex_hull){
+			partition_size += poly->convex_hull->get_data_size();
+		}
+		if(global_ctx.use_mer){
+			partition_size += 4*8;
+		}
+	}
+	printf("%f\n",partition_size*100.0/data_size);
+
 	return 0;
 }
 

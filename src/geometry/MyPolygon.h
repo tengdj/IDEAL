@@ -484,6 +484,7 @@ public:
 
 	VertexSequence *get_convex_hull();
 
+	size_t partition_size();
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);

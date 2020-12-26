@@ -241,6 +241,28 @@ vector<Pixel *> MyPolygon::get_pixels(PartitionStatus status){
 
 }
 
+size_t MyPolygon::partition_size(){
+	size_t size = 0;
+	int nump = this->get_num_partitions();
+	int numv = this->get_num_vertices();
+	int bits = 1;
+	while(numv>0){
+		bits++;
+		numv /= 2;
+	}
+
+	bits = (bits+7)/8*8;
+
+	int numc = 0;
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &p:rows){
+			numc += p.crosses[RIGHT].size();
+			numc += p.crosses[BOTTOM].size();
+		}
+	}
+	return ((2+2*bits)*nump + numc*64)/8+1;
+}
+
 
 vector<vector<Pixel>> MyPolygon::partition(int vpr){
 	assert(vpr>0);
