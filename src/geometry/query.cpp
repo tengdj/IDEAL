@@ -421,7 +421,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 						continue;
 					}
 					// the vector model need be checked.
-					//ctx->border_checked++;
+					ctx->border_checked++;
 					ctx->edges_checked += cur->vend-cur->vstart;
 					for (int i = cur->vstart; i <= cur->vend; i++) {
 						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
@@ -440,10 +440,12 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			// for within query, if all firstly processed boundary pixels
 			// are not within the distance, it is for sure no edge will
 			// be in the specified distance
-			if(ctx->query_type==QueryType::within
-					&&border_checked>0&&mindist==10000000.0){
-				return mindist;
+			if(ctx->query_type==QueryType::within && border_checked>0){
+				if(mindist==10000000.0){
+					return mindist;
+				}
 			}
+
 
 			if(mindist<mbrdist+step*step_size){
 				break;
@@ -452,7 +454,6 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			step++;
 		}
 		// IDEAL return
-		ctx->border_checked++;
 		return mindist;
 
 	}else{
