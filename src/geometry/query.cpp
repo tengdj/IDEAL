@@ -421,7 +421,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 						continue;
 					}
 					// the vector model need be checked.
-					ctx->border_checked++;
+					//ctx->border_checked++;
 					ctx->edges_checked += cur->vend-cur->vstart;
 					for (int i = cur->vstart; i <= cur->vend; i++) {
 						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
@@ -452,6 +452,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			step++;
 		}
 		// IDEAL return
+		ctx->border_checked++;
 		return mindist;
 
 	}else{
