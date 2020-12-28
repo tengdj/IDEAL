@@ -54,7 +54,7 @@ int main(int argc, char **argv){
 		}
 	}
 	printf("%f\n",partition_size*100.0/data_size);
-	printf("%d\n",num_border_partitions/global_ctx.source_polygons.size());
+	printf("%f\n",1.0*num_border_partitions/global_ctx.source_polygons.size());
 
 
 	return 0;
