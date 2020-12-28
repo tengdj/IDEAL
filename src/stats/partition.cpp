@@ -39,15 +39,7 @@ int main(int argc, char **argv){
 			partition_size += poly->partition_size();
 		}
 		if(global_ctx.use_qtree){
-			const int lfc = poly->get_qtree()->leaf_count();
-			int tlfc = lfc;
-			int bits = 1;
-			while(tlfc>0){
-				bits++;
-				tlfc /= 2;
-			}
-			int bits_per_child = (bits+7)/8*8;
-			partition_size += lfc*(bits_per_child*4+2)/8;
+			partition_size += poly->get_qtree()->size();
 		}
 		if(global_ctx.use_convex_hull){
 			partition_size += poly->convex_hull->get_data_size();

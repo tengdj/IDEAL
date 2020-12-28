@@ -46,13 +46,16 @@ QTNode::~QTNode(){
 int QTNode::size(){
 	// each nodes need 1 byte for node status
 	// 2 bytes each for four children
-	int cs = 2+4*2;
-	if(!isleaf){
-		for(int i=0;i<4;i++){
-			cs += children[i]->size();
-		}
+	const int lfc = leaf_count();
+	int tmp = lfc;
+	int bits = 0;
+	while(tmp>0){
+		bits++;
+		tmp /= 2;
 	}
-	return cs;
+	//int bits = (bits+7)/8*8;
+	bits = bits*4+2;
+	return (lfc*bits+7)/8;
 }
 int QTNode::leaf_count(){
 	if(isleaf){

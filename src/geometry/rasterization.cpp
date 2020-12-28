@@ -243,15 +243,29 @@ vector<Pixel *> MyPolygon::get_pixels(PartitionStatus status){
 
 size_t MyPolygon::partition_size(){
 	size_t size = 0;
-	int nump = this->get_num_partitions();
-	int numv = this->get_num_vertices();
-	int bits = 1;
-	while(numv>0){
-		bits++;
-		numv /= 2;
+	const int nump = this->get_num_partitions();
+	vector<Pixel *> borders = this->get_pixels(BORDER);
+	const int nump_border = borders.size();
+	borders.clear();
+	int bits_b = 0;
+	int tmp = nump_border+2;
+	while(tmp>0){
+		bits_b++;
+		tmp /= 2;
 	}
 
-	bits = (bits+7)/8*8;
+	int numv = this->get_num_vertices();
+	tmp = numv;
+	int bits_v = 0;
+	while(tmp>0){
+		bits_v++;
+		tmp /= 2;
+	}
+
+	bits_v = bits_v*2;
+
+//	bits_b = (2+bits_b+7)/8*8;
+//	bits_v = (2*bits_v+7)/8*8;
 
 	int numc = 0;
 	for(vector<Pixel> &rows:partitions){
@@ -260,7 +274,7 @@ size_t MyPolygon::partition_size(){
 			numc += p.crosses[BOTTOM].size();
 		}
 	}
-	return ((2+2*bits)*nump + numc*64)/8+1;
+	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;
 }
 
 
@@ -619,7 +633,11 @@ void process_partition(query_context *gctx){
 	//collect partitioning status
 	size_t num_partitions = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		num_partitions += poly->get_num_partitions();
+		if(gctx->use_grid){
+			num_partitions += poly->get_num_partitions();
+		}else if(gctx->use_qtree){
+			num_partitions += poly->get_qtree()->leaf_count();
+		}
 	}
 
 	logt("partitioned %d polygons with %ld average partitions", start,
