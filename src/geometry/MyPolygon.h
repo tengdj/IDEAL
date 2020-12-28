@@ -550,6 +550,21 @@ public:
 		}
 		return partitions.size()*partitions[0].size();
 	}
+	int get_num_partitions(PartitionStatus status){
+		if(partitions.size()==0){
+			return 0;
+		}
+		int num = 0;
+		for(vector<Pixel> &rows:partitions){
+			for(Pixel &p:rows){
+				if(p.status==status){
+					num++;
+				}
+			}
+		}
+		return num;
+	}
+
 	static char *encode_partition(vector<vector<Pixel>> partitions);
 	static vector<vector<Pixel>> decode_partition(char *);
 	vector<Point> generate_test_points(int num);
