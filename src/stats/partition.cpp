@@ -61,7 +61,7 @@ int main(int argc, char **argv){
 	}
 
 	printf("index size:\t%f\n",partition_size*100.0/data_size);
-	printf("num pixels:\t%ld\n",num_partitions/num_polygons);
+	printf("num pixels:\t%f\n",1.0*num_partitions/num_polygons);
 	printf("num b pixels:\t%f\n",1.0*num_border_partitions/num_polygons);
 	if(num_grids){
 		printf("num grid lines:\t%f\n",1.0*num_grids/num_polygons);
