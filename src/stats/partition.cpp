@@ -37,7 +37,8 @@ int main(int argc, char **argv){
 	size_t num_border_partitions = 0;
 	size_t num_nodes = 0;
 	size_t num_grids = 0;
-
+	size_t num_polygons = global_ctx.source_polygons.size();
+	assert(num_polygons);
 	for(MyPolygon *poly:global_ctx.source_polygons){
 		data_size += poly->get_data_size();
 		if(global_ctx.use_grid){
@@ -58,9 +59,15 @@ int main(int argc, char **argv){
 			partition_size += 4*8;
 		}
 	}
-	printf("%f\n",partition_size*100.0/data_size);
-	printf("%f\n",1.0*num_border_partitions/global_ctx.source_polygons.size());
-	printf("%f\n",1.0*num_nodes/num_grids);
+
+	printf("index size:\t%f\n",partition_size*100.0/data_size);
+	printf("num pixels:\t%ld\n",num_partitions/num_polygons);
+	printf("num b pixels:\t%f\n",1.0*num_border_partitions/num_polygons);
+	if(num_grids){
+		printf("num grid lines:\t%f\n",1.0*num_grids/num_polygons);
+		printf("num nodes:\t%f\n",1.0*num_nodes/num_grids);
+	}
+
 
 
 	return 0;
