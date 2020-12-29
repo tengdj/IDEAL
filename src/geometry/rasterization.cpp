@@ -241,6 +241,19 @@ vector<Pixel *> MyPolygon::get_pixels(PartitionStatus status){
 
 }
 
+size_t MyPolygon::get_cross_num(){
+	size_t num = 0;
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &p:rows){
+			num += p.crosses[RIGHT].size();
+			num += p.crosses[BOTTOM].size();
+		}
+	}
+	return num;
+}
+
+
+
 size_t MyPolygon::partition_size(){
 	size_t size = 0;
 	const int nump = this->get_num_partitions();

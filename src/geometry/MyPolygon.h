@@ -485,6 +485,13 @@ public:
 	VertexSequence *get_convex_hull();
 
 	size_t partition_size();
+	size_t get_cross_num();
+	size_t get_grid_num(){
+		if(partitions.size()==0){
+			return 0;
+		}
+		return partitions.size()+partitions[0].size();
+	}
 	vector<vector<Pixel>> partition(int vertex_per_raster);
 	vector<vector<Pixel>> partition(int xdim, int ydim);
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);

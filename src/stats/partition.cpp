@@ -35,12 +35,17 @@ int main(int argc, char **argv){
 	size_t partition_size = 0;
 	size_t num_partitions = 0;
 	size_t num_border_partitions = 0;
+	size_t num_nodes = 0;
+	size_t num_grids = 0;
+
 	for(MyPolygon *poly:global_ctx.source_polygons){
 		data_size += poly->get_data_size();
 		if(global_ctx.use_grid){
 			partition_size += poly->partition_size();
 			num_partitions += poly->get_num_partitions();
 			num_border_partitions += poly->get_num_partitions(BORDER);
+			num_nodes += poly->get_cross_num();
+			num_grids += poly->get_grid_num();
 		}
 		if(global_ctx.use_qtree){
 			partition_size += poly->get_qtree()->size();
@@ -55,6 +60,7 @@ int main(int argc, char **argv){
 	}
 	printf("%f\n",partition_size*100.0/data_size);
 	printf("%f\n",1.0*num_border_partitions/global_ctx.source_polygons.size());
+	printf("%f\n",1.0*num_nodes/num_grids);
 
 
 	return 0;
