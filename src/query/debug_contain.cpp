@@ -8,6 +8,7 @@
 #include "../geometry/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
+#include "../geometry/triangulate.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -20,13 +21,46 @@ int main(int argc, char **argv){
 	ctx.use_grid = true;
 	ctx.query_type = QueryType::contain;
 
+//	cout<<"1\n\n"<<polygon->get_num_vertices()-1<<endl;
+//	for(int i=polygon->get_num_vertices()-2;i>=0;i--){
+//		printf("%f %f\n",polygon->boundary->x[i],polygon->boundary->y[i]);
+//	}
 
-	polygon->print();
-	query_context qt;
-	qt.use_grid = true;
-	polygon->print_partition(qt);
+//	int *triangles = polygon->triangulate();
+//	double *x = polygon->boundary->x;
+//	double *y = polygon->boundary->y;
+//	cout<<"MULTIPOLYGON(";
+//	for(int i=0;i<polygon->get_num_vertices()-2;i++){
+//		if(i!=0){
+//			cout<<",";
+//		}
+//		printf("((%f %f,%f %f,%f %f,%f %f))",
+//				x[triangles[3*i+0]],y[triangles[3*i+0]],
+//				x[triangles[3*i+1]],y[triangles[3*i+1]],
+//				x[triangles[3*i+2]],y[triangles[3*i+2]],
+//				x[triangles[3*i+0]],y[triangles[3*i+0]]);
+//	}
+//	cout<<")"<<endl;
 
-	cout<<polygon->contain(p, &ctx)<<endl;
+
+
+//	polygon->print();
+//	query_context qt;
+//	qt.use_grid = true;
+	//polygon->print_partition(qt);
+	//cout<<polygon->contain(p, &ctx)<<endl;
+//
+////
+	int *triangles = new int[3*(polygon->get_num_vertices()-2)];
+
+	triangulator *tr = new triangulator();
+	tr->triangulate_polygon(polygon->boundary, triangles);
+
+	for (int i = 0; i < polygon->get_num_vertices()-2; i++){
+		printf("triangle #%d: %d %d %d\n", i, triangles[i*3+0], triangles[i*3+1], triangles[i*3+2]);
+	}
+
+
 	delete polygon;
 	return 0;
 }

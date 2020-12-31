@@ -35,6 +35,39 @@ bool MyPolygon::contain(Point p){
 }
 
 
+bool ContainCallback(int *triangle, void* arg){
+	query_context *ctx = (query_context *)arg;
+	MyPolygon *poly = (MyPolygon *)ctx->target2;
+	Point *point = (Point *)ctx->target;
+	bool ret = false;
+	for(int i=0,j=2;i<2;j=i++){
+		if( ( (poly->boundary->y[i] >= point->y ) != (poly->boundary->y[j] >= point->y) ) &&
+				(point->x <= (poly->boundary->x[j] - poly->boundary->x[i]) * (point->y - poly->boundary->y[i])
+						/ (poly->boundary->y[j] - poly->boundary->y[i]) + poly->boundary->x[i])){
+			ret = !ret;
+		}
+	}
+	if(ret){
+		ctx->found++;
+	}
+	return !ret;
+}
+
+bool MyPolygon::contain_rtree(Point p, query_context *ctx){
+	assert(rtree);
+	ctx->target = &p;
+	ctx->target2 = (void *)this;
+	double low[2]={p.x,p.y};
+	double high[2]={p.x,p.y};
+	size_t old_found = ctx->found;
+	rtree->Search(low, high, ContainCallback, (void *)ctx);
+	if(ctx->found!=old_found){
+		ctx->found = old_found;
+		return true;
+	}
+	return false;
+}
+
 bool MyPolygon::contain(Point p, query_context *ctx){
 
 	if(ctx->is_within_query()){
@@ -128,6 +161,9 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 				ctx->filter_checked_only = false;
 			}
 			if(ctx->perform_refine||ctx->is_within_query()){
+				if(this->rtree){
+					return contain_rtree(p,ctx);
+				}
 				return contain(p);
 			}else{
 				return false;
@@ -150,6 +186,9 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 			ctx->filter_checked_only = false;
 		}
 		if(ctx->perform_refine||ctx->is_within_query()){
+			if(this->rtree){
+				return contain_rtree(p,ctx);
+			}
 			return contain(p);
 		}else{
 			return false;

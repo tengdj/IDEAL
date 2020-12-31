@@ -80,6 +80,20 @@ int main(int argc, char** argv) {
 	}
 
 	timeval start = get_cur_time();
+	int index = 0;
+	for(MyPolygon *p:global_ctx.source_polygons){
+		if(!p->triangulate()){
+			p->print();
+			exit(0);
+		}
+		cout<<index++<<" "<<global_ctx.source_polygons.size()<<endl;
+	}
+	logt("triangulate",start);
+	for(MyPolygon *p:global_ctx.source_polygons){
+		p->build_rtree();
+	}
+	logt("build rtree",start);
+
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}

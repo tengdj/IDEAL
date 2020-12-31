@@ -8,6 +8,45 @@
 #include "MyPolygon.h"
 
 
+int  *MyPolygon::triangulate(){
+	assert(!boundary->clockwise());
+	triangles = polygon_triangulate(boundary->num_vertices-1, boundary->x, boundary->y);
+	return triangles;
+}
+
+void MyPolygon::build_rtree(){
+	if(!triangles){
+		triangulate();
+	}
+	assert(triangles);
+	if(rtree){
+		delete rtree;
+	}
+	rtree = new RTree<int *, double, 2, double>();
+
+	for(int n=0;n<boundary->num_vertices-2;n++){
+		double low[2] = {boundary->x[triangles[3*n]], boundary->y[triangles[3*n]]};
+		double high[2] = {boundary->x[triangles[3*n]], boundary->y[triangles[3*n]]};
+		for(int i=1;i<3;i++){
+			double cur_x = boundary->x[triangles[i+3*n]];
+			if(cur_x<low[0]){
+				low[0] = cur_x;
+			}else if(cur_x>high[0]){
+				high[0] = cur_x;
+			}
+			double cur_y = boundary->y[triangles[i+3*n]];
+			if(cur_y<low[1]){
+				low[1] = cur_y;
+			}else if(cur_y>high[1]){
+				high[1] = cur_y;
+			}
+		}
+		rtree->Insert(low, high, triangles+3*n);
+	}
+
+}
+
+
 Pixel *MyPolygon::generateMER(int cx, int cy){
 	assert(partitions[cx][cy].status==IN);
 	Pixel *curmer = new Pixel();

@@ -16,6 +16,7 @@
 #include <map>
 #include <bits/stdc++.h>
 #include "../util/util.h"
+#include "../index/RTree.h"
 
 
 #include <boost/program_options.hpp>
@@ -93,14 +94,30 @@ public:
 class Pixel{
 public:
 	int id[2];
-	double low[2];
-	double high[2];
+	double low[2] = {10000000,10000000};
+	double high[2] = {-10000000,-10000000};
 	PartitionStatus status = OUT;
 
 	int vstart = -1;
 	int vend = -1;
 	Pixel(){
 
+	}
+
+	void update(Point &p){
+		if(low[0]>p.x){
+			low[0] = p.x;
+		}
+		if(high[0]<p.x){
+			high[0] = p.x;
+		}
+
+		if(low[1]>p.y){
+			low[1] = p.y;
+		}
+		if(high[1]<p.y){
+			high[1] = p.y;
+		}
 	}
 
 	bool intersect(Pixel *target){
@@ -200,80 +217,21 @@ public:
 	double *x = NULL;
 	double *y = NULL;
 	VertexSequence(){};
-	VertexSequence(int nv){
-		x = new double[nv];
-		y = new double[nv];
-		num_vertices = nv;
-	}
-	VertexSequence(int nv, double *xx, double *yy){
-		num_vertices = nv;
-		x = new double[nv];
-		y = new double[nv];
-		memcpy((char *)x,(char *)xx,num_vertices*sizeof(double));
-		memcpy((char *)y,(char *)yy,num_vertices*sizeof(double));
-	};
+	VertexSequence(int nv);
+	VertexSequence(int nv, double *xx, double *yy);
+	size_t encode(char *dest);
+	size_t decode(char *source);
+	size_t get_data_size();
 
-
-	size_t encode(char *dest){
-		size_t encoded = 0;
-		((long *)dest)[0] = num_vertices;
-		encoded += sizeof(long);
-		memcpy(dest+encoded,(char *)x,num_vertices*sizeof(double));
-		encoded += num_vertices*sizeof(double);
-		memcpy(dest+encoded,(char *)y,num_vertices*sizeof(double));
-		encoded += num_vertices*sizeof(double);
-		return encoded;
-	}
-
-	size_t decode(char *source){
-		size_t decoded = 0;
-		num_vertices = ((long *)source)[0];
-		x = new double[num_vertices];
-		y = new double[num_vertices];
-		decoded += sizeof(long);
-		memcpy((char *)x,source+decoded,num_vertices*sizeof(double));
-		decoded += num_vertices*sizeof(double);
-		memcpy((char *)y,source+decoded,num_vertices*sizeof(double));
-		decoded += num_vertices*sizeof(double);
-		return decoded;
-	}
-
-	size_t get_data_size(){
-		return sizeof(long)+num_vertices*2*sizeof(double);
-	}
-
-	~VertexSequence(){
-		if(x){
-			delete []x;
-		}
-		if(y){
-			delete []y;
-		}
-	}
-	VertexSequence *clone(){
-		VertexSequence *ret = new VertexSequence();
-		ret->num_vertices = num_vertices;
-		ret->x = new double[num_vertices];
-		ret->y = new double[num_vertices];
-		memcpy((void *)ret->x,(void *)x,sizeof(double)*num_vertices);
-		memcpy((void *)ret->y,(void *)y,sizeof(double)*num_vertices);
-		return ret;
-	}
-	void print(){
-		cout<<"(";
-		for(int i=0;i<num_vertices;i++){
-			if(i!=0){
-				cout<<",";
-			}
-			printf("%f ",x[i]);
-			printf("%f",y[i]);
-		}
-		cout<<")";
-	}
+	~VertexSequence();
+	VertexSequence *clone();
+	void print();
 	bool clockwise();
 	void reverse();
 	double area();
 	bool contain(Point p);
+	//fix the ring
+	void fix();
 };
 
 
@@ -339,8 +297,9 @@ public:
 	string source_path;
 	string target_path;
 
-	//query target
+	//query target, for temporary use
 	void *target = NULL;
+	void *target2 = NULL;
 	query_context *global_ctx = NULL;
 
 	//shared staff
@@ -418,12 +377,16 @@ public:
 
 
 query_context get_parameters(int argc, char **argv);
+int *polygon_triangulate ( int n, double x[], double y[] );
 
 class MyPolygon{
 	Pixel *mbr = NULL;
 	Pixel *mer = NULL;
 	vector<vector<Pixel>> partitions;
 	QTNode *qtree = NULL;
+	RTree<int *, double, 2, double> *rtree = NULL;
+	int *triangles = NULL;
+
 	double step_x = 0;
 	double step_y = 0;
 	int id = 0;
@@ -438,6 +401,17 @@ public:
 	VertexSequence *convex_hull = NULL;
 	vector<VertexSequence *> internal_polygons;
 
+	MyPolygon(){
+	    pthread_mutex_init(&ideal_partition_lock, NULL);
+	    pthread_mutex_init(&qtree_partition_lock, NULL);
+	}
+	~MyPolygon();
+	MyPolygon *clone();
+
+	int *triangulate();
+	void build_rtree();
+
+
 
 	static VertexSequence *read_vertices(const char *wkt, size_t &offset, bool clockwise=true);
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
@@ -449,6 +423,7 @@ public:
 
 	bool contain(Point p);// brute-forcely check containment
 	bool contain(Point p, query_context *ctx);
+	bool contain_rtree(Point p, query_context *ctx);
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
@@ -458,13 +433,6 @@ public:
 
 	bool contain_try_partition(Pixel *target, query_context *ctx);
 
-	void internal_partition();
-	MyPolygon *clone();
-	MyPolygon(){
-	    pthread_mutex_init(&ideal_partition_lock, NULL);
-	    pthread_mutex_init(&qtree_partition_lock, NULL);
-	}
-	~MyPolygon();
 	void print_without_head(bool print_hole = false);
 	void print(bool print_hole=false);
 	void print_without_return(bool print_hole=false);
@@ -479,7 +447,6 @@ public:
 
 	void init_partition(const int dimx, const int dimy);
 	void evaluate_edges(const int dimx, const int dimy);
-	void spread_pixels(const int dimx, const int dimy);
 
 
 	VertexSequence *get_convex_hull();
@@ -583,15 +550,15 @@ public:
 		}
 		assert(boundary);
 		double sum = boundary->area();
-		//assert(sum>=0);
+		assert(sum>=0);
 		for(VertexSequence *vs:internal_polygons){
 			double a = vs->area();
-			//assert(a<=0);
+			assert(a<=0);
 			sum += a;
 		}
-		//assert(sum>=0);
+		assert(sum>=0);
 		area_buffer = std::max(sum,0.0);
-		return area_buffer;
+		return area_buffer/2;
 	}
 
 	void print_partition(query_context qc);
