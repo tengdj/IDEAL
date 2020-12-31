@@ -1632,20 +1632,18 @@ int triangulator::triangulate_polygon(VertexSequence *vc, int *triangles)
 
 	cout<<"initialized"<<endl;
 
-	for(int i = 0; i < num_edges; i++){
-		seg[i].v0.x = vc->x[i];
-		seg[i].v0.y = vc->y[i];
+	for(int i = 1; i <= num_edges; i++){
+		seg[i].v0.x = vc->x[i-1];
+		seg[i].v0.y = vc->y[i-1];
 
-		seg[i].next = (i+num_edges)%(num_edges-1);
-
-		if (i == num_edges-1){
-			seg[i].next = 0;
+		if (i == num_edges){
+			seg[i].next = 1;
 			seg[i].prev = i-1;
 			seg[i-1].v1 = seg[i].v0;
 		}else if (i == 0){
 			seg[i].next = i+1;
-			seg[i].prev = num_edges-1;
-			seg[num_edges-1].v1 = seg[i].v0;
+			seg[i].prev = num_edges;
+			seg[num_edges].v1 = seg[i].v0;
 		}else{
 			seg[i].next = i+1;
 			seg[i].prev = i-1;
@@ -1708,15 +1706,12 @@ void triangulator::print_trapezoids(){
 		px.update(seg[tr[i].rseg].v0);
 		px.update(seg[tr[i].rseg].v1);
 
-		if(tr[i].lo.y!=0){
-			printf("((%f %f, %f %f, %f %f, %f %f, %f %f))",
-					px.low[0],px.low[1],
-					px.high[0],px.low[1],
-					px.high[0],px.high[1],
-					px.low[0],px.high[1],
-					px.low[0],px.low[1]);
-		}
-
+		printf("((%f %f, %f %f, %f %f, %f %f, %f %f))",
+				px.low[0],px.low[1],
+				px.high[0],px.low[1],
+				px.high[0],px.high[1],
+				px.low[0],px.high[1],
+				px.low[0],px.low[1]);
 	}
 
 	cout<<")"<<endl;

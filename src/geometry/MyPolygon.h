@@ -557,7 +557,7 @@ public:
 			sum += a;
 		}
 		assert(sum>=0);
-		area_buffer = std::max(sum,0.0);
+		area_buffer = sum;
 		return area_buffer/2;
 	}
 

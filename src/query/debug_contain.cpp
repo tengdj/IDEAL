@@ -20,12 +20,13 @@ int main(int argc, char **argv){
 	query_context ctx;
 	ctx.use_grid = true;
 	ctx.query_type = QueryType::contain;
+	VertexSequence *ch = polygon->get_convex_hull();
 
-//	cout<<"1\n\n"<<polygon->get_num_vertices()-1<<endl;
-//	for(int i=polygon->get_num_vertices()-2;i>=0;i--){
-//		printf("%f %f\n",polygon->boundary->x[i],polygon->boundary->y[i]);
-//	}
-
+	cout<<"1\n\n"<<ch->num_vertices-1<<endl;
+	for(int i=0;i<ch->num_vertices-1;i++){
+		printf("%f %f\n",ch->x[i],ch->y[i]);
+	}
+	return 0;
 //	int *triangles = polygon->triangulate();
 //	double *x = polygon->boundary->x;
 //	double *y = polygon->boundary->y;
@@ -59,7 +60,7 @@ int main(int argc, char **argv){
 	for (int i = 0; i < polygon->get_num_vertices()-2; i++){
 		printf("triangle #%d: %d %d %d\n", i, triangles[i*3+0], triangles[i*3+1], triangles[i*3+2]);
 	}
-
+	cout<<polygon->boundary->clockwise()<<endl;
 
 	delete polygon;
 	return 0;
