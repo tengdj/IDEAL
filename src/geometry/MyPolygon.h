@@ -550,13 +550,13 @@ public:
 		}
 		assert(boundary);
 		double sum = boundary->area();
-		assert(sum>=0);
+		//assert(sum>=0);
 		for(VertexSequence *vs:internal_polygons){
 			double a = vs->area();
-			assert(a<=0);
+			//assert(a<=0);
 			sum += a;
 		}
-		assert(sum>=0);
+		//assert(sum>=0);
 		area_buffer = sum;
 		return area_buffer/2;
 	}
