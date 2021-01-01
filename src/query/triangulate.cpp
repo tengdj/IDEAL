@@ -65,32 +65,33 @@ int main(int argc, char* argv[]){
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
 
-//	global_ctx.sort_polygons = true;
-//	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
-//
-//	ofstream of;
-//	of.open(global_ctx.target_path, ios::out | ios::binary);
-//	size_t numpolygons = global_ctx.source_polygons.size();
-//	of.write((char *)&numpolygons, sizeof(numpolygons));
-//	for(int i=0;i<numpolygons;i++){
-//		unsigned int si = global_ctx.source_polygons[i]->offset+sizeof(numpolygons)+sizeof(unsigned int)*numpolygons;
-//		of.write((char *)&si, sizeof(unsigned int));
-//	}
-//	of.close();
+	if(global_ctx.use_grid){
+		global_ctx.sort_polygons = true;
+		global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+		ofstream of;
+		of.open(global_ctx.target_path, ios::out | ios::binary);
+		size_t numpolygons = global_ctx.source_polygons.size();
+		of.write((char *)&numpolygons, sizeof(numpolygons));
+		for(int i=0;i<numpolygons;i++){
+			unsigned int si = global_ctx.source_polygons[i]->offset+sizeof(numpolygons)+sizeof(unsigned int)*numpolygons;
+			of.write((char *)&si, sizeof(unsigned int));
+		}
+		of.close();
+		return 0;
+	}else{
 
-//	return 0;
-
-	MyPolygon *polygon = MyPolygon::load_binary_file_single(global_ctx.source_path.c_str(),global_ctx, global_ctx.vpr);
-	vector<TrPoint*> polyline;
-	for(int i=0;i<polygon->boundary->num_vertices-1;i++){
-		polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
+		MyPolygon *polygon = MyPolygon::load_binary_file_single(global_ctx.source_path.c_str(),global_ctx, global_ctx.vpr);
+		vector<TrPoint*> polyline;
+		for(int i=0;i<polygon->boundary->num_vertices-1;i++){
+			polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
+		}
+		struct timeval start = get_cur_time();
+		CDT* cdt = new CDT(polyline);
+		cdt->Triangulate();
+		vector<Triangle*> triangles = cdt->GetTriangles();
+		logt("triangulation",start);
+		cout<<"processed successful,"<<global_ctx.vpr<<endl;
 	}
-	struct timeval start = get_cur_time();
-	CDT* cdt = new CDT(polyline);
-	cdt->Triangulate();
-	vector<Triangle*> triangles = cdt->GetTriangles();
-	logt("triangulation",start);
-	cout<<"processed successful,"<<global_ctx.vpr<<endl;
 
 
 
