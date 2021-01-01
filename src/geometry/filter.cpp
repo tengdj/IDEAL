@@ -403,6 +403,7 @@ void *triangulate_unit(void *args){
 			if(!polygon->valid_for_triangulate){
 				continue;
 			}
+			cout<<"ever been here?"<<endl;
 			for(int i=0;i<polygon->boundary->num_vertices-1;i++){
 				polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
 			}

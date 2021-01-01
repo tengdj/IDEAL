@@ -84,6 +84,7 @@ int main(int argc, char** argv) {
 			 ifstream is(global_ctx.valid_path);
 			 int num = 0;
 			 while(is>>num){
+				 cout<<num<<endl;
 				 assert(num<global_ctx.source_polygons.size());
 				 global_ctx.source_polygons[num]->valid_for_triangulate = true;
 			 }
