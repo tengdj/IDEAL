@@ -71,11 +71,10 @@ int main(int argc, char* argv[]){
 		ofstream of;
 		of.open(global_ctx.target_path, ios::out | ios::binary);
 		size_t numpolygons = global_ctx.source_polygons.size();
-		of.write((char *)&numpolygons, sizeof(numpolygons));
+		of.write((char *)&numpolygons, sizeof(size_t));
 		for(int i=0;i<numpolygons;i++){
-			unsigned int si = global_ctx.source_polygons[i]->offset+sizeof(numpolygons)+sizeof(unsigned int)*numpolygons;
-			cout<<si<<" "<<global_ctx.source_polygons[i]->offset<<" "<<sizeof(numpolygons)+sizeof(unsigned int)*numpolygons<<endl;;
-			of.write((char *)&si, sizeof(unsigned int));
+			size_t si = global_ctx.source_polygons[i]->offset+sizeof(size_t)+sizeof(size_t)*numpolygons;
+			of.write((char *)&si, sizeof(size_t));
 		}
 		of.close();
 		return 0;

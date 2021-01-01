@@ -213,9 +213,9 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	infile.open(path, ios::in | ios::binary);
 	size_t num;
 	infile.read((char *)&num, sizeof(num));
-	unsigned int offset = sizeof(size_t)+idx*sizeof(unsigned int);
+	size_t offset = sizeof(size_t)+idx*sizeof(size_t);
 	infile.seekg(offset,infile.beg);
-	infile.read((char *)&offset, sizeof(unsigned int));
+	infile.read((char *)&offset, sizeof(size_t));
 	cout<<num<<" "<<offset<<endl;
 
 	infile.seekg(offset,infile.beg);
@@ -237,12 +237,12 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	struct timeval start = get_cur_time();
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
-	unsigned int off;
+	size_t off;
 
 	//seek to the first polygon
 	if(!ctx.use_grid){
 		infile.seekg(8, infile.beg);
-		infile.read((char *)&off, sizeof(unsigned int));
+		infile.read((char *)&off, sizeof(size_t));
 		infile.seekg(off, infile.beg);
 	}
 

@@ -396,7 +396,7 @@ class MyPolygon{
 
 
 public:
-	unsigned int offset = 0;
+	size_t offset = 0;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
 	vector<VertexSequence *> internal_polygons;
