@@ -216,6 +216,7 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	unsigned int offset = sizeof(size_t)+idx*sizeof(unsigned int);
 	infile.seekg(offset,infile.beg);
 	infile.read((char *)&offset, sizeof(unsigned int));
+	cout<<num<<" "<<offset<<endl;
 
 	infile.seekg(offset,infile.beg);
 	MyPolygon *poly = read_polygon_binary_file(infile);
