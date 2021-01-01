@@ -66,7 +66,7 @@ int main(int argc, char* argv[]){
 	global_ctx.query_type = QueryType::contain;
 
 	if(global_ctx.use_grid){
-		global_ctx.sort_polygons = true;
+		//global_ctx.sort_polygons = true;
 		global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 		ofstream of;
 		of.open(global_ctx.target_path, ios::out | ios::binary);
