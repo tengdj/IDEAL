@@ -77,7 +77,18 @@ int main(int argc, char** argv) {
 
 	if(global_ctx.use_mer){
 		process_mer(&global_ctx);
+		if(global_ctx.valid_path.size()>0){
+			 ifstream is(global_ctx.valid_path);
+			 int num = 0;
+			 while(is>>num){
+				 cout<<num<<endl;
+			 }
+			 is.close();
+			 exit(0);
+		}
 	}
+
+
 
 	timeval start = get_cur_time();
 //	int index = 0;

@@ -297,6 +297,8 @@ public:
 	string source_path;
 	string target_path;
 
+	string valid_path;
+
 	//query target, for temporary use
 	void *target = NULL;
 	void *target2 = NULL;
@@ -399,6 +401,7 @@ public:
 	size_t offset = 0;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
+	bool valid_for_triangulate = false;
 	vector<VertexSequence *> internal_polygons;
 
 	MyPolygon(){

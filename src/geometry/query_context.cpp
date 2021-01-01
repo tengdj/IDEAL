@@ -210,6 +210,7 @@ query_context get_parameters(int argc, char **argv){
 
 		("source,s", po::value<string>(&global_ctx.source_path)->required(), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
+		("valid_path", po::value<string>(&global_ctx.valid_path), "path to the file with valid polygons")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
 		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")
 		("vpr_end", po::value<int>(&global_ctx.vpr_end), "number of vertices per raster")
