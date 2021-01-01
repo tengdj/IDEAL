@@ -213,9 +213,10 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	infile.open(path, ios::in | ios::binary);
 	size_t num;
 	infile.read((char *)&num, sizeof(num));
-	unsigned int *offsets = new unsigned int[num];
-	infile.read((char *)offsets, sizeof(unsigned int)*num);
-	infile.seekg(offsets[idx],infile.beg);
+	unsigned int offset = sizeof(size_t)+idx*sizeof(unsigned int);
+	infile.seekg(offset,infile.beg);
+	infile.read((char *)&offset, sizeof(unsigned int));
+	infile.seekg(offset,infile.beg);
 	MyPolygon *poly = read_polygon_binary_file(infile);
 	infile.close();
 	assert(poly);
@@ -234,11 +235,17 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	struct timeval start = get_cur_time();
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
+	infile.seekg(8, infile.beg);
+	unsigned int off;
+	//seek to the first polygon
+	infile.read((char *)&off, sizeof(unsigned int));
+	infile.seekg(off, infile.beg);
+
+
 	int id = 0;
-	int iii = 0;
 	size_t num_edges = 0;
 	while(!infile.eof()){
-		unsigned int off = infile.tellg();
+		off = infile.tellg();
 		MyPolygon *poly = read_polygon_binary_file(infile);
 		if(!poly){
 			continue;
