@@ -81,6 +81,7 @@ int main(int argc, char** argv) {
 
 	if(global_ctx.use_triangulate){
 		if(global_ctx.valid_path.size()>0){
+			cout<<"terry is good"<<endl;
 			 ifstream is(global_ctx.valid_path);
 			 int num = 0;
 			 while(is>>num){
