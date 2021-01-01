@@ -79,6 +79,7 @@ int main(int argc, char** argv) {
 		process_mer(&global_ctx);
 	}
 
+	cout<<global_ctx.use_triangulate<<" "<<global_ctx.valid_path<<endl;
 	if(global_ctx.use_triangulate){
 		if(global_ctx.valid_path.size()>0){
 			 ifstream is(global_ctx.valid_path);
