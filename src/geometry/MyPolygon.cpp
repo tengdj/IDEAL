@@ -213,6 +213,7 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	infile.open(path, ios::in | ios::binary);
 	size_t num;
 	infile.read((char *)&num, sizeof(num));
+	cout<<num<<endl;
 	unsigned int offset = sizeof(size_t)+idx*sizeof(unsigned int);
 	infile.seekg(offset,infile.beg);
 	infile.read((char *)&offset, sizeof(unsigned int));
