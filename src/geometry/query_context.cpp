@@ -32,6 +32,7 @@ query_context::query_context(query_context &t){
 	use_grid = t.use_grid;
 	use_qtree = t.use_qtree;
 	use_mer = t.use_mer;
+	use_triangulate = t.use_triangulate;
 	mer_sample_round = t.mer_sample_round;
 	use_convex_hull = t.use_convex_hull;
 	perform_refine = t.perform_refine;
@@ -57,6 +58,7 @@ query_context& query_context::operator=(query_context const &t){
 	use_grid = t.use_grid;
 	use_qtree = t.use_qtree;
 	use_mer = t.use_mer;
+	use_triangulate = t.use_triangulate;
 	mer_sample_round = t.mer_sample_round;
 	use_convex_hull = t.use_convex_hull;
 	perform_refine = t.perform_refine;
@@ -207,6 +209,7 @@ query_context get_parameters(int argc, char **argv){
 		("convex_hull", "use convex hall for filtering")
 		("mer", "use maximum enclosed rectangle")
 		("mer_sample_round", "how many rounds of sampling needed for MER generating")
+		("triangulate", "use triangulate")
 
 		("source,s", po::value<string>(&global_ctx.source_path)->required(), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
@@ -237,6 +240,7 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.collect_latency = vm.count("latency");
 	global_ctx.use_convex_hull = vm.count("convex_hull");
 	global_ctx.use_mer = vm.count("mer");
+	global_ctx.use_triangulate = vm.count("triangulate");
 
 
 	assert(!(global_ctx.use_grid&&global_ctx.use_qtree));

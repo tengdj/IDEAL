@@ -283,6 +283,7 @@ public:
 	bool use_qtree = false;
 	bool use_convex_hull = false;
 	bool use_mer = false;
+	bool use_triangulate = false;
 	int mer_sample_round = 20;
 	bool perform_refine = true;
 	bool gpu = false;
