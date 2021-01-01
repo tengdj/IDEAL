@@ -237,11 +237,12 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	struct timeval start = get_cur_time();
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
-	infile.seekg(8, infile.beg);
 	unsigned int off;
+
 	//seek to the first polygon
-	infile.read((char *)&off, sizeof(unsigned int));
-	infile.seekg(off, infile.beg);
+//	infile.seekg(8, infile.beg);
+//	infile.read((char *)&off, sizeof(unsigned int));
+//	infile.seekg(off, infile.beg);
 
 
 	int id = 0;
