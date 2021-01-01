@@ -79,13 +79,11 @@ int main(int argc, char** argv) {
 		process_mer(&global_ctx);
 	}
 
-	cout<<global_ctx.use_triangulate<<" "<<global_ctx.valid_path<<endl;
 	if(global_ctx.use_triangulate){
 		if(global_ctx.valid_path.size()>0){
 			 ifstream is(global_ctx.valid_path);
 			 int num = 0;
 			 while(is>>num){
-				 cout<<num<<endl;
 				 assert(num<global_ctx.source_polygons.size());
 				 global_ctx.source_polygons[num]->valid_for_triangulate = true;
 			 }
