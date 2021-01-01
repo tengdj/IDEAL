@@ -74,6 +74,7 @@ int main(int argc, char* argv[]){
 		of.write((char *)&numpolygons, sizeof(numpolygons));
 		for(int i=0;i<numpolygons;i++){
 			unsigned int si = global_ctx.source_polygons[i]->offset+sizeof(numpolygons)+sizeof(unsigned int)*numpolygons;
+			cout<<si<<endl;
 			of.write((char *)&si, sizeof(unsigned int));
 		}
 		of.close();
