@@ -21,8 +21,9 @@ int main(int argc, char **argv){
 	ctx.use_grid = true;
 	ctx.query_type = QueryType::contain;
 	VertexSequence *ch = polygon->get_convex_hull();
+	ch = polygon->boundary;
 
-	cout<<"1\n\n"<<ch->num_vertices-1<<endl;
+	//cout<<"1\n\n"<<ch->num_vertices-1<<endl;
 	for(int i=0;i<ch->num_vertices-1;i++){
 		printf("%f %f\n",ch->x[i],ch->y[i]);
 	}

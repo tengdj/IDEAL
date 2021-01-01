@@ -208,6 +208,22 @@ inline bool compareIterator(MyPolygon *p1, MyPolygon *p2){
 	return p1->get_num_vertices()>p2->get_num_vertices();
 }
 
+MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context ctx, int idx){
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t num;
+	infile.read((char *)&num, sizeof(num));
+	unsigned int *offsets = new unsigned int[num];
+	infile.read((char *)offsets, sizeof(unsigned int)*num);
+	infile.seekg(offsets[idx],infile.beg);
+	MyPolygon *poly = read_polygon_binary_file(infile);
+	infile.close();
+	assert(poly);
+	return poly;
+
+}
+
+
 vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context ctx, bool sample){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
@@ -222,6 +238,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	int iii = 0;
 	size_t num_edges = 0;
 	while(!infile.eof()){
+		unsigned int off = infile.tellg();
 		MyPolygon *poly = read_polygon_binary_file(infile);
 		if(!poly){
 			continue;
@@ -232,6 +249,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 			delete poly;
 			continue;
 		}
+		poly->offset = off;
 		if(sample&&!tryluck(ctx.sample_rate)){
 			if(poly){
 				delete poly;

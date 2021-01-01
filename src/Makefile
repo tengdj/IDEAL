@@ -17,6 +17,9 @@ GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
 GEOS_SRCS := $(wildcard geos/*.cpp)
 GEOS_OBJS := $(patsubst %.cpp,%.o,$(GEOS_SRCS))
 
+TRIANGULATE_SRCS := $(wildcard triangulate/*.cpp)
+TRIANGULATE_OBJS := $(patsubst %.cpp,%.o,$(TRIANGULATE_SRCS))
+
 #compile all the cu files
 CU_SRCS := $(wildcard cuda/*.cu)
 CU_OBJS := $(patsubst %.cu,%_cu.o,$(CU_SRCS))
@@ -71,6 +74,9 @@ debug_distance:	query/debug_distance.o $(GEOMETRY_OBJS)
 debug_contain:	query/debug_contain.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
+
+triangulate:	query/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 # micro tests
 partition:	stats/partition.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
