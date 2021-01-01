@@ -40,10 +40,10 @@ all:	polygon_in_polygon point_polygon_distance point_in_polygon resque_polygon_i
 polygon_in_polygon:	query/polygon_in_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-point_polygon_distance:	query/point_polygon_distance.o $(GEOMETRY_OBJS)
+point_polygon_distance:	query/point_polygon_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS)
+point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 

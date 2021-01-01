@@ -627,6 +627,6 @@ public:
 void process_partition(query_context *ctx);
 void process_convex_hull(query_context *ctx);
 void process_mer(query_context *ctx);
-
+void process_triangulate(query_context *gctx);
 
 #endif /* SRC_MYPOLYGON_H_ */

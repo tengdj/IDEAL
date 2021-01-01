@@ -6,6 +6,8 @@
  */
 
 #include "MyPolygon.h"
+#include "../triangulate/poly2tri.h"
+using namespace p2t;
 
 
 int  *MyPolygon::triangulate(){
@@ -386,3 +388,81 @@ void process_mer(query_context *gctx){
 	gctx->query_count = 0;
 	gctx->target_num = former;
 }
+
+
+void *triangulate_unit(void *args){
+
+	query_context *ctx = (query_context *)args;
+	query_context *gctx = ctx->global_ctx;
+	//log("thread %d is started",ctx->thread_id);
+	int local_count = 0;
+	while(ctx->next_batch(100)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			vector<TrPoint*> polyline;
+			MyPolygon *polygon = gctx->source_polygons[i];
+			if(!polygon->valid_for_triangulate){
+				continue;
+			}
+			for(int i=0;i<polygon->boundary->num_vertices-1;i++){
+				polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
+			}
+			struct timeval start = get_cur_time();
+			CDT* cdt = new CDT(polyline);
+			cdt->Triangulate();
+			vector<Triangle*> triangles = cdt->GetTriangles();
+			delete cdt;
+			polyline.clear();
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void process_triangulate(query_context *gctx){
+
+	// must be non-empty
+	assert(gctx->source_polygons.size()>0);
+
+	gctx->index = 0;
+	size_t former = gctx->target_num;
+	gctx->target_num = gctx->source_polygons.size();
+
+	struct timeval start = get_cur_time();
+	pthread_t threads[gctx->num_threads];
+	query_context ctx[gctx->num_threads];
+	for(int i=0;i<gctx->num_threads;i++){
+		ctx[i] = *gctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = gctx;
+	}
+
+	for(int i=0;i<gctx->num_threads;i++){
+		pthread_create(&threads[i], NULL, triangulate_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < gctx->num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+	//collect convex hull status
+//	double mbr_size = 0;
+//	double mer_size = 0;
+//	for(MyPolygon *poly:gctx->source_polygons){
+//		mbr_size = poly->getMBB()->area();
+//		if(poly->getMER()){
+//			mer_size = poly->getMER()->area();
+//		}
+//	}
+//
+//	logt("triangulated %d polygons with %f mer/mbr", start,
+//			gctx->source_polygons.size(),
+//			mer_size/mbr_size);
+	logt("triangulated %d polygons", start,
+			gctx->source_polygons.size());
+	gctx->index = 0;
+	gctx->query_count = 0;
+	gctx->target_num = former;
+}
+

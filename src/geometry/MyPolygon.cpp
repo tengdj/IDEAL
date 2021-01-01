@@ -240,11 +240,9 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	size_t off;
 
 	//seek to the first polygon
-	if(!ctx.use_grid){
-		infile.seekg(8, infile.beg);
-		infile.read((char *)&off, sizeof(size_t));
-		infile.seekg(off, infile.beg);
-	}
+	infile.seekg(8, infile.beg);
+	infile.read((char *)&off, sizeof(size_t));
+	infile.seekg(off, infile.beg);
 
 	int id = 0;
 	size_t num_edges = 0;

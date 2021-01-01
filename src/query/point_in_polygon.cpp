@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
 
-	global_ctx.sort_polygons = true;
+	global_ctx.sort_polygons = false;
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
 	if(global_ctx.use_grid||global_ctx.use_qtree){
@@ -81,16 +81,17 @@ int main(int argc, char** argv) {
 
 	if(global_ctx.use_triangulate){
 		if(global_ctx.valid_path.size()>0){
-			cout<<"terry is good"<<endl;
 			 ifstream is(global_ctx.valid_path);
 			 int num = 0;
 			 while(is>>num){
-				 cout<<num<<endl;
+				 assert(num<global_ctx.source_polygons.size());
+				 global_ctx.source_polygons[num]->valid_for_triangulate = true;
 			 }
 			 is.close();
-			 exit(0);
 		}
+		process_triangulate(&global_ctx);
 	}
+
 
 
 
