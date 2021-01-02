@@ -19,8 +19,8 @@ int main(int argc, char **argv){
 	query_context ctx;
 	Point p(-117.156449,33.141541);
 
-	MyPolygon *polygon = MyPolygon::load_binary_file_single("/data/gisdata/raster/dat/all_source_100.dat", ctx, 198009);
-//	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
+//	MyPolygon *polygon = MyPolygon::load_binary_file_single("/data/gisdata/raster/dat/all_source_100.dat", ctx, 198009);
+	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
 
 	polygon->print();
 //	return 0;

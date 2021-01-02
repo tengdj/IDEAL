@@ -295,9 +295,9 @@ void *convex_hull_unit(void *args){
 	int local_count = 0;
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			log("processing %d %d",i,gctx->source_polygons[i]->getid());
+			log("processing\t%d %d",i,gctx->source_polygons[i]->getid());
 			VertexSequence *ch = gctx->source_polygons[i]->get_convex_hull();
-			log("processed %d %d",i,gctx->source_polygons[i]->getid());
+			log("processed\t%d %d",i,gctx->source_polygons[i]->getid());
 			ctx->report_progress();
 		}
 	}
