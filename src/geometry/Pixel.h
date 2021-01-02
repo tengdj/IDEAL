@@ -9,6 +9,7 @@
 #define SRC_GEOMETRY_PIXEL_H_
 
 #include "Point.h"
+#include <float.h>
 
 const static char *direction_str = "lrtb";
 
@@ -36,6 +37,12 @@ public:
 	double vertex;
 };
 
+class range{
+public:
+	double m_min = DBL_MAX;
+	double m_max = 0;
+};
+
 class Pixel{
 public:
 	int id[2];
@@ -51,6 +58,12 @@ public:
 
 	}
 
+	~Pixel(){
+		for(Pixel *p:children){
+			delete p;
+		}
+	}
+
 	Pixel(Pixel *p){
 		low[0] = p->low[0];
 		low[1] = p->low[1];
@@ -62,9 +75,10 @@ public:
 	bool intersect(Pixel *target);
 	bool contain(Pixel *target);
 	bool contain(Point &p);
-	double max_distance(Point p);
+	double max_distance(Point &p);
 	double area();
 	double distance(Point &p);
+	range distance_range(Point &p);
     double distance_geography(Point &p);
 
 	vector<cross_info> crosses[4];

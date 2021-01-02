@@ -87,7 +87,6 @@ public:
 	size_t target_num = 0;
 
 
-	vector<pair<MyPolygon *, MyPolygon *>> candidates;
 	map<int, int> vertex_number;
 	map<int, double> latency;
 

@@ -45,7 +45,7 @@ bool Pixel::contain(Point &p){
 		   p.y<=high[1];
 }
 
-double Pixel::max_distance(Point p){
+double Pixel::max_distance(Point &p){
 	double md = 0;
 	double dist = (p.x-low[0])*(p.x-low[0])+(p.y-low[1])*(p.y-low[1]);
 	if(dist>md){
@@ -69,6 +69,15 @@ double Pixel::max_distance(Point p){
 double Pixel::area(){
 	return (high[0]-low[0])*(high[1]-low[1]);
 }
+
+
+range Pixel::distance_range(Point &p){
+	range r;
+	r.m_min = distance(p);
+	r.m_max = max_distance(p);
+	return r;
+}
+
 
 double Pixel::distance(Point &p){
 	if(this->contain(p)){

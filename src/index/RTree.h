@@ -520,7 +520,6 @@ void RTREE_QUAL::construct_pixel(Pixel *p){
 	construct_pixel(m_root,p);
 }
 
-static int idxt=0;
 RTREE_TEMPLATE
 void RTREE_QUAL::construct_pixel(Node* a_node, Pixel *p)
 {

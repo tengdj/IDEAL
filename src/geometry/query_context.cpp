@@ -11,16 +11,18 @@ query_context::query_context(){
 	pthread_mutex_init(&lock, NULL);
 }
 query_context::~query_context(){
-	candidates.clear();
-//	for(MyPolygon *p:source_polygons){
-//		delete p;
-//	}
-//	for(MyPolygon *p:target_polygons){
-//		delete p;
-//	}
-//	if(points){
-//		delete []points;
-//	}
+
+	vertex_number.clear();
+	latency.clear();
+	for(MyPolygon *p:source_polygons){
+		delete p;
+	}
+	for(MyPolygon *p:target_polygons){
+		delete p;
+	}
+	if(points){
+		delete []points;
+	}
 
 }
 

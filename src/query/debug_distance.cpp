@@ -20,39 +20,40 @@ int main(int argc, char **argv){
 	query_context ctx;
 	ctx.use_triangulate = true;
 	polygon->valid_for_triangulate = true;
-
 	polygon->triangulate();
-
-	p.print();
-	polygon->print();
-	polygon->print_triangles();
-
 	polygon->build_rtree();
-	Pixel *root = polygon->get_rtree_pixel();
-	polygon->print();
-	queue<Pixel *> pixq;
-	pixq.push(root);
 
-	int level = 0;
-	while(pixq.size()>0){
-		int s = pixq.size();
-		printf("level %d %d\n",level++,s);
-		printf("MULTIPOLYGON(");
-		for(int i=0;i<s;i++){
-			Pixel *cur = pixq.front();
-			pixq.pop();
-			if(i>0){
-				printf(",");
-			}
-			printf("((");
-			cur->print_vertices();
-			printf("))");
-			for(Pixel *p:cur->children){
-				pixq.push(p);
-			}
-		}
-		printf(")\n");
-	}
+//	p.print();
+//	polygon->print();
+//	polygon->print_triangles();
+
+//	polygon->build_rtree();
+//	Pixel *root = polygon->get_rtree_pixel();
+//	queue<Pixel *> pixq;
+//	pixq.push(root);
+//	int level = 0;
+//	while(pixq.size()>0){
+//		int s = pixq.size();
+//		printf("level %d %d\n",level++,s);
+//		printf("MULTIPOLYGON(");
+//		for(int i=0;i<s;i++){
+//			Pixel *cur = pixq.front();
+//			pixq.pop();
+//			if(i>0){
+//				printf(",");
+//			}
+//			printf("((");
+//			cur->print_vertices();
+//			printf("))");
+//			for(Pixel *p:cur->children){
+//				pixq.push(p);
+//			}
+//		}
+//		printf(")\n");
+//	}
+
+	double d = polygon->distance(p, &ctx);
+	printf("%f\n",d);
 
 //	ctx.use_grid = true;
 //	ctx.distance_buffer_size = 10;
@@ -79,7 +80,7 @@ int main(int argc, char **argv){
 //	Pixel *pix = polygon->getMER(&ctx);
 //	MyPolygon::gen_box(*pix)->print();
 //
-//	delete polygon;
+	delete polygon;
 	return 0;
 }
 

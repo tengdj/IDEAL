@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 	}
+
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
 	}
@@ -141,6 +142,7 @@ int main(int argc, char** argv) {
 
 	global_ctx.print_stats();
 	logt("total query",start);
+
 	return 0;
 }
 

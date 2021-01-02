@@ -24,7 +24,6 @@ void MyPolygon::triangulate(){
 		delete cdt;
 		cdt = NULL;
 	}
-	cout<<boundary->polyline.size()<<endl;
 	assert(boundary->polyline.size()>0);
 	cdt = new CDT(boundary->polyline);
 	cdt->Triangulate();
@@ -48,7 +47,6 @@ RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
 	}
 
 	rtree = new RTree<Triangle *, double, 2, double>();
-
 	for(Triangle *tri:cdt->GetTriangles()){
 		Pixel pix;
 		for(int i=0;i<3;i++){

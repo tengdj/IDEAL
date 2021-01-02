@@ -348,6 +348,9 @@ MyPolygon::~MyPolygon(){
 	if(mbr){
 		delete mbr;
 	}
+	if(rtree_pixel){
+		delete rtree_pixel;
+	}
 	if(mer){
 		delete mer;
 	}

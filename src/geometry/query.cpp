@@ -52,7 +52,9 @@ bool ContainCallback(Triangle *triangle, void* arg){
 			}
 		}
 	}
-	ctx->edges_checked += 3;
+	if(ctx->is_contain_query()){
+		ctx->edges_checked += 3;
+	}
 	if(ret){
 		ctx->found++;
 	}
@@ -392,22 +394,64 @@ bool DistanceCallback(Triangle *triangle, void* arg){
 	return true;
 }
 
+class pixel_range{
+public:
+	Pixel *p;
+	range r;
+};
+
 double MyPolygon::distance_rtree(Point &p, query_context *ctx){
-	assert(rtree);
-	if(rtree_pixel){
-		rtree_pixel = new Pixel(mbr);
-		rtree->construct_pixel(rtree_pixel);
+	assert(rtree&&rtree_pixel);
+	queue<Pixel *> pixq;
+	for(Pixel *p:rtree_pixel->children){
+		pixq.push(p);
 	}
-	double shiftx = degree_per_kilometer_longitude(p.y)*ctx->distance_buffer_size;
-	double shifty = degree_per_kilometer_latitude*ctx->distance_buffer_size;
-	double buffer_low[2];
-	double buffer_high[2];
-	buffer_low[0] = p.x-shiftx;
-	buffer_low[1] = p.y-shifty;
-	buffer_high[0] = p.x+shiftx;
-	buffer_high[1] = p.y+shifty;
+	// set this value as the MINMAXDIST
 	ctx->distance = DBL_MAX;
-	rtree->Search(buffer_low, buffer_high, DistanceCallback, (void *)ctx);
+	vector<pixel_range *> tmp;
+	while(pixq.size()>0){
+		int s = pixq.size();
+		for(int i=0;i<s;i++){
+			Pixel *pix = pixq.front();
+			pixq.pop();
+			range r = pix->distance_range(p);
+			if(r.m_min>ctx->distance){
+				continue;
+			}
+			if(r.m_max<ctx->distance){
+				ctx->distance = r.m_max;
+			}
+			pixel_range *pr = new pixel_range();
+			pr->p = pix;
+			pr->r = r;
+
+			tmp.push_back(pr);
+		}
+
+		for(pixel_range *pr:tmp){
+			if(pr->r.m_min<=ctx->distance){
+				if(pr->p->children.size()==0){
+					Triangle *triangle = (Triangle *)pr->p->node_element;
+					for(int i=0,j=2;i<=2;j=i++){
+						Point *start = triangle->point(i);
+						Point *end = triangle->point(j);
+						double dist = point_to_segment_distance(p.x, p.y, start->x, start->y, end->x, end->y);
+						if(ctx->distance>dist){
+							ctx->distance = dist;
+						}
+					}
+				}else{
+					for(Pixel *p:pr->p->children){
+						pixq.push(p);
+					}
+				}
+			}
+			delete pr;
+		}
+
+		tmp.clear();
+	}
+
 	return ctx->distance;
 }
 
@@ -427,7 +471,12 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			ctx->edges_checked += this->get_num_vertices();
 			//grid indexing return
 			if(ctx->perform_refine){
-				return distance(p);
+				if(rtree){
+					return distance_rtree(p,ctx);
+				}else{
+					ctx->edges_checked += this->get_num_vertices();
+					return distance(p);
+				}
 			}else{
 				return DBL_MAX;
 			}
@@ -528,7 +577,6 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				}
 			}
 
-
 			if(mindist<mbrdist+step*step_size){
 				break;
 			}
@@ -554,6 +602,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return min_dist;
 			}
 		}
+
 
 		ctx->border_checked++;
 		//SIMPVEC return
