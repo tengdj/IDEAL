@@ -249,9 +249,11 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 
 	int id = 0;
 	size_t num_edges = 0;
+	int idx = 0;
 	while(!infile.eof()){
 		off = infile.tellg();
 		MyPolygon *poly = read_polygon_binary_file(infile);
+		cout<<idx++<<endl;
 		if(!poly){
 			continue;
 		}
