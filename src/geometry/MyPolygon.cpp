@@ -343,9 +343,14 @@ MyPolygon::~MyPolygon(){
 	if(rtree){
 		delete rtree;
 	}
-	if(cdt){
-		delete cdt;
+	for(Point *p:polyline){
+		delete p;
 	}
+	polyline.clear();
+	for(Triangle *tri:triangles){
+		delete tri;
+	}
+	triangles.clear();
 }
 
 
@@ -480,10 +485,9 @@ void MyPolygon::print_without_head(bool print_hole){
 }
 
 void MyPolygon::print_triangles(){
-	assert(cdt);
 	printf("MULTIPOLYGON(");
 	bool first = true;
-	for(Triangle *tri:cdt->GetTriangles()){
+	for(Triangle *tri:triangles){
 		if(!first){
 			printf(",");
 		}else{

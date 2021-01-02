@@ -65,8 +65,8 @@ class MyPolygon{
 	vector<vector<Pixel>> partitions;
 	QTNode *qtree = NULL;
 	RTree<Triangle *, double, 2, double> *rtree = NULL;
+	vector<Triangle *> triangles;
 	Pixel *rtree_pixel = NULL;
-	CDT *cdt = NULL;;
 
 	double step_x = 0;
 	double step_y = 0;
@@ -78,6 +78,7 @@ class MyPolygon{
 
 public:
 	size_t offset = 0;
+	vector<Point *> polyline;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
 	bool valid_for_triangulate = false;
@@ -99,9 +100,7 @@ public:
 			num_bits++;
 			numv/=2;
 		}
-		if(cdt){
-			sz += cdt->GetTriangles().size()*3*(num_bits+7)/8;
-		}
+		sz += triangles.size()*3*(num_bits+7)/8;
 		return sz;
 	}
 	RTree<Triangle *, double, 2, double> * build_rtree();

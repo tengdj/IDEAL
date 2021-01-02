@@ -20,24 +20,34 @@ void MyPolygon::triangulate(){
 		delete rtree;
 		rtree = NULL;
 	}
-	if(cdt){
-		delete cdt;
-		cdt = NULL;
+	for(Point *p:polyline){
+		delete p;
 	}
-	vector<Point *> polyline = boundary->pack_to_polyline();
+	polyline.clear();
+	for(Triangle *tri:triangles){
+		delete tri;
+	}
+	triangles.clear();
+
+	polyline = boundary->pack_to_polyline();
 	assert(polyline.size()>0);
-	cdt = new CDT(polyline);
+	CDT *cdt = new CDT(polyline);
 	cdt->Triangulate();
+	vector<Triangle *> tri = cdt->GetTriangles();
+	triangles.resize(tri.size());
+	for(int i=0;i<tri.size();i++){
+		triangles[i] = new Triangle(*tri[i]->point(0),*tri[i]->point(1),*tri[i]->point(2));
+	}
+	delete cdt;
 }
 
 RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
 	if(!this->valid_for_triangulate){
 		return NULL;
 	}
-	if(!cdt){
+	if(triangles.size()>0){
 		triangulate();
 	}
-	assert(cdt);
 	if(rtree){
 		delete rtree;
 		rtree = NULL;
@@ -48,7 +58,7 @@ RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
 	}
 
 	rtree = new RTree<Triangle *, double, 2, double>();
-	for(Triangle *tri:cdt->GetTriangles()){
+	for(Triangle *tri:triangles){
 		Pixel pix;
 		for(int i=0;i<3;i++){
 			pix.update(*tri->point(i));
@@ -450,7 +460,6 @@ void process_triangulate(query_context *gctx){
 		ctx[i].global_ctx = gctx;
 	}
 
-	gctx->report_gap = gctx->source_polygons.size()/10;
 	for(int i=0;i<gctx->num_threads;i++){
 		pthread_create(&threads[i], NULL, triangulate_unit, (void *)&ctx[i]);
 	}
@@ -569,6 +578,7 @@ void preprocess(query_context *gctx){
 			 is.close();
 		}
 		process_triangulate(gctx);
+		while(1);
 		process_internal_rtree(gctx);
 	}
 }
