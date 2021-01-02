@@ -27,7 +27,7 @@ void MyPolygon::triangulate(){
 	vector<Point *> polyline = boundary->pack_to_polyline();
 	assert(polyline.size()>0);
 	cdt = new CDT(polyline);
-	//cdt->Triangulate();
+	cdt->Triangulate();
 }
 
 RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
