@@ -8,6 +8,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
+#include "../geometry/Pixel.h"
 using namespace std;
 
 #define ASSERT assert // RTree uses ASSERT( condition )
@@ -87,6 +88,8 @@ public:
   /// \return Returns the number of entries found
   int Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   
+  void construct_pixel(Pixel *n);
+
   /// Remove all entries from tree
   void RemoveAll();
 
@@ -343,6 +346,7 @@ protected:
   bool Overlap(Rect* a_rectA, Rect* a_rectB);
   void ReInsert(Node* a_node, ListNode** a_listNode);
   bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
+  void construct_pixel(Node* a_node, Pixel *);
   void RemoveAllRec(Node* a_node);
   void Reset();
   void CountRec(Node* a_node, int& a_count);
@@ -511,6 +515,30 @@ void RTREE_QUAL::Remove(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMD
   RemoveRect(&rect, a_dataId, &m_root);
 }
 
+RTREE_TEMPLATE
+void RTREE_QUAL::construct_pixel(Pixel *p){
+	construct_pixel(m_root,p);
+}
+
+static int idxt=0;
+RTREE_TEMPLATE
+void RTREE_QUAL::construct_pixel(Node* a_node, Pixel *p)
+{
+	assert(a_node);
+	for(int index=0; index < a_node->m_count; ++index){
+		Pixel *np = new Pixel();
+		np->low[0] = a_node->m_branch[index].m_rect.m_min[0];
+		np->low[1] = a_node->m_branch[index].m_rect.m_min[1];
+		np->high[0] = a_node->m_branch[index].m_rect.m_max[0];
+		np->high[1] = a_node->m_branch[index].m_rect.m_max[1];
+		if(a_node->IsInternalNode()){
+			construct_pixel(a_node->m_branch[index].m_child, np);
+		}else{
+			np->node_element = (void *)a_node->m_branch[index].m_data;
+		}
+		p->children.push_back(np);
+	}
+}
 
 RTREE_TEMPLATE
 int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
@@ -555,6 +583,7 @@ void RTREE_QUAL::CountRec(Node* a_node, int& a_count)
 {
   if(a_node->IsInternalNode())  // not a leaf node
   {
+	a_count++;
     for(int index = 0; index < a_node->m_count; ++index)
     {
       CountRec(a_node->m_branch[index].m_child, a_count);
@@ -1527,6 +1556,8 @@ void RTREE_QUAL::ReInsert(Node* a_node, ListNode** a_listNode)
   newListNode->m_next = *a_listNode;
   *a_listNode = newListNode;
 }
+
+
 
 
 // Search in an index tree or subtree for all data retangles that overlap the argument rectangle.

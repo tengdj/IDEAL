@@ -21,9 +21,8 @@ RTree<MyPolygon *, double, 2, double> tree;
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 
-	Point p = *(Point *)ctx->target;
 	struct timeval start = get_cur_time();
-	ctx->found += poly->contain(p, ctx);
+	ctx->found += poly->contain(*(Point *)ctx->target, ctx);
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
@@ -90,26 +89,10 @@ int main(int argc, char** argv) {
 			 is.close();
 		}
 		process_triangulate(&global_ctx);
+		process_internal_rtree(&global_ctx);
 	}
 
-
-
-
 	timeval start = get_cur_time();
-//	int index = 0;
-//	for(MyPolygon *p:global_ctx.source_polygons){
-//		if(!p->triangulate()){
-//			p->print();
-//			exit(0);
-//		}
-//		cout<<index++<<" "<<global_ctx.source_polygons.size()<<endl;
-//	}
-//	logt("triangulate",start);
-//	for(MyPolygon *p:global_ctx.source_polygons){
-//		p->build_rtree();
-//	}
-//	logt("build rtree",start);
-
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}

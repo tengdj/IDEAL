@@ -56,7 +56,7 @@ enum Orientation { CW, CCW, COLLINEAR };
  *              =  (x1-x3)*(y2-y3) - (y1-y3)*(x2-x3)
  * </pre>
  */
-Orientation Orient2d(p2t::TrPoint& pa, p2t::TrPoint& pb, p2t::TrPoint& pc)
+Orientation Orient2d(Point& pa, Point& pb, Point& pc)
 {
   double detleft = (pa.x - pc.x) * (pb.y - pc.y);
   double detright = (pa.y - pc.y) * (pb.x - pc.x);
@@ -70,7 +70,7 @@ Orientation Orient2d(p2t::TrPoint& pa, p2t::TrPoint& pb, p2t::TrPoint& pc)
 }
 
 /*
-bool InScanArea(p2t::TrPoint& pa, p2t::TrPoint& pb, p2t::TrPoint& pc, p2t::TrPoint& pd)
+bool InScanArea(Point& pa, Point& pb, Point& pc, Point& pd)
 {
   double pdx = pd.x;
   double pdy = pd.y;
@@ -103,7 +103,7 @@ bool InScanArea(p2t::TrPoint& pa, p2t::TrPoint& pb, p2t::TrPoint& pc, p2t::TrPoi
 
 */
 
-bool InScanArea(p2t::TrPoint& pa, p2t::TrPoint& pb, p2t::TrPoint& pc, p2t::TrPoint& pd)
+bool InScanArea(Point& pa, Point& pb, Point& pc, Point& pd)
 {
   double oadb = (pa.x - pb.x)*(pd.y - pb.y) - (pd.x - pb.x)*(pa.y - pb.y);
   if (oadb >= -EPSILON) {

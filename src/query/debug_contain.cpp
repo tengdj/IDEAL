@@ -8,7 +8,6 @@
 #include "../geometry/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
-#include "../geometry/triangulate.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -53,15 +52,6 @@ int main(int argc, char **argv){
 	//cout<<polygon->contain(p, &ctx)<<endl;
 //
 ////
-	int *triangles = new int[3*(polygon->get_num_vertices()-2)];
-
-	triangulator *tr = new triangulator();
-	tr->triangulate_polygon(polygon->boundary, triangles);
-
-	for (int i = 0; i < polygon->get_num_vertices()-2; i++){
-		printf("triangle #%d: %d %d %d\n", i, triangles[i*3+0], triangles[i*3+1], triangles[i*3+2]);
-	}
-	cout<<polygon->boundary->clockwise()<<endl;
 
 	delete polygon;
 	return 0;

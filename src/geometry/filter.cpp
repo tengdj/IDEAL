@@ -10,41 +10,57 @@
 using namespace p2t;
 
 
-int  *MyPolygon::triangulate(){
+void MyPolygon::triangulate(){
 	assert(!boundary->clockwise());
-	triangles = polygon_triangulate(boundary->num_vertices-1, boundary->x, boundary->y);
-	return triangles;
-}
 
-void MyPolygon::build_rtree(){
-	if(!triangles){
-		triangulate();
+	if(!this->valid_for_triangulate){
+		return;
 	}
-	assert(triangles);
 	if(rtree){
 		delete rtree;
+		rtree = NULL;
 	}
-	rtree = new RTree<int *, double, 2, double>();
+	if(cdt){
+		delete cdt;
+		cdt = NULL;
+	}
+	cout<<boundary->polyline.size()<<endl;
+	assert(boundary->polyline.size()>0);
+	cdt = new CDT(boundary->polyline);
+	cdt->Triangulate();
+}
 
-	for(int n=0;n<boundary->num_vertices-2;n++){
-		double low[2] = {boundary->x[triangles[3*n]], boundary->y[triangles[3*n]]};
-		double high[2] = {boundary->x[triangles[3*n]], boundary->y[triangles[3*n]]};
-		for(int i=1;i<3;i++){
-			double cur_x = boundary->x[triangles[i+3*n]];
-			if(cur_x<low[0]){
-				low[0] = cur_x;
-			}else if(cur_x>high[0]){
-				high[0] = cur_x;
-			}
-			double cur_y = boundary->y[triangles[i+3*n]];
-			if(cur_y<low[1]){
-				low[1] = cur_y;
-			}else if(cur_y>high[1]){
-				high[1] = cur_y;
-			}
-		}
-		rtree->Insert(low, high, triangles+3*n);
+RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
+	if(!this->valid_for_triangulate){
+		return NULL;
 	}
+	if(!cdt){
+		triangulate();
+	}
+	assert(cdt);
+	if(rtree){
+		delete rtree;
+		rtree = NULL;
+	}
+	if(rtree_pixel){
+		delete rtree_pixel;
+		rtree_pixel = NULL;
+	}
+
+	rtree = new RTree<Triangle *, double, 2, double>();
+
+	for(Triangle *tri:cdt->GetTriangles()){
+		Pixel pix;
+		for(int i=0;i<3;i++){
+			pix.update(*tri->point(i));
+		}
+		rtree->Insert(pix.low, pix.high, tri);
+	}
+	mbr = getMBB();
+	rtree_pixel = new Pixel(mbr);
+	rtree->construct_pixel(rtree_pixel);
+
+	return rtree;
 
 }
 
@@ -192,46 +208,41 @@ inline int orientation(Point p, Point q, Point r){
 // Prints convex hull of a set of n points.
 VertexSequence *convexHull(VertexSequence *boundary)
 {
-	Point *points = (Point *)malloc(sizeof(Point)*boundary->num_vertices);
-	int n = boundary->num_vertices;
-	for(int i=0;i<boundary->num_vertices;i++){
-		points[i].x = boundary->x[i];
-		points[i].y = boundary->y[i];
-	}
+	int n = boundary->polyline.size();
+	assert(n>0);
     // There must be at least 3 points
     if (n < 3){
     	return NULL;
     }
-
     // Initialize Result
-    vector<Point> hull;
+    vector<Point *> hull;
 
     // Find the leftmost point
-    int l = 0;
+    int left = 0;
     for (int i = 1; i < n; i++)
-        if (points[i].x < points[l].x)
-            l = i;
+        if (boundary->polyline[i]->x < boundary->polyline[left]->x)
+        	left = i;
 
     // Start from leftmost point, keep moving counterclockwise
     // until reach the start point again.  This loop runs O(h)
     // times where h is number of points in result or output.
-    int p = l, q;
+    int p = left;
     do
     {
         // Add current point to result
-        hull.push_back(points[p]);
+        hull.push_back(boundary->polyline[p]);
 
         // Search for a point 'q' such that orientation(p, x,
         // q) is counterclockwise for all points 'x'. The idea
         // is to keep track of last visited most counterclock-
         // wise point in q. If any point 'i' is more counterclock-
         // wise than q, then update q.
-        q = (p+1)%n;
+        int q = (p+1)%n;
         for (int i = 0; i < n; i++)
         {
            // If i is more counterclockwise than current q, then
            // update q
-           if (q!=i && orientation(points[p], points[i], points[q]) == 2)
+           if (q!=i && orientation(*boundary->polyline[p], *boundary->polyline[i], *boundary->polyline[q]) == 2)
                q = i;
         }
 
@@ -240,20 +251,16 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // result 'hull'
         p = q;
 
-    } while (p != l);  // While we don't come to first point
+    } while (p != left);  // While we don't come to first point
 
-   VertexSequence *ch = new VertexSequence();
-   ch->x = new double[hull.size()+1];
-   ch->y = new double[hull.size()+1];
-
+   VertexSequence *ch = new VertexSequence(hull.size()+1);
    for (int i=0;i<hull.size();i++){
-	   ch->x[ch->num_vertices] = hull[i].x;
-	   ch->y[ch->num_vertices++] = hull[i].y;
+	   ch->x[i] = hull[i]->x;
+	   ch->y[i] = hull[i]->y;
    }
-   ch->x[ch->num_vertices] = ch->x[0];
-   ch->y[ch->num_vertices++] = ch->y[0];
-
-   free(points);
+   ch->x[hull.size()] = ch->x[0];
+   ch->y[hull.size()] = ch->y[0];
+   hull.clear();
    return ch;
 }
 
@@ -273,13 +280,7 @@ void *convex_hull_unit(void *args){
 	int local_count = 0;
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			struct timeval start = get_cur_time();
 			VertexSequence *ch = gctx->source_polygons[i]->get_convex_hull();
-			double latency = get_time_elapsed(start);
-			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
-			if(latency>10000){
-				logt("get convex hull from polygon with %d vertices",start,num_vertices);
-			}
 			ctx->report_progress();
 		}
 	}
@@ -316,13 +317,18 @@ void process_convex_hull(query_context *gctx){
 
 	//collect convex hull status
 	size_t num_vertexes = 0;
+	size_t data_size = 0;
+	size_t ch_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
 		num_vertexes += poly->get_convex_hull()->num_vertices;
+		data_size += poly->get_data_size();
+		ch_size += poly->get_convex_hull()->num_vertices*16;
 	}
 
-	logt("get convex hull for %d polygons with %ld average vertices", start,
+	logt("get convex hull for %d polygons with %ld average vertices %f overhead", start,
 			gctx->source_polygons.size(),
-			num_vertexes/gctx->source_polygons.size());
+			num_vertexes/gctx->source_polygons.size(),
+			ch_size*100.0/data_size);
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;
@@ -372,18 +378,23 @@ void process_mer(query_context *gctx){
 	}
 
 	//collect convex hull status
-	double mbr_size = 0;
-	double mer_size = 0;
+	double mbr_are = 0;
+	double mer_are = 0;
+	size_t data_size = 0;
+	size_t mer_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		mbr_size = poly->getMBB()->area();
-		if(poly->getMER()){
-			mer_size = poly->getMER()->area();
+		data_size += poly->get_data_size();
+		mer_size += 4*8;
+		mbr_are += poly->getMBB()->area();
+		if(poly->getMER(gctx)){
+			mer_are += poly->getMER(gctx)->area();
 		}
 	}
 
-	logt("get mer for %d polygons with %f mer/mbr", start,
+	logt("get mer for %d polygons with %f mer/mbr with %f overhead", start,
 			gctx->source_polygons.size(),
-			mer_size/mbr_size);
+			mer_are/mbr_are,
+			mer_size*100.0/data_size);
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;
@@ -398,20 +409,12 @@ void *triangulate_unit(void *args){
 	int local_count = 0;
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			vector<TrPoint*> polyline;
+			vector<Point*> polyline;
 			MyPolygon *polygon = gctx->source_polygons[i];
 			if(!polygon->valid_for_triangulate){
 				continue;
 			}
-			for(int i=0;i<polygon->boundary->num_vertices-1;i++){
-				polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
-			}
-			struct timeval start = get_cur_time();
-			CDT* cdt = new CDT(polyline);
-			cdt->Triangulate();
-			vector<Triangle*> triangles = cdt->GetTriangles();
-			delete cdt;
-			polyline.clear();
+			polygon->triangulate();
 			ctx->report_progress();
 		}
 	}
@@ -447,20 +450,83 @@ void process_triangulate(query_context *gctx){
 	}
 
 	//collect convex hull status
-//	double mbr_size = 0;
-//	double mer_size = 0;
-//	for(MyPolygon *poly:gctx->source_polygons){
-//		mbr_size = poly->getMBB()->area();
-//		if(poly->getMER()){
-//			mer_size = poly->getMER()->area();
-//		}
-//	}
-//
-//	logt("triangulated %d polygons with %f mer/mbr", start,
-//			gctx->source_polygons.size(),
-//			mer_size/mbr_size);
-	logt("triangulated %d polygons", start,
-			gctx->source_polygons.size());
+	size_t data_size = 0;
+	size_t triangle_size = 0;
+	for(MyPolygon *poly:gctx->source_polygons){
+		data_size += poly->get_data_size();
+		triangle_size += poly->get_triangle_size();
+	}
+
+	logt("triangulated %d polygons with %f overhead", start,
+			gctx->source_polygons.size(),
+			triangle_size*100.0/data_size);
+	gctx->index = 0;
+	gctx->query_count = 0;
+	gctx->target_num = former;
+}
+
+
+
+void *internal_rtree_unit(void *args){
+
+	query_context *ctx = (query_context *)args;
+	query_context *gctx = ctx->global_ctx;
+	//log("thread %d is started",ctx->thread_id);
+	int local_count = 0;
+	while(ctx->next_batch(100)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			vector<Point*> polyline;
+			MyPolygon *polygon = gctx->source_polygons[i];
+			if(!polygon->valid_for_triangulate){
+				continue;
+			}
+			polygon->build_rtree();
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void process_internal_rtree(query_context *gctx){
+
+	// must be non-empty
+	assert(gctx->source_polygons.size()>0);
+
+	gctx->index = 0;
+	size_t former = gctx->target_num;
+	gctx->target_num = gctx->source_polygons.size();
+
+	struct timeval start = get_cur_time();
+	pthread_t threads[gctx->num_threads];
+	query_context ctx[gctx->num_threads];
+	for(int i=0;i<gctx->num_threads;i++){
+		ctx[i] = *gctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = gctx;
+	}
+
+	for(int i=0;i<gctx->num_threads;i++){
+		pthread_create(&threads[i], NULL, internal_rtree_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < gctx->num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+	//collect convex hull status
+	size_t data_size = 0;
+	size_t rtree_size = 0;
+	for(MyPolygon *poly:gctx->source_polygons){
+		data_size += poly->get_data_size();
+		rtree_size += poly->get_rtree_size();
+	}
+
+	logt("RTree of %d polygons with %f overhead", start,
+			gctx->source_polygons.size(),
+			rtree_size*100.0/data_size);
+
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;

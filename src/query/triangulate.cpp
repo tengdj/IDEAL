@@ -69,8 +69,9 @@ int main(int argc, char* argv[]){
 		//global_ctx.sort_polygons = true;
 		global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 		ofstream of;
-		of.open(global_ctx.target_path, ios::out | ios::binary);
+		of.open(global_ctx.target_path, ios::out | ios::binary|ios::trunc);
 		size_t numpolygons = global_ctx.source_polygons.size();
+		log("writing %ld",numpolygons);
 		of.write((char *)&numpolygons, sizeof(size_t));
 		for(int i=0;i<numpolygons;i++){
 			size_t si = global_ctx.source_polygons[i]->offset+sizeof(size_t)+sizeof(size_t)*numpolygons;
@@ -81,16 +82,16 @@ int main(int argc, char* argv[]){
 	}else{
 
 		MyPolygon *polygon = MyPolygon::load_binary_file_single(global_ctx.source_path.c_str(),global_ctx, global_ctx.vpr);
-		vector<TrPoint*> polyline;
+		vector<Point*> polyline;
 		for(int i=0;i<polygon->boundary->num_vertices-1;i++){
-			polyline.push_back(new TrPoint(polygon->boundary->x[i],polygon->boundary->y[i]));
+			polyline.push_back(new Point(polygon->boundary->x[i],polygon->boundary->y[i]));
 		}
 		struct timeval start = get_cur_time();
 		CDT* cdt = new CDT(polyline);
 		cdt->Triangulate();
 		vector<Triangle*> triangles = cdt->GetTriangles();
 		logt("triangulation",start);
-		cout<<"processed successful,"<<global_ctx.vpr<<endl;
+		cout<<"successful,"<<global_ctx.vpr<<endl;
 	}
 
 

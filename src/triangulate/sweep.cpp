@@ -51,7 +51,7 @@ void Sweep::Triangulate(SweepContext& tcx)
 void Sweep::SweepPoints(SweepContext& tcx)
 {
   for (int i = 1; i < tcx.point_count(); i++) {
-    TrPoint& point = *tcx.GetPoint(i);
+    Point& point = *tcx.GetPoint(i);
     Node* node = &PointEvent(tcx, point);
     for (unsigned int i = 0; i < point.edge_list.size(); i++) {
       EdgeEvent(tcx, point.edge_list[i], node);
@@ -63,7 +63,7 @@ void Sweep::FinalizationPolygon(SweepContext& tcx)
 {
   // Get an Internal triangle to start with
   Triangle* t = tcx.front()->head()->next->triangle;
-  TrPoint* p = tcx.front()->head()->next->point;
+  Point* p = tcx.front()->head()->next->point;
   while (!t->GetConstrainedEdgeCW(*p)) {
     t = t->NeighborCCW(*p);
   }
@@ -72,7 +72,7 @@ void Sweep::FinalizationPolygon(SweepContext& tcx)
   tcx.MeshClean(*t);
 }
 
-Node& Sweep::PointEvent(SweepContext& tcx, TrPoint& point)
+Node& Sweep::PointEvent(SweepContext& tcx, Point& point)
 {
   Node& node = tcx.LocateNode(point);
   Node& new_node = NewFrontTriangle(tcx, point, node);
@@ -105,13 +105,13 @@ void Sweep::EdgeEvent(SweepContext& tcx, Edge* edge, Node* node)
   EdgeEvent(tcx, *edge->p, *edge->q, node->triangle, *edge->q);
 }
 
-void Sweep::EdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* triangle, TrPoint& point)
+void Sweep::EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point)
 {
   if (IsEdgeSideOfTriangle(*triangle, ep, eq)) {
     return;
   }
 
-  TrPoint* p1 = triangle->PointCCW(point);
+  Point* p1 = triangle->PointCCW(point);
   Orientation o1 = Orient2d(eq, *p1, ep);
   if (o1 == COLLINEAR) {
     if( triangle->Contains(&eq, p1)) {
@@ -128,7 +128,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* tri
     return;
   }
 
-  TrPoint* p2 = triangle->PointCW(point);
+  Point* p2 = triangle->PointCW(point);
   Orientation o2 = Orient2d(eq, *p2, ep);
   if (o2 == COLLINEAR) {
     if( triangle->Contains(&eq, p2)) {
@@ -160,7 +160,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* tri
   }
 }
 
-bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, TrPoint& ep, TrPoint& eq)
+bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, Point& ep, Point& eq)
 {
   int index = triangle.EdgeIndex(&ep, &eq);
 
@@ -175,7 +175,7 @@ bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, TrPoint& ep, TrPoint& eq)
   return false;
 }
 
-Node& Sweep::NewFrontTriangle(SweepContext& tcx, TrPoint& point, Node& node)
+Node& Sweep::NewFrontTriangle(SweepContext& tcx, Point& point, Node& node)
 {
   Triangle* triangle = new Triangle(point, *node.point, *node.next->point);
 
@@ -273,19 +273,19 @@ bool Sweep::LargeHole_DontFill(Node* node) {
   return true;
 }
 
-bool Sweep::AngleExceeds90Degrees(TrPoint* origin, TrPoint* pa, TrPoint* pb) {
+bool Sweep::AngleExceeds90Degrees(Point* origin, Point* pa, Point* pb) {
   double angle = Angle(*origin, *pa, *pb);
   bool exceeds90Degrees = ((angle > PI_div2) || (angle < -PI_div2));
   return exceeds90Degrees;
 }
 
-bool Sweep::AngleExceedsPlus90DegreesOrIsNegative(TrPoint* origin, TrPoint* pa, TrPoint* pb) {
+bool Sweep::AngleExceedsPlus90DegreesOrIsNegative(Point* origin, Point* pa, Point* pb) {
   double angle = Angle(*origin, *pa, *pb);
   bool exceedsPlus90DegreesOrIsNegative = (angle > PI_div2) || (angle < 0);
   return exceedsPlus90DegreesOrIsNegative;
 }
 
-double Sweep::Angle(TrPoint& origin, TrPoint& pa, TrPoint& pb) {
+double Sweep::Angle(Point& origin, Point& pa, Point& pb) {
   /* Complex plane
    * ab = cosA +i*sinA
    * ab = (ax + ay*i)(bx + by*i) = (ax*bx + ay*by) + i(ax*by-ay*bx)
@@ -341,8 +341,8 @@ bool Sweep::Legalize(SweepContext& tcx, Triangle& t)
     Triangle* ot = t.GetNeighbor(i);
 
     if (ot) {
-      TrPoint* p = t.GetPoint(i);
-      TrPoint* op = ot->OppositePoint(t, *p);
+      Point* p = t.GetPoint(i);
+      Point* op = ot->OppositePoint(t, *p);
       int oi = ot->Index(op);
 
       // If this is a Constrained Edge or a Delaunay Edge(only during recursive legalization)
@@ -391,7 +391,7 @@ bool Sweep::Legalize(SweepContext& tcx, Triangle& t)
   return false;
 }
 
-bool Sweep::Incircle(TrPoint& pa, TrPoint& pb, TrPoint& pc, TrPoint& pd)
+bool Sweep::Incircle(Point& pa, Point& pb, Point& pc, Point& pd)
 {
   double adx = pa.x - pd.x;
   double ady = pa.y - pd.y;
@@ -427,7 +427,7 @@ bool Sweep::Incircle(TrPoint& pa, TrPoint& pb, TrPoint& pc, TrPoint& pd)
   return det > 0;
 }
 
-void Sweep::RotateTrianglePair(Triangle& t, TrPoint& p, Triangle& ot, TrPoint& op)
+void Sweep::RotateTrianglePair(Triangle& t, Point& p, Triangle& ot, Point& op)
 {
   Triangle* n1, *n2, *n3, *n4;
   n1 = t.NeighborCCW(p);
@@ -698,10 +698,10 @@ void Sweep::FillLeftConcaveEdgeEvent(SweepContext& tcx, Edge* edge, Node& node)
 
 }
 
-void Sweep::FlipEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* t, TrPoint& p)
+void Sweep::FlipEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* t, Point& p)
 {
   Triangle& ot = t->NeighborAcross(p);
-  TrPoint& op = *ot.OppositePoint(*t, p);
+  Point& op = *ot.OppositePoint(*t, p);
 
   if (&ot == NULL) {
     // If we want to integrate the fillEdgeEvent do it here
@@ -731,13 +731,13 @@ void Sweep::FlipEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle*
       FlipEdgeEvent(tcx, ep, eq, t, p);
     }
   } else {
-    TrPoint& newP = NextFlipPoint(ep, eq, ot, op);
+    Point& newP = NextFlipPoint(ep, eq, ot, op);
     FlipScanEdgeEvent(tcx, ep, eq, *t, ot, newP);
     EdgeEvent(tcx, ep, eq, t, p);
   }
 }
 
-Triangle& Sweep::NextFlipTriangle(SweepContext& tcx, int o, Triangle& t, Triangle& ot, TrPoint& p, TrPoint& op)
+Triangle& Sweep::NextFlipTriangle(SweepContext& tcx, int o, Triangle& t, Triangle& ot, Point& p, Point& op)
 {
   if (o == CCW) {
     // ot is not crossing edge after flip
@@ -757,7 +757,7 @@ Triangle& Sweep::NextFlipTriangle(SweepContext& tcx, int o, Triangle& t, Triangl
   return ot;
 }
 
-TrPoint& Sweep::NextFlipPoint(TrPoint& ep, TrPoint& eq, Triangle& ot, TrPoint& op)
+Point& Sweep::NextFlipPoint(Point& ep, Point& eq, Triangle& ot, Point& op)
 {
   Orientation o2d = Orient2d(eq, op, ep);
   if (o2d == CW) {
@@ -773,11 +773,11 @@ TrPoint& Sweep::NextFlipPoint(TrPoint& ep, TrPoint& eq, Triangle& ot, TrPoint& o
   }
 }
 
-void Sweep::FlipScanEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle& flip_triangle,
-                              Triangle& t, TrPoint& p)
+void Sweep::FlipScanEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle& flip_triangle,
+                              Triangle& t, Point& p)
 {
   Triangle& ot = t.NeighborAcross(p);
-  TrPoint& op = *ot.OppositePoint(t, p);
+  Point& op = *ot.OppositePoint(t, p);
 
   if (&t.NeighborAcross(p) == NULL) {
     // If we want to integrate the fillEdgeEvent do it here
@@ -797,7 +797,7 @@ void Sweep::FlipScanEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Trian
     // Turns out at first glance that this is somewhat complicated
     // so it will have to wait.
   } else{
-    TrPoint& newP = NextFlipPoint(ep, eq, ot, op);
+    Point& newP = NextFlipPoint(ep, eq, ot, op);
     FlipScanEdgeEvent(tcx, ep, eq, flip_triangle, ot, newP);
   }
 }

@@ -8,6 +8,7 @@
 #include "../geometry/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
+#include <queue>
 
 namespace po = boost::program_options;
 using namespace std;
@@ -17,33 +18,68 @@ int main(int argc, char **argv){
 	polygon->partition(10);
 	Point p(-117.156449,33.141541);
 	query_context ctx;
-	ctx.use_grid = true;
-	ctx.distance_buffer_size = 10;
-	ctx.query_type = QueryType::within;
-	ctx.mer_sample_round = 20;
-	polygon->distance(p, &ctx);
+	ctx.use_triangulate = true;
+	polygon->valid_for_triangulate = true;
 
-	VertexSequence *ch = polygon->get_convex_hull();
+	polygon->triangulate();
 
-
-
+	p.print();
 	polygon->print();
-	query_context qt;
-	qt.use_grid = true;
-	polygon->print_partition(qt);
+	polygon->print_triangles();
 
-	assert(ch);
-	cout<<"Polygon (";
-	ch->print();
-	cout<<")"<<endl;
+	polygon->build_rtree();
+	Pixel *root = polygon->get_rtree_pixel();
+	polygon->print();
+	queue<Pixel *> pixq;
+	pixq.push(root);
 
-	Pixel *mbr = polygon->getMBB();
+	int level = 0;
+	while(pixq.size()>0){
+		int s = pixq.size();
+		printf("level %d %d\n",level++,s);
+		printf("MULTIPOLYGON(");
+		for(int i=0;i<s;i++){
+			Pixel *cur = pixq.front();
+			pixq.pop();
+			if(i>0){
+				printf(",");
+			}
+			printf("((");
+			cur->print_vertices();
+			printf("))");
+			for(Pixel *p:cur->children){
+				pixq.push(p);
+			}
+		}
+		printf(")\n");
+	}
 
-	Pixel *pix = polygon->getMER(&ctx);
-	pix->to_polygon()->print();
-
-
-	delete polygon;
+//	ctx.use_grid = true;
+//	ctx.distance_buffer_size = 10;
+//	ctx.query_type = QueryType::within;
+//	ctx.mer_sample_round = 20;
+//	polygon->distance(p, &ctx);
+//
+//	VertexSequence *ch = polygon->get_convex_hull();
+//
+//
+//
+//	polygon->print();
+//	query_context qt;
+//	qt.use_grid = true;
+//	polygon->print_partition(qt);
+//
+//	assert(ch);
+//	cout<<"Polygon (";
+//	ch->print();
+//	cout<<")"<<endl;
+//
+//	Pixel *mbr = polygon->getMBB();
+//
+//	Pixel *pix = polygon->getMER(&ctx);
+//	MyPolygon::gen_box(*pix)->print();
+//
+//	delete polygon;
 	return 0;
 }
 

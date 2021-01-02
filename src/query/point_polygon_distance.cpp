@@ -25,13 +25,13 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			poly->partition(ctx->vpr);
 		}
 	}
-	Point p = *(Point *)ctx->target;
-	if(poly->getMBB()->distance_geography(p)>(double)ctx->distance_buffer_size){
+	Point *p = (Point *)ctx->target;
+	if(poly->getMBB()->distance_geography(*p)>(double)ctx->distance_buffer_size){
         return true;
 	}
 
 	timeval start = get_cur_time();
-	ctx->distance = poly->distance(p,ctx);
+	ctx->distance = poly->distance(*p,ctx);
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
@@ -96,6 +96,21 @@ int main(int argc, char** argv) {
 
 	if(global_ctx.use_mer){
 		process_mer(&global_ctx);
+	}
+
+
+	if(global_ctx.use_triangulate){
+		if(global_ctx.valid_path.size()>0){
+			 ifstream is(global_ctx.valid_path);
+			 int num = 0;
+			 while(is>>num){
+				 assert(num<global_ctx.source_polygons.size());
+				 global_ctx.source_polygons[num]->valid_for_triangulate = true;
+			 }
+			 is.close();
+		}
+		process_triangulate(&global_ctx);
+		process_internal_rtree(&global_ctx);
 	}
 
 	for(MyPolygon *p:global_ctx.source_polygons){

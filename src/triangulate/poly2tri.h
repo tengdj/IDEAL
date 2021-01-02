@@ -32,8 +32,8 @@
 #ifndef POLY2TRI_H
 #define POLY2TRI_H
 
-#include "shapes.h"
 #include "cdt.h"
+#include "triangle.h"
 
 #endif
 

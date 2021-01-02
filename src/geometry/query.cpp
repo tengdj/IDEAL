@@ -18,7 +18,7 @@
  * */
 
 
-bool VertexSequence::contain(Point point) {
+bool VertexSequence::contain(Point &point) {
 	bool ret = false;
 	for(int i = 0,j=num_vertices-1; i < num_vertices; j=i++) {
 		if( ( (y[i] >= point.y ) != (y[j] >= point.y) ) &&
@@ -29,46 +29,56 @@ bool VertexSequence::contain(Point point) {
 	return ret;
 }
 
-bool MyPolygon::contain(Point p){
+bool MyPolygon::contain(Point &p){
 
     return boundary->contain(p);
 }
 
 
-bool ContainCallback(int *triangle, void* arg){
+bool ContainCallback(Triangle *triangle, void* arg){
 	query_context *ctx = (query_context *)arg;
-	MyPolygon *poly = (MyPolygon *)ctx->target2;
 	Point *point = (Point *)ctx->target;
+	//MyPolygon *polygon = (MyPolygon *)ctx->target2;
+
 	bool ret = false;
-	for(int i=0,j=2;i<2;j=i++){
-		if( ( (poly->boundary->y[i] >= point->y ) != (poly->boundary->y[j] >= point->y) ) &&
-				(point->x <= (poly->boundary->x[j] - poly->boundary->x[i]) * (point->y - poly->boundary->y[i])
-						/ (poly->boundary->y[j] - poly->boundary->y[i]) + poly->boundary->x[i])){
-			ret = !ret;
+	for(int i=0,j=2;i<=2;j=i++){
+		Point *start = triangle->point(i);
+		Point *end = triangle->point(j);
+
+		if((start->y >= point->y ) != (end->y >= point->y)){
+			double xint = (end->x - start->x) * (point->y - start->y)/ (end->y - start->y) + start->x;
+			if(point->x <= xint){
+				ret = !ret;
+			}
 		}
 	}
+	ctx->edges_checked += 3;
 	if(ret){
 		ctx->found++;
 	}
 	return !ret;
 }
 
-bool MyPolygon::contain_rtree(Point p, query_context *ctx){
+bool MyPolygon::contain_rtree(Point &p, query_context *ctx){
 	assert(rtree);
 	ctx->target = &p;
-	ctx->target2 = (void *)this;
+	ctx->target2 = this;
 	double low[2]={p.x,p.y};
 	double high[2]={p.x,p.y};
 	size_t old_found = ctx->found;
 	rtree->Search(low, high, ContainCallback, (void *)ctx);
+
 	if(ctx->found!=old_found){
+		assert(ctx->found==old_found+1);
 		ctx->found = old_found;
 		return true;
 	}
+
 	return false;
 }
 
-bool MyPolygon::contain(Point p, query_context *ctx){
+int wrongcount = 0;
+bool MyPolygon::contain(Point &p, query_context *ctx){
 
 	if(ctx->is_within_query()){
 		// the MBB may not be checked for within query
@@ -96,9 +106,6 @@ bool MyPolygon::contain(Point p, query_context *ctx){
 		if(ctx->is_contain_query()){
 			ctx->pixel_check_time += get_time_elapsed(pixel_start);
 		}
-
-
-
 
 		if(target->status==IN){
 			return true;
@@ -368,6 +375,42 @@ double MyPolygon::distance(Point &p){
     return mindist;
 }
 
+bool DistanceCallback(Triangle *triangle, void* arg){
+	query_context *ctx = (query_context *)arg;
+	Point *point = (Point *)ctx->target;
+	//MyPolygon *polygon = (MyPolygon *)ctx->target2;
+
+	for(int i=0,j=2;i<=2;j=i++){
+		Point *start = triangle->point(i);
+		Point *end = triangle->point(j);
+        double dist = point_to_segment_distance(point->x, point->y, start->x, start->y, end->x, end->y);
+        if(ctx->distance>dist){
+        	ctx->distance = dist;
+        }
+	}
+	ctx->edges_checked += 3;
+	return true;
+}
+
+double MyPolygon::distance_rtree(Point &p, query_context *ctx){
+	assert(rtree);
+	if(rtree_pixel){
+		rtree_pixel = new Pixel(mbr);
+		rtree->construct_pixel(rtree_pixel);
+	}
+	double shiftx = degree_per_kilometer_longitude(p.y)*ctx->distance_buffer_size;
+	double shifty = degree_per_kilometer_latitude*ctx->distance_buffer_size;
+	double buffer_low[2];
+	double buffer_high[2];
+	buffer_low[0] = p.x-shiftx;
+	buffer_low[1] = p.y-shifty;
+	buffer_high[0] = p.x+shiftx;
+	buffer_high[1] = p.y+shifty;
+	ctx->distance = DBL_MAX;
+	rtree->Search(buffer_low, buffer_high, DistanceCallback, (void *)ctx);
+	return ctx->distance;
+}
+
 double MyPolygon::distance(Point &p, query_context *ctx){
 
 	// distance is 0 if contained by the polygon
@@ -513,10 +556,14 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		}
 
 		ctx->border_checked++;
-		ctx->edges_checked += this->get_num_vertices();
 		//SIMPVEC return
 		if(ctx->perform_refine){
-			return distance(p);
+			if(rtree){
+				return distance_rtree(p,ctx);
+			}else{
+				ctx->edges_checked += this->get_num_vertices();
+				return distance(p);
+			}
 		}else{
 			return DBL_MAX;
 		}

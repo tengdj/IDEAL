@@ -37,6 +37,16 @@ VertexSequence::~VertexSequence(){
 	if(y){
 		delete []y;
 	}
+	for(Point *p:polyline){
+		delete p;
+	}
+	polyline.clear();
+}
+
+void VertexSequence::pack_to_polyline(){
+	for(int i=0;i<num_vertices-1;i++){
+		polyline.push_back(new Point(x[i],y[i]));
+	}
 }
 
 void VertexSequence::fix(){
@@ -88,12 +98,13 @@ size_t VertexSequence::get_data_size(){
 
 
 VertexSequence *VertexSequence::clone(){
-	VertexSequence *ret = new VertexSequence();
-	ret->num_vertices = num_vertices;
-	ret->x = new double[num_vertices];
-	ret->y = new double[num_vertices];
+	VertexSequence *ret = new VertexSequence(num_vertices);
 	memcpy((void *)ret->x,(void *)x,sizeof(double)*num_vertices);
 	memcpy((void *)ret->y,(void *)y,sizeof(double)*num_vertices);
+	for(int i=0;i<polyline.size();i++){
+		Point *p = new Point(polyline[i]->x,polyline[i]->y);
+		ret->polyline.push_back(p);
+	}
 	return ret;
 }
 void VertexSequence::print(){
@@ -146,10 +157,7 @@ VertexSequence *MyPolygon::read_vertices(const char *wkt, size_t &offset, bool c
 		}
 	}
 	num_vertices++;
-	VertexSequence *vs = new VertexSequence();
-	vs->num_vertices = num_vertices;
-	vs->x = new double[num_vertices];
-	vs->y = new double[num_vertices];
+	VertexSequence *vs = new VertexSequence(num_vertices);
 
 	// read x/y
 	for(int i=0;i<num_vertices;i++){
@@ -189,6 +197,7 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 		poly->boundary->reverse();
 	}
 	poly->boundary->fix();
+	poly->boundary->pack_to_polyline();
 	for(int i=0;i<num_holes;i++){
 		infile.read((char *)&num_vertices,sizeof(long));
 		assert(num_vertices);
@@ -212,11 +221,11 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
 	size_t num;
-	infile.read((char *)&num, sizeof(num));
+	infile.read((char *)&num, sizeof(size_t));
 	size_t offset = sizeof(size_t)+idx*sizeof(size_t);
 	infile.seekg(offset,infile.beg);
 	infile.read((char *)&offset, sizeof(size_t));
-	cout<<num<<" "<<offset<<endl;
+	//cout<<num<<" "<<offset<<endl;
 
 	infile.seekg(offset,infile.beg);
 	MyPolygon *poly = read_polygon_binary_file(infile);
@@ -276,6 +285,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	if(ctx.sort_polygons){
 		std::sort(polygons.begin(),polygons.end(),compareIterator);
 	}
+	assert(polygons.size()>0);
 	logt("loaded %ld polygons each with %ld edges", start, polygons.size(),num_edges/polygons.size());
 	return polygons;
 }
@@ -301,12 +311,20 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 	// read the vertices of the boundary polygon
 	// the vertex must rotation in clockwise
 	polygon->boundary = read_vertices(wkt, offset,false);
+	if(polygon->boundary->clockwise()){
+		polygon->boundary->reverse();
+	}
 	polygon->boundary->fix();
+
+	polygon->boundary->pack_to_polyline();
 	skip_space(wkt, offset);
 	//polygons as the holes of the boundary polygon
 	while(wkt[offset]==','){
 		offset++;
 		VertexSequence *vc = read_vertices(wkt, offset,true);
+		if(!vc->clockwise()){
+			vc->reverse();
+		}
 		vc->fix();
 		polygon->internal_polygons.push_back(vc);
 
@@ -343,8 +361,8 @@ MyPolygon::~MyPolygon(){
 	if(rtree){
 		delete rtree;
 	}
-	if(triangles){
-		delete triangles;
+	if(cdt){
+		delete cdt;
 	}
 }
 
@@ -354,9 +372,9 @@ size_t MyPolygon::get_data_size(){
 	ds += sizeof(long);
 	// for boundary
 	ds += boundary->get_data_size();
-	for(VertexSequence *vs:internal_polygons){
-		ds += vs->get_data_size();
-	}
+//	for(VertexSequence *vs:internal_polygons){
+//		ds += vs->get_data_size();
+//	}
 	return ds;
 }
 
@@ -398,6 +416,10 @@ MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_
 	mbr->boundary->x[4] = min_x;
 	mbr->boundary->y[4] = min_y;
 	return mbr;
+}
+
+MyPolygon *MyPolygon::gen_box(Pixel &pix){
+	return gen_box(pix.low[0],pix.low[1],pix.high[0],pix.high[1]);
 }
 
 vector<Point> MyPolygon::generate_test_points(int num){
@@ -475,6 +497,21 @@ void MyPolygon::print_without_head(bool print_hole){
 	cout<<")";
 }
 
+void MyPolygon::print_triangles(){
+	assert(cdt);
+	printf("MULTIPOLYGON(");
+	bool first = true;
+	for(Triangle *tri:cdt->GetTriangles()){
+		if(!first){
+			printf(",");
+		}else{
+			first = false;
+		}
+		tri->print();
+	}
+	printf(")\n");
+}
+
 void MyPolygon::print(bool print_hole){
 	cout<<"id:\t"<<this->id<<endl;
 	cout<<"POLYGON";
@@ -529,14 +566,12 @@ void MyPolygon::print_partition(query_context qt){
 			QTNode *cur = ws.top();
 			ws.pop();
 			if(cur->isleaf){
+				MyPolygon *m = gen_box(cur->mbr);
 				if(cur->interior){
-					MyPolygon *m = cur->mbr.to_polygon();
 					inpolys->insert_polygon(m);
 				}else if(cur->exterior){
-					MyPolygon *m = cur->mbr.to_polygon();
 					outpolys->insert_polygon(m);
 				}else{
-					MyPolygon *m = cur->mbr.to_polygon();
 					borderpolys->insert_polygon(m);
 				}
 			}else{
@@ -548,7 +583,7 @@ void MyPolygon::print_partition(query_context qt){
 		partition(qt.vpr);
 		for(int i=0;i<partitions.size();i++){
 			for(int j=0;j<partitions[0].size();j++){
-				MyPolygon *m = partitions[i][j].to_polygon();
+				MyPolygon *m = gen_box(partitions[i][j]);
 				if(partitions[i][j].status==BORDER){
 					borderpolys->insert_polygon(m);
 				}else if(partitions[i][j].status==IN){
@@ -575,26 +610,6 @@ void MyPolygon::print_partition(query_context qt){
 
 
 
-Point *Point::read_one_point(string &input_line){
 
-	if(input_line.size()==0){
-		return NULL;
-	}
-	const char *wkt = input_line.c_str();
-	size_t offset = 0;
-	// read the symbol MULTIPOLYGON
-	while(wkt[offset]!='P'){
-		offset++;
-	}
-	for(int i=0;i<strlen(point_char);i++){
-		assert(wkt[offset++]==point_char[i]);
-	}
-	skip_space(wkt,offset);
-	Point *p = new Point();
-	p->x = read_double(wkt,offset);
-	p->y = read_double(wkt,offset);
-
-	return p;
-}
 
 

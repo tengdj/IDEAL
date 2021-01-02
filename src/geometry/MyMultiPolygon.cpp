@@ -16,6 +16,7 @@ MyPolygon *MyMultiPolygon::read_one_polygon(){
 	}
 	MyMultiPolygon *mp = new MyMultiPolygon(input_line.c_str());
 	MyPolygon *ret = mp->polygons[0]->clone();
+
 	delete mp;
 	return ret;
 }

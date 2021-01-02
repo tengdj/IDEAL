@@ -35,6 +35,7 @@
 #include <list>
 #include <vector>
 #include <cstddef>
+#include "../geometry/Point.h"
 
 namespace p2t {
 
@@ -42,31 +43,29 @@ namespace p2t {
 // PointSet width to both left and right.
 const double kAlpha = 0.3;
 
-struct TrPoint;
 class Triangle;
 struct Node;
-struct Edge;
 class AdvancingFront;
 
 class SweepContext {
 public:
 
 /// Constructor
-SweepContext(std::vector<TrPoint*> polyline);
+SweepContext(std::vector<Point*> polyline);
 /// Destructor
 ~SweepContext();
 
-void set_head(TrPoint* p1);
+void set_head(Point* p1);
 
-TrPoint* head();
+Point* head();
 
-void set_tail(TrPoint* p1);
+void set_tail(Point* p1);
 
-TrPoint* tail();
+Point* tail();
 
 int point_count();
 
-Node& LocateNode(TrPoint& point);
+Node& LocateNode(Point& point);
 
 void RemoveNode(Node* node);
 
@@ -77,15 +76,15 @@ void MapTriangleToNodes(Triangle& t);
 
 void AddToMap(Triangle* triangle);
 
-TrPoint* GetPoint(const int& index);
+Point* GetPoint(const int& index);
 
-TrPoint* GetPoints();
+Point* GetPoints();
 
 void RemoveFromMap(Triangle* triangle);
 
-void AddHole(std::vector<TrPoint*> polyline);
+void AddHole(std::vector<Point*> polyline);
 
-void AddPoint(TrPoint* point);
+void AddPoint(Point* point);
 
 AdvancingFront* front();
 
@@ -135,19 +134,19 @@ friend class Sweep;
 
 std::vector<Triangle*> triangles_;
 std::list<Triangle*> map_;
-std::vector<TrPoint*> points_;
+std::vector<Point*> points_;
 
 // Advancing front
 AdvancingFront* front_;
 // head point used with advancing front
-TrPoint* head_;
+Point* head_;
 // tail point used with advancing front
-TrPoint* tail_;
+Point* tail_;
 
 Node *af_head_, *af_middle_, *af_tail_;
 
 void InitTriangulation();
-void InitEdges(std::vector<TrPoint*> polyline);
+void InitEdges(std::vector<Point*> polyline);
 
 };
 
@@ -161,22 +160,22 @@ inline int SweepContext::point_count()
   return points_.size();
 }
 
-inline void SweepContext::set_head(TrPoint* p1)
+inline void SweepContext::set_head(Point* p1)
 {
   head_ = p1;
 }
 
-inline TrPoint* SweepContext::head()
+inline Point* SweepContext::head()
 {
   return head_;
 }
 
-inline void SweepContext::set_tail(TrPoint* p1)
+inline void SweepContext::set_tail(Point* p1)
 {
   tail_ = p1;
 }
 
-inline TrPoint* SweepContext::tail()
+inline Point* SweepContext::tail()
 {
   return tail_;
 }

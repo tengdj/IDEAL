@@ -40,14 +40,12 @@
 #define SWEEP_H
 
 #include <vector>
-
+#include "../geometry/Point.h"
 
 namespace p2t {
 
 class SweepContext;
 struct Node;
-struct Edge;
-struct TrPoint;
 class Triangle;
 
 class Sweep 
@@ -84,7 +82,7 @@ private:
    * @param point
    * @return
    */
-  Node& PointEvent(SweepContext& tcx, TrPoint& point);
+  Node& PointEvent(SweepContext& tcx, Point& point);
 
    /**
      * 
@@ -95,7 +93,7 @@ private:
      */
   void EdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
 
-  void EdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* triangle, TrPoint& point);
+  void EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point);
 
   /**
    * Creates a new front triangle and legalize it
@@ -105,7 +103,7 @@ private:
    * @param node
    * @return
    */
-  Node& NewFrontTriangle(SweepContext& tcx, TrPoint& point, Node& node);
+  Node& NewFrontTriangle(SweepContext& tcx, Point& point, Node& node);
 
   /**
    * Adds a triangle to the advancing front to fill a hole.
@@ -143,7 +141,7 @@ private:
    * @param d - point opposite a
    * @return true if d is inside circle, false if on circle edge
    */
-  bool Incircle(TrPoint& pa, TrPoint& pb, TrPoint& pc, TrPoint& pd);
+  bool Incircle(Point& pa, Point& pb, Point& pc, Point& pd);
 
   /**
    * Rotates a triangle pair one vertex CW
@@ -159,7 +157,7 @@ private:
    *       n4                    n4
    * </pre>
    */
-  void RotateTrianglePair(Triangle& t, TrPoint& p, Triangle& ot, TrPoint& op);
+  void RotateTrianglePair(Triangle& t, Point& p, Triangle& ot, Point& op);
 
   /**
    * Fills holes in the Advancing Front
@@ -173,9 +171,9 @@ private:
   // Decision-making about when to Fill hole. 
   // Contributed by ToolmakerSteve2
   bool LargeHole_DontFill(Node* node);
-  bool AngleExceeds90Degrees(TrPoint* origin, TrPoint* pa, TrPoint* pb);
-  bool AngleExceedsPlus90DegreesOrIsNegative(TrPoint* origin, TrPoint* pa, TrPoint* pb);
-  double Angle(TrPoint& origin, TrPoint& pa, TrPoint& pb);
+  bool AngleExceeds90Degrees(Point* origin, Point* pa, Point* pb);
+  bool AngleExceedsPlus90DegreesOrIsNegative(Point* origin, Point* pa, Point* pb);
+  double Angle(Point& origin, Point& pa, Point& pb);
 
   /**
    *
@@ -211,7 +209,7 @@ private:
 
   bool IsShallow(SweepContext& tcx, Node& node);
 
-  bool IsEdgeSideOfTriangle(Triangle& triangle, TrPoint& ep, TrPoint& eq);
+  bool IsEdgeSideOfTriangle(Triangle& triangle, Point& ep, Point& eq);
 
   void FillEdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
 
@@ -231,7 +229,7 @@ private:
 
   void FillLeftConvexEdgeEvent(SweepContext& tcx, Edge* edge, Node& node);
 
-  void FlipEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle* t, TrPoint& p);
+  void FlipEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* t, Point& p);
 
   /**
    * After a flip we have two triangles and know that only one will still be
@@ -245,7 +243,7 @@ private:
    * @param op - another point shared by both triangles
    * @return returns the triangle still intersecting the edge
    */
-  Triangle& NextFlipTriangle(SweepContext& tcx, int o, Triangle&  t, Triangle& ot, TrPoint& p, TrPoint& op);
+  Triangle& NextFlipTriangle(SweepContext& tcx, int o, Triangle&  t, Triangle& ot, Point& p, Point& op);
 
    /**
      * When we need to traverse from one triangle to the next we need 
@@ -258,7 +256,7 @@ private:
      * @param op
      * @return
      */
-  TrPoint& NextFlipPoint(TrPoint& ep, TrPoint& eq, Triangle& ot, TrPoint& op);
+  Point& NextFlipPoint(Point& ep, Point& eq, Triangle& ot, Point& op);
 
    /**
      * Scan part of the FlipScan algorithm<br>
@@ -273,7 +271,7 @@ private:
      * @param t
      * @param p
      */
-  void FlipScanEdgeEvent(SweepContext& tcx, TrPoint& ep, TrPoint& eq, Triangle& flip_triangle, Triangle& t, TrPoint& p);
+  void FlipScanEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle& flip_triangle, Triangle& t, Point& p);
 
   void FinalizationPolygon(SweepContext& tcx);
 
