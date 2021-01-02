@@ -338,5 +338,10 @@ inline void remove_slash(string &str){
 	}
 }
 
+#define min_equal 0.0000001
+inline bool double_equal(double d1, double d2){
+	return fabs(d1-d2)<min_equal;
+}
+
 }
 #endif

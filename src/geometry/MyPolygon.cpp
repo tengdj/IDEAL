@@ -55,7 +55,7 @@ void VertexSequence::fix(){
 	int cur = 0;
 	int cur_store = 0;
 	while(cur<num_vertices-1){
-		if(x[cur]!=x[cur+1]||y[cur]!=y[cur+1]){
+		if(!double_equal(x[cur],x[cur+1])||!double_equal(y[cur],y[cur+1])){
 			x[cur_store] = x[cur];
 			y[cur_store] = y[cur];
 			cur_store++;
