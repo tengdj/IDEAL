@@ -225,16 +225,16 @@ VertexSequence *convexHull(VertexSequence *boundary)
     vector<int> hull;
 
     // Find the leftmost point
-    int left = 0;
+    int p = 0;
     for (int i = 1; i < n; i++)
-        if (boundary->x[i] < boundary->x[left])
-        	left = i;
+        if (boundary->x[i] < boundary->x[p])
+        	p = i;
 
     // Start from leftmost point, keep moving counterclockwise
     // until reach the start point again.  This loop runs O(h)
     // times where h is number of points in result or output.
-    int p = left;
     int idx = 0;
+    bool complete = false;
     do
     {
         // Add current point to result
@@ -258,15 +258,18 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // Set p as q for next iteration, so that q is added to
         // result 'hull'
         p = q;
-//
+////
 //        cout<<idx++<<"\t"<<p<<"\t"<<left<<"\t"<<boundary->num_vertices;
 //        printf("-%f %f-%f %f\n",boundary->x[p],boundary->y[p],boundary->x[left],boundary->y[left]);
-        if(idx++>boundary->num_vertices){
-        	boundary->print();
-        	exit(0);
-        }
-
-    } while (p != left);  // While we don't come to first point
+//        if(idx++>boundary->num_vertices){
+//        	boundary->print();
+//        	exit(0);
+//        }
+        //
+		for (int ih=0;ih<hull.size()&&!complete;ih++){
+			complete = (p==hull[ih]);
+		}
+    } while (!complete);  // While we don't come to first point
 
    VertexSequence *ch = new VertexSequence(hull.size()+1);
    for (int i=0;i<hull.size();i++){
