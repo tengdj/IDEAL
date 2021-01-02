@@ -207,9 +207,9 @@ SweepContext::~SweepContext()
         delete ptr;
     }
 
-     for(unsigned int i = 0; i < edge_list.size(); i++) {
-        delete edge_list[i];
-    }
+//     for(unsigned int i = 0; i < edge_list.size(); i++) {
+//        delete edge_list[i];
+//    }
 
 }
 
