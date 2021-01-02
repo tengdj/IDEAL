@@ -192,7 +192,6 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 		poly->boundary->reverse();
 	}
 	poly->boundary->fix();
-	poly->boundary->pack_to_polyline();
 	for(int i=0;i<num_holes;i++){
 		infile.read((char *)&num_vertices,sizeof(long));
 		assert(num_vertices);
@@ -310,8 +309,6 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 		polygon->boundary->reverse();
 	}
 	polygon->boundary->fix();
-
-	polygon->boundary->pack_to_polyline();
 	skip_space(wkt, offset);
 	//polygons as the holes of the boundary polygon
 	while(wkt[offset]==','){
