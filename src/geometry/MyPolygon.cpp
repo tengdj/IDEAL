@@ -241,9 +241,9 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
 	size_t off;
-
+	size_t num_polygons = 0;
 	//seek to the first polygon
-	infile.seekg(8, infile.beg);
+	infile.read((char *)&num_polygons, sizeof(size_t));
 	infile.read((char *)&off, sizeof(size_t));
 	infile.seekg(off, infile.beg);
 
@@ -279,7 +279,10 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	if(ctx.sort_polygons){
 		std::sort(polygons.begin(),polygons.end(),compareIterator);
 	}
-	assert(polygons.size()>0);
+	if(polygons.size()!=num_polygons){
+		log("%ld %ld\n",polygons.size(),num_polygons);
+	}
+	assert(polygons.size()==num_polygons);
 	logt("loaded %ld polygons each with %ld edges", start, polygons.size(),num_edges/polygons.size());
 	return polygons;
 }
