@@ -563,11 +563,7 @@ void preprocess(query_context *gctx){
 			 int num = 0;
 			 while(is>>num){
 				 assert(num<gctx->source_polygons.size());
-				 gctx->source_polygons[num]->valid_for_triangulate = true;
-				 if(gctx->source_polygons[num]->area()<0){
-					 cout<<idx++<<endl;
-					 gctx->source_polygons[num]->print();
-				 }
+				 gctx->source_polygons[num]->valid_for_triangulate = gctx->source_polygons[num]->area()>0&&true;
 			 }
 			 is.close();
 		}
