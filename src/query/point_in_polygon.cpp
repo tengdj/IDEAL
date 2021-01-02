@@ -66,31 +66,7 @@ int main(int argc, char** argv) {
 	global_ctx.sort_polygons = false;
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
-	if(global_ctx.use_grid||global_ctx.use_qtree){
-		process_partition(&global_ctx);
-	}
-
-	if(global_ctx.use_convex_hull){
-		process_convex_hull(&global_ctx);
-	}
-
-	if(global_ctx.use_mer){
-		process_mer(&global_ctx);
-	}
-
-	if(global_ctx.use_triangulate){
-		if(global_ctx.valid_path.size()>0){
-			 ifstream is(global_ctx.valid_path);
-			 int num = 0;
-			 while(is>>num){
-				 assert(num<global_ctx.source_polygons.size());
-				 global_ctx.source_polygons[num]->valid_for_triangulate = true;
-			 }
-			 is.close();
-		}
-		process_triangulate(&global_ctx);
-		process_internal_rtree(&global_ctx);
-	}
+	preprocess(&global_ctx);
 
 	timeval start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){

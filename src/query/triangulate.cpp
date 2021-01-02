@@ -90,8 +90,7 @@ int main(int argc, char* argv[]){
 		CDT* cdt = new CDT(polyline);
 		cdt->Triangulate();
 		vector<Triangle*> triangles = cdt->GetTriangles();
-		logt("triangulation",start);
-		cout<<"successful,"<<global_ctx.vpr<<endl;
+		cout<<global_ctx.vpr<<endl;
 	}
 
 
