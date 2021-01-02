@@ -234,6 +234,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
     // until reach the start point again.  This loop runs O(h)
     // times where h is number of points in result or output.
     int p = left;
+    int idx = 0;
     do
     {
         // Add current point to result
@@ -258,7 +259,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // result 'hull'
         p = q;
 
-        cout<<p<<endl;
+        cout<<idx++<<"\t"<<p<<endl;
 
     } while (p != left);  // While we don't come to first point
 
