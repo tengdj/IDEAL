@@ -579,6 +579,7 @@ void preprocess(query_context *gctx){
 		}
 		process_triangulate(gctx);
 		process_internal_rtree(gctx);
+		while(1);
 	}
 }
 
