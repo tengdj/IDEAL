@@ -37,7 +37,6 @@ public:
 	int num_vertices = 0;
 	double *x = NULL;
 	double *y = NULL;
-	vector<Point*> polyline;
 	VertexSequence(){};
 	VertexSequence(int nv);
 	VertexSequence(int nv, double *xx, double *yy);
@@ -46,7 +45,7 @@ public:
 	size_t get_data_size();
 
 	~VertexSequence();
-	void pack_to_polyline();
+	vector<Point *> pack_to_polyline();
 	VertexSequence *clone();
 	void print();
 	bool clockwise();
@@ -332,5 +331,5 @@ void process_convex_hull(query_context *ctx);
 void process_mer(query_context *ctx);
 void process_triangulate(query_context *gctx);
 void process_internal_rtree(query_context *gctx);
-
+void preprocess(query_context *gctx);
 #endif /* SRC_MYPOLYGON_H_ */

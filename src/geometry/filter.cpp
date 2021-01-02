@@ -24,8 +24,9 @@ void MyPolygon::triangulate(){
 		delete cdt;
 		cdt = NULL;
 	}
-	assert(boundary->polyline.size()>0);
-	cdt = new CDT(boundary->polyline);
+	vector<Point *> polyline = boundary->pack_to_polyline();
+	assert(polyline.size()>0);
+	cdt = new CDT(polyline);
 	cdt->Triangulate();
 }
 
@@ -203,22 +204,30 @@ inline int orientation(Point p, Point q, Point r){
 	return (val > 0)? 1: 2; // clock or counterclock wise
 }
 
+inline int orientation(double px, double py, double qx, double qy, double rx, double ry){
+	double val = (qy - py) * (rx - qx) -
+			  (qx - px) * (ry - qy);
+	if (val == 0.0) return 0;  // colinear
+	return (val > 0)? 1: 2; // clock or counterclock wise
+}
+
 // Prints convex hull of a set of n points.
 VertexSequence *convexHull(VertexSequence *boundary)
 {
-	int n = boundary->polyline.size();
+
+	int n = boundary->num_vertices-1;
 	assert(n>0);
     // There must be at least 3 points
     if (n < 3){
     	return NULL;
     }
     // Initialize Result
-    vector<Point *> hull;
+    vector<int> hull;
 
     // Find the leftmost point
     int left = 0;
     for (int i = 1; i < n; i++)
-        if (boundary->polyline[i]->x < boundary->polyline[left]->x)
+        if (boundary->x[i] < boundary->x[left])
         	left = i;
 
     // Start from leftmost point, keep moving counterclockwise
@@ -228,7 +237,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
     do
     {
         // Add current point to result
-        hull.push_back(boundary->polyline[p]);
+        hull.push_back(p);
 
         // Search for a point 'q' such that orientation(p, x,
         // q) is counterclockwise for all points 'x'. The idea
@@ -240,7 +249,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
         {
            // If i is more counterclockwise than current q, then
            // update q
-           if (q!=i && orientation(*boundary->polyline[p], *boundary->polyline[i], *boundary->polyline[q]) == 2)
+           if (q!=i && orientation(boundary->x[p], boundary->y[p],boundary->x[i], boundary->y[i],boundary->x[q],boundary->y[q]) == 2)
                q = i;
         }
 
@@ -253,8 +262,8 @@ VertexSequence *convexHull(VertexSequence *boundary)
 
    VertexSequence *ch = new VertexSequence(hull.size()+1);
    for (int i=0;i<hull.size();i++){
-	   ch->x[i] = hull[i]->x;
-	   ch->y[i] = hull[i]->y;
+	   ch->x[i] = boundary->x[hull[i]];
+	   ch->y[i] = boundary->y[hull[i]];
    }
    ch->x[hull.size()] = ch->x[0];
    ch->y[hull.size()] = ch->y[0];
@@ -528,5 +537,34 @@ void process_internal_rtree(query_context *gctx){
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;
+}
+
+void preprocess(query_context *gctx){
+	if(gctx->use_grid||gctx->use_qtree){
+		process_partition(gctx);
+	}
+
+	if(gctx->use_convex_hull){
+		process_convex_hull(gctx);
+	}
+
+	if(gctx->use_mer){
+		process_mer(gctx);
+	}
+
+
+	if(gctx->use_triangulate){
+		if(gctx->valid_path.size()>0){
+			 ifstream is(gctx->valid_path);
+			 int num = 0;
+			 while(is>>num){
+				 assert(num<gctx->source_polygons.size());
+				 gctx->source_polygons[num]->valid_for_triangulate = true;
+			 }
+			 is.close();
+		}
+		process_triangulate(gctx);
+		process_internal_rtree(gctx);
+	}
 }
 

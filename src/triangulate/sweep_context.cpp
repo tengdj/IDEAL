@@ -50,17 +50,17 @@ SweepContext::SweepContext(std::vector<Point*> polyline) :
   InitEdges(points_);
 }
 
-void SweepContext::AddHole(std::vector<Point*> polyline)
-{
-  InitEdges(polyline);
-  for(unsigned int i = 0; i < polyline.size(); i++) {
-    points_.push_back(polyline[i]);
-  }
-}
-
-void SweepContext::AddPoint(Point* point) {
-  points_.push_back(point);
-}
+//void SweepContext::AddHole(std::vector<Point*> polyline)
+//{
+//  InitEdges(polyline);
+//  for(unsigned int i = 0; i < polyline.size(); i++) {
+//    points_.push_back(polyline[i]);
+//  }
+//}
+//
+//void SweepContext::AddPoint(Point* point) {
+//  points_.push_back(point);
+//}
 
 std::vector<Triangle*> SweepContext::GetTriangles()
 {

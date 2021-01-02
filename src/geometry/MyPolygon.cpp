@@ -37,16 +37,15 @@ VertexSequence::~VertexSequence(){
 	if(y){
 		delete []y;
 	}
-	for(Point *p:polyline){
-		delete p;
-	}
-	polyline.clear();
 }
 
-void VertexSequence::pack_to_polyline(){
+vector<Point *> VertexSequence::pack_to_polyline(){
+	vector<Point *> polyline;
+	polyline.resize(num_vertices-1);
 	for(int i=0;i<num_vertices-1;i++){
-		polyline.push_back(new Point(x[i],y[i]));
+		polyline[i] = new Point(x[i],y[i]);
 	}
+	return polyline;
 }
 
 void VertexSequence::fix(){
@@ -101,10 +100,6 @@ VertexSequence *VertexSequence::clone(){
 	VertexSequence *ret = new VertexSequence(num_vertices);
 	memcpy((void *)ret->x,(void *)x,sizeof(double)*num_vertices);
 	memcpy((void *)ret->y,(void *)y,sizeof(double)*num_vertices);
-	for(int i=0;i<polyline.size();i++){
-		Point *p = new Point(polyline[i]->x,polyline[i]->y);
-		ret->polyline.push_back(p);
-	}
 	return ret;
 }
 void VertexSequence::print(){
