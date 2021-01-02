@@ -634,6 +634,7 @@ void process_partition(query_context *gctx){
 		ctx[i].global_ctx = gctx;
 	}
 
+
 	for(int i=0;i<gctx->num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
 	}

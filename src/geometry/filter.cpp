@@ -450,6 +450,7 @@ void process_triangulate(query_context *gctx){
 		ctx[i].global_ctx = gctx;
 	}
 
+	gctx->report_gap = gctx->source_polygons.size()/10;
 	for(int i=0;i<gctx->num_threads;i++){
 		pthread_create(&threads[i], NULL, triangulate_unit, (void *)&ctx[i]);
 	}
