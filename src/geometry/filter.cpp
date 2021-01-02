@@ -259,7 +259,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // result 'hull'
         p = q;
 
-        cout<<idx++<<"\t"<<p<<"\t"<<boundary->num_vertices<<endl;
+        cout<<idx++<<"\t"<<p<<"\t"<<left<<"\t"<<boundary->num_vertices<<endl;
         if(idx>100){
         	exit(0);
         }
