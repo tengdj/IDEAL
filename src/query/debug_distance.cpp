@@ -20,10 +20,11 @@ int main(int argc, char **argv){
 	Point p(-117.156449,33.141541);
 
 	MyPolygon *polygon = MyPolygon::load_binary_file_single("/data/gisdata/raster/dat/all_source_100.dat", ctx, 197619);
-	polygon->print();
-	return 0;
-	polygon->get_convex_hull();
 //	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
+
+//	polygon->print();
+//	return 0;
+	polygon->get_convex_hull();
 //	polygon->partition(10);
 //	ctx.use_triangulate = true;
 //	polygon->valid_for_triangulate = true;

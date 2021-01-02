@@ -260,6 +260,9 @@ VertexSequence *convexHull(VertexSequence *boundary)
         p = q;
 
         cout<<idx++<<"\t"<<p<<"\t"<<boundary->num_vertices<<endl;
+        if(idx>100){
+        	exit(0);
+        }
 
     } while (p != left);  // While we don't come to first point
 
