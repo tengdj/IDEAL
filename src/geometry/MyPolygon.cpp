@@ -244,48 +244,30 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	size_t num_polygons = 0;
 	//seek to the first polygon
 	infile.read((char *)&num_polygons, sizeof(size_t));
-	infile.read((char *)&off, sizeof(size_t));
-	infile.seekg(off, infile.beg);
-
-	int id = 0;
+	size_t *offsets = new size_t[num_polygons];
+	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
 	size_t num_edges = 0;
-	int idx = 0;
-	while(!infile.eof()){
-		off = infile.tellg();
+	size_t data_size = 0;
+	int next = 10;
+	for(int i=0;i<num_polygons;i++){
+		infile.seekg(offsets[i], infile.beg);
 		MyPolygon *poly = read_polygon_binary_file(infile);
-		cout<<idx++<<endl;
-		if(!poly){
-			continue;
-		}
-		if(poly->get_num_vertices()<ctx.small_threshold||
-			  poly->get_num_vertices()>ctx.big_threshold||
-				poly->area()<=0){
-			delete poly;
-			continue;
-		}
-		poly->offset = off;
-		if(sample&&!tryluck(ctx.sample_rate)){
-			if(poly){
-				delete poly;
-			}
-			continue;
-		}
+		assert(poly);
 		num_edges += poly->get_num_vertices();
-		poly->setid(id++);
+		data_size += poly->get_data_size();
+		poly->setid(i);
 		polygons.push_back(poly);
-		if(id%ctx.report_gap==0){
-			log("read %d polygons",id);
+		if(i*100/num_polygons>=next){
+			log("loaded %d%%",next);
+			next+=10;
 		}
 	}
 	infile.close();
 	if(ctx.sort_polygons){
 		std::sort(polygons.begin(),polygons.end(),compareIterator);
 	}
-	if(polygons.size()!=num_polygons){
-		log("%ld %ld\n",polygons.size(),num_polygons);
-	}
-	assert(polygons.size()==num_polygons);
-	logt("loaded %ld polygons each with %ld edges", start, polygons.size(),num_edges/polygons.size());
+
+	logt("loaded %ld polygons each with %ld edges %ld MB", start, polygons.size(),num_edges/polygons.size(),data_size/1024/1024);
 	return polygons;
 }
 
