@@ -258,6 +258,8 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // result 'hull'
         p = q;
 
+        cout<<p<<endl;
+
     } while (p != left);  // While we don't come to first point
 
    VertexSequence *ch = new VertexSequence(hull.size()+1);
