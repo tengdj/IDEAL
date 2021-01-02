@@ -424,7 +424,7 @@ void *triangulate_unit(void *args){
 			if(!polygon->valid_for_triangulate){
 				continue;
 			}
-			polygon->triangulate();
+			//polygon->triangulate();
 			ctx->report_progress();
 		}
 	}
