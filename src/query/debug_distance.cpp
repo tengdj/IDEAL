@@ -14,14 +14,19 @@ namespace po = boost::program_options;
 using namespace std;
 
 int main(int argc, char **argv){
-	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
-	polygon->partition(10);
-	Point p(-117.156449,33.141541);
+
+
 	query_context ctx;
-	ctx.use_triangulate = true;
-	polygon->valid_for_triangulate = true;
-	polygon->triangulate();
-	polygon->build_rtree();
+
+	MyPolygon *polygon = MyPolygon::load_binary_file_single("/data/gisdata/raster/dat/all_source_100.dat", ctx, 197619);
+	polygon->get_convex_hull();
+//	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
+//	polygon->partition(10);
+//	Point p(-117.156449,33.141541);
+//	ctx.use_triangulate = true;
+//	polygon->valid_for_triangulate = true;
+//	polygon->triangulate();
+//	polygon->build_rtree();
 
 //	p.print();
 //	polygon->print();
