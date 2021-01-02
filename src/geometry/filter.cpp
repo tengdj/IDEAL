@@ -258,14 +258,6 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // Set p as q for next iteration, so that q is added to
         // result 'hull'
         p = q;
-////
-//        cout<<idx++<<"\t"<<p<<"\t"<<left<<"\t"<<boundary->num_vertices;
-//        printf("-%f %f-%f %f\n",boundary->x[p],boundary->y[p],boundary->x[left],boundary->y[left]);
-//        if(idx++>boundary->num_vertices){
-//        	boundary->print();
-//        	exit(0);
-//        }
-        //
 		for (int ih=0;ih<hull.size()&&!complete;ih++){
 			complete = (p==hull[ih]);
 		}
@@ -298,9 +290,7 @@ void *convex_hull_unit(void *args){
 	int local_count = 0;
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			log("processing\t%d %d",i,gctx->source_polygons[i]->getid());
 			VertexSequence *ch = gctx->source_polygons[i]->get_convex_hull();
-			log("processed\t%d %d",i,gctx->source_polygons[i]->getid());
 			ctx->report_progress();
 		}
 	}
