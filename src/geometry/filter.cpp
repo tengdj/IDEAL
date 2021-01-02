@@ -259,11 +259,11 @@ VertexSequence *convexHull(VertexSequence *boundary)
         // result 'hull'
         p = q;
 
-//        cout<<idx++<<"\t"<<p<<"\t"<<left<<"\t"<<boundary->num_vertices;
-//        printf("-%f %f-%f %f\n",boundary->x[p],boundary->y[p],boundary->x[left],boundary->y[left]);
-//        if(idx>100){
-//        	exit(0);
-//        }
+        cout<<idx++<<"\t"<<p<<"\t"<<left<<"\t"<<boundary->num_vertices;
+        printf("-%f %f-%f %f\n",boundary->x[p],boundary->y[p],boundary->x[left],boundary->y[left]);
+        if(idx>1000){
+        	exit(0);
+        }
 
     } while (p != left);  // While we don't come to first point
 
