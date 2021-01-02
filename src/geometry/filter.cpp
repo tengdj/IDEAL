@@ -66,8 +66,8 @@ RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
 		rtree->Insert(pix.low, pix.high, tri);
 	}
 	mbr = getMBB();
-	rtree_pixel = new Pixel(mbr);
-	rtree->construct_pixel(rtree_pixel);
+//	rtree_pixel = new Pixel(mbr);
+//	rtree->construct_pixel(rtree_pixel);
 
 	return rtree;
 
