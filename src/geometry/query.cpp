@@ -394,11 +394,6 @@ bool DistanceCallback(Triangle *triangle, void* arg){
 	return true;
 }
 
-class pixel_range{
-public:
-	Pixel *p;
-	range r;
-};
 
 double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 	assert(rtree&&rtree_pixel);
@@ -408,30 +403,29 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 	}
 	// set this value as the MINMAXDIST
 	ctx->distance = DBL_MAX;
-	vector<pixel_range *> tmp;
+	vector<std::pair<Pixel *, double>> tmp;
 	while(pixq.size()>0){
 		int s = pixq.size();
 		for(int i=0;i<s;i++){
 			Pixel *pix = pixq.front();
 			pixq.pop();
-			range r = pix->distance_range(p);
-			if(r.m_min>ctx->distance){
+			double mindist = pix->distance(p);
+			if(mindist>ctx->distance){
 				continue;
 			}
-			if(r.m_max<ctx->distance){
-				ctx->distance = r.m_max;
-			}
-			pixel_range *pr = new pixel_range();
-			pr->p = pix;
-			pr->r = r;
+			double maxdist = pix->max_distance(p);
 
-			tmp.push_back(pr);
+			if(maxdist<ctx->distance){
+				ctx->distance = maxdist;
+			}
+
+			tmp.push_back(std::pair<Pixel *, double>(pix, mindist));
 		}
 
-		for(pixel_range *pr:tmp){
-			if(pr->r.m_min<=ctx->distance){
-				if(pr->p->children.size()==0){
-					Triangle *triangle = (Triangle *)pr->p->node_element;
+		for(std::pair<Pixel *, double> pr:tmp){
+			if(pr.second<=ctx->distance){
+				if(pr.first->children.size()==0){
+					Triangle *triangle = (Triangle *)pr.first->node_element;
 					for(int i=0,j=2;i<=2;j=i++){
 						Point *start = triangle->point(i);
 						Point *end = triangle->point(j);
@@ -440,13 +434,13 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 							ctx->distance = dist;
 						}
 					}
+					ctx->edges_checked += 3;
 				}else{
-					for(Pixel *p:pr->p->children){
+					for(Pixel *p:pr.first->children){
 						pixq.push(p);
 					}
 				}
 			}
-			delete pr;
 		}
 
 		tmp.clear();
