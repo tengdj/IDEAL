@@ -93,7 +93,7 @@ void MeshClean(Triangle& triangle);
 std::vector<Triangle*> GetTriangles();
 std::list<Triangle*> GetMap();
 
-std::vector<Edge*> edge_list;
+//std::vector<Edge*> edge_list;
 
 struct Basin {
   Node* left_node;
