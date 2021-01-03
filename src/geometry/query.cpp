@@ -34,7 +34,7 @@ bool MyPolygon::contain(Point &p){
     return boundary->contain(p);
 }
 
-bool contain_rtree(Pixel *node, Point &p, query_context *ctx){
+bool contain_rtree(RTNode *node, Point &p, query_context *ctx){
 	if(!node->contain(p)){
 		return false;
 	}
@@ -56,7 +56,7 @@ bool contain_rtree(Pixel *node, Point &p, query_context *ctx){
 		}
 		return !ret;
 	}
-	for(Pixel *ch:node->children){
+	for(RTNode *ch:node->children){
 		if(contain_rtree(ch,p,ctx)){
 			return true;
 		}
@@ -198,7 +198,7 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 
 	ctx->filter_checked_only = true;
 	Pixel *a = getMBB();
-	if(!a->contain(b)){
+	if(!a->contain(*b)){
 		return false;
 	}
 	// test all the pixels
@@ -281,7 +281,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 bool MyPolygon::contain(Pixel *target, query_context *ctx){
 
 	Pixel *a = getMBB();
-	if(!a->contain(target)){
+	if(!a->contain(*target)){
 		return false;
 	}
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
@@ -385,17 +385,17 @@ bool DistanceCallback(Triangle *triangle, void* arg){
 
 double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 	assert(rtree);
-	queue<Pixel *> pixq;
-	for(Pixel *p:rtree->children){
+	queue<RTNode *> pixq;
+	for(RTNode *p:rtree->children){
 		pixq.push(p);
 	}
 	// set this value as the MINMAXDIST
 	ctx->distance = DBL_MAX;
-	vector<std::pair<Pixel *, double>> tmp;
+	vector<std::pair<RTNode *, double>> tmp;
 	while(pixq.size()>0){
 		int s = pixq.size();
 		for(int i=0;i<s;i++){
-			Pixel *pix = pixq.front();
+			RTNode *pix = pixq.front();
 			pixq.pop();
 			double mindist = pix->distance(p);
 			if(mindist>ctx->distance){
@@ -407,10 +407,10 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 				ctx->distance = maxdist;
 			}
 
-			tmp.push_back(std::pair<Pixel *, double>(pix, mindist));
+			tmp.push_back(std::pair<RTNode *, double>(pix, mindist));
 		}
 
-		for(std::pair<Pixel *, double> pr:tmp){
+		for(std::pair<RTNode *, double> pr:tmp){
 			if(pr.second<=ctx->distance){
 				if(pr.first->children.size()==0){
 					Triangle *triangle = (Triangle *)pr.first->node_element;
@@ -424,7 +424,7 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 					}
 					ctx->edges_checked += 3;
 				}else{
-					for(Pixel *p:pr.first->children){
+					for(RTNode *p:pr.first->children){
 						pixq.push(p);
 					}
 				}
@@ -613,7 +613,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 
 	Pixel *a = getMBB();
 	Pixel *b = target->getMBB();
-	if(!a->intersect(b)){
+	if(!a->intersect(*b)){
 		return false;
 	}
 	if(ctx&&ctx->use_grid&&is_grid_partitioned()){

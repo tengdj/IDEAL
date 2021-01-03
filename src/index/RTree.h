@@ -88,7 +88,7 @@ public:
   /// \return Returns the number of entries found
   int Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   
-  void construct_pixel(Pixel *n);
+  void construct_pixel(RTNode *n);
 
   /// Remove all entries from tree
   void RemoveAll();
@@ -346,7 +346,7 @@ protected:
   bool Overlap(Rect* a_rectA, Rect* a_rectB);
   void ReInsert(Node* a_node, ListNode** a_listNode);
   bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
-  void construct_pixel(Node* a_node, Pixel *);
+  void construct_pixel(Node* a_node, RTNode *);
   void RemoveAllRec(Node* a_node);
   void Reset();
   void CountRec(Node* a_node, int& a_count);
@@ -516,16 +516,16 @@ void RTREE_QUAL::Remove(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMD
 }
 
 RTREE_TEMPLATE
-void RTREE_QUAL::construct_pixel(Pixel *p){
+void RTREE_QUAL::construct_pixel(RTNode *p){
 	construct_pixel(m_root,p);
 }
 
 RTREE_TEMPLATE
-void RTREE_QUAL::construct_pixel(Node* a_node, Pixel *p)
+void RTREE_QUAL::construct_pixel(Node* a_node, RTNode *p)
 {
 	assert(a_node);
 	for(int index=0; index < a_node->m_count; ++index){
-		Pixel *np = new Pixel();
+		RTNode *np = new RTNode();
 		np->low[0] = a_node->m_branch[index].m_rect.m_min[0];
 		np->low[1] = a_node->m_branch[index].m_rect.m_min[1];
 		np->high[0] = a_node->m_branch[index].m_rect.m_max[0];

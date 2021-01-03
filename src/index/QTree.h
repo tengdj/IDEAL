@@ -90,7 +90,7 @@ public:
 	}
 	QTNode *retrieve(Point &p){
 		if(!mbr.contain(p)){
-			mbr.print_polygon();
+			mbr.print();
 			p.print();
 		}
 		assert(mbr.contain(p));
@@ -145,7 +145,7 @@ public:
 	}
 
 	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex){
-		if(!mbr.intersect(&p)){
+		if(!mbr.intersect(p)){
 			return true;
 		}
 		if(isleaf){

@@ -37,40 +37,41 @@ public:
 	double vertex;
 };
 
-class range{
-public:
-	double m_min = DBL_MAX;
-	double m_max = 0;
-};
 
-class Pixel{
-
+class box{
 public:
 	double low[2] = {100000.0,100000.0};
 	double high[2] = {-100000.0,-100000.0};
 
-	PartitionStatus status = OUT;
-	int vstart = -1;
-	int vend = -1;
+	box(){}
 
-	vector<Pixel *> children;
-	void *node_element = NULL;
+	box(box *b){
+		low[0] = b->low[0];
+		high[0] = b->high[0];
+		low[1] = b->low[1];
+		high[1] = b->high[1];
+	}
+
+	void update(Point &p);
+
+	double area();
+	bool intersect(box &target);
+	bool contain(box &target);
+	bool contain(Point &p);
+	double max_distance(Point &p);
+	double distance(Point &p);
+    double distance_geography(Point &p);
+
+	void print_vertices();
+	void print();
+};
+
+class RTNode:public box{
 public:
-	Pixel(){}
+	vector<RTNode *> children;
+	void *node_element = NULL;
 
-	~Pixel(){
-		for(Pixel *p:children){
-			delete p;
-		}
-	}
-
-	Pixel(Pixel *p){
-		low[0] = p->low[0];
-		low[1] = p->low[1];
-		high[0] = p->high[0];
-		high[1] = p->high[1];
-	}
-
+	RTNode(){};
 	bool is_leaf(){
 		return children.size()==0;
 	}
@@ -81,30 +82,52 @@ public:
 	}
 	void node_count(int &count){
 		count++;
-		for(Pixel *px:children){
+		for(RTNode *px:children){
 			assert(px!=this);
 			px->node_count(count);
 		}
 	}
+};
 
-	void update(Point &p);
-	bool intersect(Pixel *target);
-	bool contain(Pixel *target);
-	bool contain(Point &p);
-	double max_distance(Point &p);
-	double area();
-	double distance(Point &p);
-	range distance_range(Point &p);
-    double distance_geography(Point &p);
+class Pixel:public box{
 
+public:
+
+	PartitionStatus status = OUT;
+	int vstart = -1;
+	int vend = -1;
 	vector<cross_info> crosses[4];
+
+public:
+	Pixel(){}
+//	void update(Point &p){
+//		space.update(p);
+//	}
+//
+//	double area(){
+//		return space.area();
+//	}
+//	bool intersect(Pixel &target){
+//		return space.intersect(target.space);
+//	}
+//	bool contain(Pixel &target){
+//		return space.contain(target.space);
+//	}
+//	bool contain(Point &p){
+//		return space.contain(p);
+//	}
+//	double max_distance(Point &p){
+//		return space.max_distance(p);
+//	}
+//	double distance(Point &p){
+//		return space.distance(p);
+//	}
+//    double distance_geography(Point &p){
+//		return space.distance_geography(p);
+//    }
+
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);
-
-	void print();
-	void print_polygon();
-	void print_vertices();
-
 };
 
 

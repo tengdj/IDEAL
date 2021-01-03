@@ -65,7 +65,7 @@ class MyPolygon{
 	vector<vector<Pixel>> partitions;
 	QTNode *qtree = NULL;
 	vector<Triangle *> triangles;
-	Pixel *rtree = NULL;
+	RTNode *rtree = NULL;
 
 	double step_x = 0;
 	double step_y = 0;
@@ -103,8 +103,8 @@ public:
 		return sz;
 	}
 	void build_rtree();
-	Pixel *get_rtree_pixel(){
-		return this->rtree;
+	RTNode *get_rtree(){
+		return rtree;
 	}
 	size_t get_rtree_size(){
 		if(rtree){
