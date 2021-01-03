@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 	int idx = 0;
 	for(int i=0;i<sources.size();i++){
-		if(sources[i]&&global_ctx.source_polygons[i]->get_num_vertices()<global_ctx.vpr){
+		if(sources[i]){
 			assert(sources[i].get()->isPolygonal());
 
 			Pixel *mbr = global_ctx.source_polygons[i]->getMBB();
