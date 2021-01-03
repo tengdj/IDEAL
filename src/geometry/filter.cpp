@@ -339,11 +339,12 @@ void process_convex_hull(query_context *gctx){
 	size_t data_size = 0;
 	size_t ch_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		if(poly->get_convex_hull()){
-			num_vertexes += poly->get_convex_hull()->num_vertices;
+		VertexSequence *ch = poly->get_convex_hull()->num_vertices;
+		if(ch){
+			num_vertexes += ch->num_vertices;
+			ch_size += ch->num_vertices*16;
 		}
 		data_size += poly->get_data_size();
-		ch_size += poly->get_convex_hull()->num_vertices*16;
 	}
 
 	logt("get convex hull for %d polygons with %ld average vertices %f overhead", start,
