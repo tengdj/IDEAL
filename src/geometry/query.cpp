@@ -570,9 +570,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 	}else{
 		//checking convex
-		if(ctx->query_type==QueryType::within&&
-				ctx->use_convex_hull&&ctx->use_convex_hull){
-			assert(convex_hull);
+		if(ctx->query_type==QueryType::within&&convex_hull){
 			double min_dist = DBL_MAX;
 			for(int i=0;i<convex_hull->num_vertices-1;i++){
 				double dist = ::point_to_segment_distance(p.x, p.y, convex_hull->x[i], convex_hull->y[i], convex_hull->x[i+1], convex_hull->y[i+1], true);
