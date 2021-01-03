@@ -58,7 +58,7 @@ void MyPolygon::build_rtree(){
 		rtree_tmp->Insert(pix.low, pix.high, tri);
 	}
 	mbr = getMBB();
-	rtree = new Pixel(mbr);
+	//rtree = new Pixel(mbr);
 	//rtree_tmp->construct_pixel(rtree);
 	delete rtree_tmp;
 }
