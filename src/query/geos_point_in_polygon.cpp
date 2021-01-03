@@ -27,9 +27,25 @@ bool MySearchCallback(Geometry *poly, void* arg){
 
 	assert(poly);
 	assert(p);
-	ctx->checked_count++;
 	//exact query
-	ctx->found += poly->contains(p);
+	ctx->checked_count++;
+	ctx->border_checked++;
+	ctx->edges_checked += poly->getNumPoints();
+	bool found = poly->distance(p)==0;
+	ctx->found += found;
+//	double dist = poly->distance(p);
+//	if(found){
+//		assert(dist==0);
+//	}else{
+//		if(dist>0){
+//			cout<<poly->toString()<<endl;
+//			cout<<p->toString()<<endl;
+//			cout<<poly->getArea()<<endl;
+//			printf("%f\n",dist);
+//			assert(0);
+//		}
+//	}
+
 	return true;
 }
 
@@ -67,13 +83,17 @@ int main(int argc, char** argv) {
 	process_geometries(&global_ctx, sources);
 
 	timeval start = get_cur_time();
+	int idx = 0;
 	for(int i=0;i<sources.size();i++){
-		if(sources[i]){
+		if(sources[i]&&global_ctx.source_polygons[i]->get_num_vertices()<global_ctx.vpr){
+			assert(sources[i].get()->isPolygonal());
+
 			Pixel *mbr = global_ctx.source_polygons[i]->getMBB();
 			tree.Insert(mbr->low, mbr->high, sources[i].get());
+			idx++;
 		}
 	}
-	logt("building R-Tree with %d nodes", start, tree.Count());
+	logt("building R-Tree with %d nodes", start, idx);
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// read all the points

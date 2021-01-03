@@ -24,6 +24,9 @@ bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
 
+	ctx->checked_count++;
+	ctx->border_checked++;
+	ctx->edges_checked += poly->getNumPoints();
 	ctx->distance = poly->distance(p);
 	return true;
 }
@@ -97,7 +100,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d polygons",start,global_ctx.query_count);
+	global_ctx.print_stats();
 	logt("total query",start);
 
 	sources.clear();

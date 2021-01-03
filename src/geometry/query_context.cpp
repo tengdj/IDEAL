@@ -127,7 +127,7 @@ void query_context::report_progress(){
 		global_ctx->query_count += query_count;
 		double time_passed = get_time_elapsed(global_ctx->previous);
 		if(time_passed/1000>global_ctx->report_gap){
-			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/global_ctx->target_num);
+			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num*global_ctx->sample_rate));
 			global_ctx->previous = get_cur_time();
 		}
 		query_count = 0;

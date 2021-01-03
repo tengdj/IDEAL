@@ -142,7 +142,7 @@ public:
 	void print(bool print_hole=false);
 	void print_triangles();
 	void print_without_return(bool print_hole=false);
-	string to_string(bool clockwise = true);
+	string to_string(bool clockwise = false);
 	Pixel *getMBB();
 	Pixel *getMER(query_context *ctx=NULL);
 	Pixel *generateMER(int cx, int cy);
