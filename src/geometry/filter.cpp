@@ -299,7 +299,7 @@ void *convex_hull_unit(void *args){
 	int local_count = 0;
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			VertexSequence *ch = gctx->source_polygons[i]->get_convex_hull();
+			gctx->source_polygons[i]->get_convex_hull();
 			ctx->report_progress();
 		}
 	}
@@ -339,7 +339,9 @@ void process_convex_hull(query_context *gctx){
 	size_t data_size = 0;
 	size_t ch_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		num_vertexes += poly->get_convex_hull()->num_vertices;
+		if(poly->get_convex_hull()){
+			num_vertexes += poly->get_convex_hull()->num_vertices;
+		}
 		data_size += poly->get_data_size();
 		ch_size += poly->get_convex_hull()->num_vertices*16;
 	}
