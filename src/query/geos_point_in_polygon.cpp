@@ -40,6 +40,7 @@ void *query(void *args){
 
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
+			log("%d",i);
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
