@@ -191,7 +191,13 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 	if(poly->boundary->clockwise()){
 		poly->boundary->reverse();
 	}
+	string str = poly->to_string();
+
 	poly->boundary->fix();
+	if(poly->boundary->num_vertices<10){
+		cout<<str<<endl;
+		poly->print();
+	}
 	for(int i=0;i<num_holes;i++){
 		infile.read((char *)&num_vertices,sizeof(long));
 		assert(num_vertices);

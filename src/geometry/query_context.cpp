@@ -14,14 +14,16 @@ query_context::~query_context(){
 
 	vertex_number.clear();
 	latency.clear();
-	for(MyPolygon *p:source_polygons){
-		delete p;
-	}
-	for(MyPolygon *p:target_polygons){
-		delete p;
-	}
-	if(points){
-		delete []points;
+	if(this->global_ctx == NULL){
+		for(MyPolygon *p:source_polygons){
+			delete p;
+		}
+		for(MyPolygon *p:target_polygons){
+			delete p;
+		}
+		if(points){
+			delete []points;
+		}
 	}
 
 }
@@ -47,6 +49,8 @@ query_context::query_context(query_context &t){
 	distance_buffer_size = t.distance_buffer_size;
 	source_path = t.source_path;
 	target_path = t.target_path;
+	target_num = t.target_num;
+
 	valid_path = t.valid_path;
 	query_type = t.query_type;
 	collect_latency = t.collect_latency;
@@ -75,6 +79,7 @@ query_context& query_context::operator=(query_context const &t){
 	source_path = t.source_path;
 	target_path = t.target_path;
 	valid_path = t.valid_path;
+	target_num = t.target_num;
 
     query_type = t.query_type;
     collect_latency = t.collect_latency;
@@ -117,11 +122,13 @@ void query_context::load_points(){
 }
 
 void query_context::report_progress(){
-	if(++query_count==1000){
+	if(++query_count==100){
 		pthread_mutex_lock(&global_ctx->lock);
 		global_ctx->query_count += query_count;
-		if(global_ctx->query_count%global_ctx->report_gap==0){
+		double time_passed = get_time_elapsed(global_ctx->previous);
+		if(time_passed/1000>global_ctx->report_gap){
 			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/global_ctx->target_num);
+			global_ctx->previous = get_cur_time();
 		}
 		query_count = 0;
 		pthread_mutex_unlock(&global_ctx->lock);

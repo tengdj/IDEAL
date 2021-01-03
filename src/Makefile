@@ -47,13 +47,13 @@ point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 
-geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) geos/GEOSTool.o
+geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) geos/GEOSTool.o
+geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) geos/GEOSTool.o
+geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 	

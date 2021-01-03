@@ -43,7 +43,6 @@ public:
 	int small_threshold = 500;
 	int big_threshold = 1000000;
 	bool sort_polygons = false;
-	int report_gap = 1000000;
 	int distance_buffer_size = 10;
 	QueryType query_type = QueryType::contain;
 	string source_path;
@@ -59,6 +58,8 @@ public:
 	//shared staff
 	size_t index = 0;
 	size_t index_end = 0;
+	struct timeval previous = get_cur_time();
+	int report_gap = 5;
 	pthread_mutex_t lock;
 
 

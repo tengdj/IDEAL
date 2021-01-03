@@ -17,15 +17,17 @@ using namespace std;
 
 RTree<Geometry *, double, 2, double> tree;
 
-vector<Geometry *> sources;
-vector<Geometry *> targets;
+vector<unique_ptr<Geometry>> sources;
+vector<unique_ptr<Geometry>> targets;
 
+int idx = 0;
 bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
 
 	assert(poly);
 	assert(p);
+	ctx->checked_count++;
 	//exact query
 	ctx->found += poly->contains(p);
 	return true;
@@ -41,7 +43,7 @@ void *query(void *args){
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
-			ctx->target = (void *)(targets[i]);
+			ctx->target = (void *)(targets[i].get());
 			tree.Search(gctx->points+2*i, gctx->points+2*i, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}
@@ -55,19 +57,23 @@ void *query(void *args){
 int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
-	timeval start = get_cur_time();
 	/////////////////////////////////////////////////////////////////////////////
 	// load the source into polygon
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
 	/////////////////////////////////////////////////////////////////////////////
 	//loading sources as geometry
-	sources = process_geometries(global_ctx.source_polygons);
+	global_ctx.target_num = global_ctx.source_polygons.size();
+	process_geometries(&global_ctx, sources);
 
+	timeval start = get_cur_time();
 	for(int i=0;i<sources.size();i++){
-		tree.Insert(global_ctx.source_polygons[i]->getMBB()->low, global_ctx.source_polygons[i]->getMBB()->high, sources[i]);
+		if(sources[i]){
+			Pixel *mbr = global_ctx.source_polygons[i]->getMBB();
+			tree.Insert(mbr->low, mbr->high, sources[i].get());
+		}
 	}
-	logt("building R-Tree with %d nodes", start,sources.size());
+	logt("building R-Tree with %d nodes", start, tree.Count());
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// read all the points
@@ -76,7 +82,7 @@ int main(int argc, char** argv) {
 	////////////////////////////////////////////////////////////////////////////////////
 	//loading the points into geometry
 
-	targets = process_points(global_ctx.points, global_ctx.target_num);
+	process_points(&global_ctx,targets);
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// querying
@@ -96,15 +102,10 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	logt("queried %d points",start,global_ctx.query_count);
+	global_ctx.print_stats();
 
-	for(Geometry *g:sources){
-		delete g;
-	}
-	for(Geometry *g:targets){
-		delete g;
-	}
-
+	sources.clear();
+	targets.clear();
 	return 0;
 }
 

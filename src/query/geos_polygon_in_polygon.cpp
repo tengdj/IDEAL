@@ -17,8 +17,8 @@ using namespace std;
 
 RTree<Geometry *, double, 2, double> tree;
 
-vector<Geometry *> sources;
-vector<Geometry *> targets;
+vector<unique_ptr<Geometry>> sources;
+vector<unique_ptr<Geometry>> targets;
 
 bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
@@ -42,7 +42,7 @@ void *query(void *args){
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
-			ctx->target = (void *)(targets[i]);
+			ctx->target = (void *)(targets[i].get());
 			tree.Search(gctx->target_polygons[i]->getMBB()->low, gctx->target_polygons[i]->getMBB()->high, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}
@@ -62,10 +62,10 @@ int main(int argc, char** argv) {
 
 	/////////////////////////////////////////////////////////////////////////////
 	//loading sources as geometry
-	sources = process_geometries(global_ctx.source_polygons);
+	process_geometries(&global_ctx,sources);
 
 	for(int i=0;i<sources.size();i++){
-		tree.Insert(global_ctx.source_polygons[i]->getMBB()->low, global_ctx.source_polygons[i]->getMBB()->high, sources[i]);
+		tree.Insert(global_ctx.source_polygons[i]->getMBB()->low, global_ctx.source_polygons[i]->getMBB()->high, sources[i].get());
 	}
 	logt("building R-Tree with %d nodes", start,sources.size());
 
@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 	////////////////////////////////////////////////////////////////////////////////////
 	//loading the polygons into geometry
 
-	targets = process_geometries(global_ctx.target_polygons);
+	process_geometries(&global_ctx,targets,true);
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// querying

@@ -27,8 +27,8 @@ using namespace geos::operation::distance;
 
 
 using namespace std;
-vector<Geometry *> process_geometries(vector<MyPolygon *> &polys);
-vector<Geometry *> process_points(double *points, size_t point_num);
+void process_geometries(query_context *ctx, vector<unique_ptr<Geometry>> &dest, bool procee_target = false);
+void process_points(query_context *ctx, vector<unique_ptr<Geometry>> &dest);
 
 
 #endif /* SRC_GEOMETRY_GEOSTOOL_H_ */

@@ -17,8 +17,8 @@ using namespace std;
 
 
 RTree<Geometry *, double, 2, double> tree;
-vector<Geometry *> sources;
-vector<Geometry *> targets;
+vector<unique_ptr<Geometry>> sources;
+vector<unique_ptr<Geometry>> targets;
 
 bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
@@ -39,7 +39,7 @@ void *query(void *args){
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
-			ctx->target = (void *)targets[i];
+			ctx->target = (void *)targets[i].get();
 			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
 			double shifty = degree_per_kilometer_latitude*gctx->distance_buffer_size;
 			buffer_low[0] = gctx->points[2*i]-shiftx;
@@ -64,19 +64,22 @@ int main(int argc, char** argv) {
 
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
 
-	sources = process_geometries(global_ctx.source_polygons);
+	global_ctx.target_num = global_ctx.source_polygons.size();
+	process_geometries(&global_ctx, sources);
 
 	timeval start = get_cur_time();
 
 	for(int i=0;i<sources.size();i++){
-		tree.Insert(global_ctx.source_polygons[i]->getMBB()->low, global_ctx.source_polygons[i]->getMBB()->high, sources[i]);
+		if(sources[i]){
+			tree.Insert(global_ctx.source_polygons[i]->getMBB()->low, global_ctx.source_polygons[i]->getMBB()->high, sources[i].get());
+		}
 	}
 	logt("building R-Tree with %d nodes", start,sources.size());
 
 	// read all the points
 	global_ctx.load_points();
 
-	targets = process_points(global_ctx.points, global_ctx.target_num);
+	process_points(&global_ctx, targets);
 
 	start = get_cur_time();
 	pthread_t threads[global_ctx.num_threads];
@@ -96,6 +99,8 @@ int main(int argc, char** argv) {
 	}
 	logt("queried %d polygons",start,global_ctx.query_count);
 
+	sources.clear();
+	targets.clear();
 	return 0;
 }
 
