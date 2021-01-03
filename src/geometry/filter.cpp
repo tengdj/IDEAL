@@ -339,7 +339,7 @@ void process_convex_hull(query_context *gctx){
 	size_t data_size = 0;
 	size_t ch_size = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
-		VertexSequence *ch = poly->get_convex_hull()->num_vertices;
+		VertexSequence *ch = poly->get_convex_hull();
 		if(ch){
 			num_vertexes += ch->num_vertices;
 			ch_size += ch->num_vertices*16;
