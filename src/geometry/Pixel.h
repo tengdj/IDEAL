@@ -44,19 +44,19 @@ public:
 };
 
 class Pixel{
+
 public:
-	int id[2];
-	vector<Pixel *> children;
-	void *node_element = NULL;
 	double low[2] = {100000.0,100000.0};
 	double high[2] = {-100000.0,-100000.0};
 	PartitionStatus status = OUT;
-
 	int vstart = -1;
 	int vend = -1;
-	Pixel(){
 
-	}
+	vector<Pixel *> children;
+	void *node_element = NULL;
+
+public:
+	Pixel(){}
 
 	~Pixel(){
 		for(Pixel *p:children){
@@ -69,6 +69,22 @@ public:
 		low[1] = p->low[1];
 		high[0] = p->high[0];
 		high[1] = p->high[1];
+	}
+
+	bool is_leaf(){
+		return children.size()==0;
+	}
+	int node_count(){
+		int count = 0;
+		node_count(count);
+		return count;
+	}
+	void node_count(int &count){
+		count++;
+		for(Pixel *px:children){
+			assert(px!=this);
+			px->node_count(count);
+		}
 	}
 
 	void update(Point &p);

@@ -16,10 +16,6 @@ void MyPolygon::triangulate(){
 	if(!this->valid_for_triangulate){
 		return;
 	}
-	if(rtree){
-		delete rtree;
-		rtree = NULL;
-	}
 	for(Point *p:polyline){
 		delete p;
 	}
@@ -41,9 +37,9 @@ void MyPolygon::triangulate(){
 	delete cdt;
 }
 
-RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
+void MyPolygon::build_rtree(){
 	if(!this->valid_for_triangulate){
-		return NULL;
+		return;
 	}
 	if(triangles.size()>0){
 		triangulate();
@@ -52,25 +48,19 @@ RTree<Triangle *, double, 2, double> * MyPolygon::build_rtree(){
 		delete rtree;
 		rtree = NULL;
 	}
-	if(rtree_pixel){
-		delete rtree_pixel;
-		rtree_pixel = NULL;
-	}
 
-	rtree = new RTree<Triangle *, double, 2, double>();
+	RTree<Triangle *, double, 2, double> *rtree_tmp = new RTree<Triangle *, double, 2, double>();
 	for(Triangle *tri:triangles){
 		Pixel pix;
 		for(int i=0;i<3;i++){
 			pix.update(*tri->point(i));
 		}
-		rtree->Insert(pix.low, pix.high, tri);
+		rtree_tmp->Insert(pix.low, pix.high, tri);
 	}
 	mbr = getMBB();
-//	rtree_pixel = new Pixel(mbr);
-//	rtree->construct_pixel(rtree_pixel);
-
-	return rtree;
-
+	rtree = new Pixel(mbr);
+	rtree_tmp->construct_pixel(rtree);
+	delete rtree_tmp;
 }
 
 

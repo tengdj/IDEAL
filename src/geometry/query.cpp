@@ -34,52 +34,36 @@ bool MyPolygon::contain(Point &p){
     return boundary->contain(p);
 }
 
-
-bool ContainCallback(Triangle *triangle, void* arg){
-	query_context *ctx = (query_context *)arg;
-	Point *point = (Point *)ctx->target;
-	//MyPolygon *polygon = (MyPolygon *)ctx->target2;
-
-	bool ret = false;
-	for(int i=0,j=2;i<=2;j=i++){
-		Point *start = triangle->point(i);
-		Point *end = triangle->point(j);
-
-		if((start->y >= point->y ) != (end->y >= point->y)){
-			double xint = (end->x - start->x) * (point->y - start->y)/ (end->y - start->y) + start->x;
-			if(point->x <= xint){
-				ret = !ret;
+bool contain_rtree(Pixel *node, Point &p, query_context *ctx){
+	if(!node->contain(p)){
+		return false;
+	}
+	if(node->is_leaf()){
+		Triangle *triangle = (Triangle *)node->node_element;
+		bool ret = false;
+		for(int i=0,j=2;i<=2;j=i++){
+			Point *start = triangle->point(i);
+			Point *end = triangle->point(j);
+			if((start->y >= p.y ) != (end->y >= p.y)){
+				double xint = (end->x - start->x) * (p.y - start->y)/ (end->y - start->y) + start->x;
+				if(p.x <= xint){
+					ret = !ret;
+				}
 			}
 		}
+		if(ctx->is_contain_query()){
+			ctx->edges_checked += 3;
+		}
+		return !ret;
 	}
-	if(ctx->is_contain_query()){
-		ctx->edges_checked += 3;
+	for(Pixel *ch:node->children){
+		if(contain_rtree(ch,p,ctx)){
+			return true;
+		}
 	}
-	if(ret){
-		ctx->found++;
-	}
-	return !ret;
-}
-
-bool MyPolygon::contain_rtree(Point &p, query_context *ctx){
-	assert(rtree);
-	ctx->target = &p;
-	ctx->target2 = this;
-	double low[2]={p.x,p.y};
-	double high[2]={p.x,p.y};
-	size_t old_found = ctx->found;
-	rtree->Search(low, high, ContainCallback, (void *)ctx);
-
-	if(ctx->found!=old_found){
-		assert(ctx->found==old_found+1);
-		ctx->found = old_found;
-		return true;
-	}
-
 	return false;
 }
 
-int wrongcount = 0;
 bool MyPolygon::contain(Point &p, query_context *ctx){
 
 	if(ctx->is_within_query()){
@@ -142,8 +126,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			}
 		}
 		// check the crossing nodes on the right bar
-		for(int i=0;i<=target->id[1];i++){
-			for(cross_info &info:partitions[target->id[0]][i].crosses[RIGHT]){
+		for(int i=0;i<=part_y;i++){
+			for(cross_info &info:partitions[part_x][i].crosses[RIGHT]){
 				if(info.vertex<=p.y){
 					ret = !ret;
 				}
@@ -170,8 +154,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 				ctx->filter_checked_only = false;
 			}
 			if(ctx->perform_refine||ctx->is_within_query()){
-				if(this->rtree){
-					return contain_rtree(p,ctx);
+				if(rtree){
+					return contain_rtree(rtree,p,ctx);
 				}
 				return contain(p);
 			}else{
@@ -189,14 +173,18 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			return false;
 		}
 
+
 		if(ctx->is_contain_query()){
-			ctx->border_checked++;
-			ctx->edges_checked += get_num_vertices();
+			if(!rtree){
+				ctx->edges_checked += get_num_vertices();
+			}
 			ctx->filter_checked_only = false;
+			ctx->border_checked++;
 		}
+
 		if(ctx->perform_refine||ctx->is_within_query()){
-			if(this->rtree){
-				return contain_rtree(p,ctx);
+			if(rtree){
+				return contain_rtree(rtree,p,ctx);
 			}
 			return contain(p);
 		}else{
@@ -396,9 +384,9 @@ bool DistanceCallback(Triangle *triangle, void* arg){
 
 
 double MyPolygon::distance_rtree(Point &p, query_context *ctx){
-	assert(rtree&&rtree_pixel);
+	assert(rtree);
 	queue<Pixel *> pixq;
-	for(Pixel *p:rtree_pixel->children){
+	for(Pixel *p:rtree->children){
 		pixq.push(p);
 	}
 	// set this value as the MINMAXDIST
@@ -482,9 +470,10 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		double mbrdist = mbr->distance(p);
 
 		//initialize the starting pixel
-		Pixel *center_pixel = this->get_closest_pixel(p);
-		const int start_pixx = center_pixel->id[0];
-		const int start_pixy = center_pixel->id[1];
+		int start_pixx, start_pixy;
+
+		get_closest_pixel(p,start_pixx,start_pixy);
+
 		int step = 0;
 		double step_size = min(step_x,step_y);
 
@@ -495,7 +484,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		while(true){
 			struct timeval pixel_start = get_cur_time();
 			if(step==0){
-				needprocess.push_back(center_pixel);
+				needprocess.push_back(&partitions[start_pixx][start_pixy]);
 			}else{
 				int xmin = max(0,start_pixx-step);
 				int xmax = min((int)partitions.size()-1,start_pixx+step);
@@ -534,7 +523,6 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 			for(Pixel *cur:needprocess){
 				ctx->pixel_checked++;
-				assert(cur->id[0]<partitions.size()&&cur->id[1]<partitions[0].size());
 				//cur->print();
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){

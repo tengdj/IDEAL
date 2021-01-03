@@ -127,17 +127,12 @@ void Pixel::print(){
 		printf("B-");
 		break;
 	}
-	printf("%3d %3d-",id[0],id[1]);
 	printf("low_x: %f low_y %f high_x %f high_y %f\n",low[0],low[1],high[0],high[1]);
 }
 
 
 
 void Pixel::enter(double val, Direction d, int vnum){
-	if(print_debug){
-		cout<<direction_str[d];
-		cout<<" enter "<<id[0]<<" "<<id[1]<<endl;
-	}
 	cross_info ci;
 	ci.type = ENTER;
 	ci.vertex = val;
@@ -151,10 +146,6 @@ void Pixel::enter(double val, Direction d, int vnum){
 
 
 void Pixel::leave(double val, Direction d, int vnum){
-	if(print_debug){
-		cout<<direction_str[d];
-		cout<<" leave "<<id[0]<<" "<<id[1]<<endl;
-	}
 	cross_info ci;
 	ci.type = LEAVE;
 	ci.vertex = val;

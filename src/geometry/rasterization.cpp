@@ -17,8 +17,6 @@ void MyPolygon::init_partition(const int dimx, const int dimy){
 		vector<Pixel> v;
 		for(double j=0;j<=dimy;j++){
 			Pixel m;
-			m.id[0] = i;
-			m.id[1] = j;
 			m.low[0] = i*step_x+start_x;
 			m.high[0] = (i+1.0)*step_x+start_x;
 			m.low[1] = j*step_y+start_y;
@@ -207,10 +205,10 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 	}
 }
 
-Pixel *MyPolygon::get_closest_pixel(Point p){
+void MyPolygon::get_closest_pixel(Point p, int &pixx, int &pixy){
 	assert(this->is_grid_partitioned());
-	int pixx = this->get_pixel_x(p.x);
-	int pixy = this->get_pixel_y(p.y);
+	pixx = this->get_pixel_x(p.x);
+	pixy = this->get_pixel_y(p.y);
 	if(pixx<0){
 		pixx = 0;
 	}
@@ -223,8 +221,6 @@ Pixel *MyPolygon::get_closest_pixel(Point p){
 	if(pixy>=partitions[0].size()){
 		pixy = partitions[0].size()-1;
 	}
-	return &partitions[pixx][pixy];
-
 }
 
 vector<Pixel *> MyPolygon::get_pixels(PartitionStatus status){
@@ -400,8 +396,6 @@ vector<vector<Pixel>> MyPolygon::partition_with_query(int vpr){
 		vector<Pixel> v;
 		for(double j=0;j<=dimy;j++){
 			Pixel m;
-			m.id[0] = i;
-			m.id[1] = j;
 			m.low[0] = i*step_x+start_x;
 			m.high[0] = (i+1.0)*step_x+start_x;
 			m.low[1] = j*step_y+start_y;
@@ -523,8 +517,6 @@ vector<vector<Pixel>> MyPolygon::decode_partition(char *data){
 			Pixel p;
 
 			p.status = (PartitionStatus)((cur>>shift)&3);
-			p.id[0] = i;
-			p.id[1] = j;
 			p.low[0] = i*step_x+start_x;
 			p.low[1] = j*step_y+start_y;
 			p.high[0] = (i+1)*step_x+start_x;

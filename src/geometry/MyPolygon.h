@@ -64,9 +64,8 @@ class MyPolygon{
 	Pixel *mer = NULL;
 	vector<vector<Pixel>> partitions;
 	QTNode *qtree = NULL;
-	RTree<Triangle *, double, 2, double> *rtree = NULL;
 	vector<Triangle *> triangles;
-	Pixel *rtree_pixel = NULL;
+	Pixel *rtree = NULL;
 
 	double step_x = 0;
 	double step_y = 0;
@@ -103,16 +102,14 @@ public:
 		sz += triangles.size()*3*(num_bits+7)/8;
 		return sz;
 	}
-	RTree<Triangle *, double, 2, double> * build_rtree();
-	RTree<Triangle *, double, 2, double> * get_rtree(){
-		return rtree;
-	}
+	void build_rtree();
 	Pixel *get_rtree_pixel(){
-		return this->rtree_pixel;
+		return this->rtree;
 	}
 	size_t get_rtree_size(){
 		if(rtree){
-			return rtree->Count()*4*8;
+			int count = rtree->node_count();
+			return count*4*8;
 		}else{
 			return 0;
 		}
@@ -131,7 +128,6 @@ public:
 
 	bool contain(Point &p);// brute-forcely check containment
 	bool contain(Point &p, query_context *ctx);
-	bool contain_rtree(Point &p, query_context *ctx);
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
@@ -170,7 +166,7 @@ public:
 	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
 	vector<Pixel *> get_pixels(PartitionStatus status);
 
-	Pixel *get_closest_pixel(Point p);
+	void get_closest_pixel(Point p, int &pixx, int &pixy);
 	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){
 		return qtree;
