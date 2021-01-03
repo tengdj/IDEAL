@@ -226,7 +226,6 @@ VertexSequence *convexHull(VertexSequence *boundary)
 {
 
 	int n = boundary->num_vertices-1;
-	assert(n>0);
     // There must be at least 3 points
     if (n < 3){
     	return NULL;
