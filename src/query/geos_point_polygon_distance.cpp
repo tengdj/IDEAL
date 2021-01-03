@@ -98,6 +98,7 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 	}
 	logt("queried %d polygons",start,global_ctx.query_count);
+	logt("total query",start);
 
 	sources.clear();
 	targets.clear();

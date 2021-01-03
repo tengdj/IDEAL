@@ -97,13 +97,10 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 	}
 	logt("queried %d polygons",start,global_ctx.query_count);
+	logt("total query",start);
 
-	for(Geometry *g:sources){
-		delete g;
-	}
-	for(Geometry *g:targets){
-		delete g;
-	}
+	sources.clear();
+	targets.clear();
 
 	return 0;
 }

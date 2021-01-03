@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 	}
 	global_ctx.print_stats();
-
+	logt("total query",start);
 	sources.clear();
 	targets.clear();
 	return 0;
