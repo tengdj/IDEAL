@@ -48,13 +48,13 @@ class Pixel{
 public:
 	double low[2] = {100000.0,100000.0};
 	double high[2] = {-100000.0,-100000.0};
+
 	PartitionStatus status = OUT;
 	int vstart = -1;
 	int vend = -1;
 
 	vector<Pixel *> children;
 	void *node_element = NULL;
-
 public:
 	Pixel(){}
 
