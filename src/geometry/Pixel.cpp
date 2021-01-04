@@ -158,6 +158,10 @@ void Pixel::process_crosses(int num_edges){
 	assert(crosses.size()%2==0);
 	int start = 0;
 	int end = crosses.size()-1;
+	if(end%2==0){
+		cout<<end<<endl;
+		exit(0);
+	}
 	//special case
 	if(crosses[0].type==LEAVE){
 		assert(crosses[end].type==ENTER);
