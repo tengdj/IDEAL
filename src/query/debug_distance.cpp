@@ -21,10 +21,14 @@ int main(int argc, char **argv){
 
 //	MyPolygon *polygon = MyPolygon::load_binary_file_single("/data/gisdata/raster/dat/all_source_100.dat", ctx, 198009);
 	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
+	polygon->valid_for_triangulate = true;
+	polygon->triangulate();
 
-	polygon->print();
+	polygon->print_triangles();
+
+//	polygon->print();
 //	return 0;
-	polygon->get_convex_hull();
+//	polygon->get_convex_hull();
 //	polygon->partition(10);
 //	ctx.use_triangulate = true;
 //	polygon->valid_for_triangulate = true;

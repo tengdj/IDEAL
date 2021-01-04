@@ -196,7 +196,7 @@ void MyPolygon::evaluate_edges(const int dimx, const int dimy){
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &p:rows){
 			for(int i=0;i<4;i++){
-				if(p.crosses[i].size()>0){
+				if(p.intersection_nodes[i].size()>0){
 					p.status = BORDER;
 					break;
 				}
@@ -241,8 +241,10 @@ size_t MyPolygon::get_cross_num(){
 	size_t num = 0;
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &p:rows){
-			num += p.crosses[RIGHT].size();
-			num += p.crosses[BOTTOM].size();
+			num += p.intersection_nodes[RIGHT].size();
+			num += p.intersection_nodes[BOTTOM].size();
+			num += p.intersection_nodes[LEFT].size();
+			num += p.intersection_nodes[TOP].size();
 		}
 	}
 	return num;
@@ -279,8 +281,8 @@ size_t MyPolygon::partition_size(){
 	int numc = 0;
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &p:rows){
-			numc += p.crosses[RIGHT].size();
-			numc += p.crosses[BOTTOM].size();
+			numc += p.intersection_nodes[RIGHT].size();
+			numc += p.intersection_nodes[BOTTOM].size();
 		}
 	}
 	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;
@@ -339,6 +341,13 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 	// edge crossing
 	evaluate_edges(dimx, dimy);
 
+	for(vector<Pixel> &rows:partitions){
+		for(Pixel &pix:rows){
+			if(pix.status==BORDER){
+				pix.process_crosses(get_num_vertices());
+			}
+		}
+	}
 
 	//scanline rendering
 	for(int y=1;y<dimy;y++){
@@ -350,7 +359,7 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 				}
 				continue;
 			}
-			for(cross_info &c:partitions[x][y].crosses[BOTTOM]){
+			if(partitions[x][y].intersection_nodes[BOTTOM].size()%2==1){
 				isin = !isin;
 			}
 		}
@@ -463,11 +472,10 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
 			ws.pop();
-			bool inside = this->contain_try_partition(&cur->mbr, &qc);
 
-			if(!qc.filter_checked_only){
+			if(!contain_try_partition(&cur->mbr, &qc)){
 				level_nodes.push_back(cur);
-			}else if(inside){
+			}else if(qc.contain){
 				cur->interior = true;
 			}else{
 				cur->exterior = true;
@@ -638,17 +646,28 @@ void process_partition(query_context *gctx){
 
 	//collect partitioning status
 	size_t num_partitions = 0;
+	size_t num_crosses = 0;
+	size_t num_border_partitions = 0;
+	size_t num_edges = 0;
 	for(MyPolygon *poly:gctx->source_polygons){
 		if(gctx->use_grid){
 			num_partitions += poly->get_num_partitions();
+			num_crosses += poly->get_cross_num();
+			num_border_partitions += poly->get_num_partitions(BORDER);
+			num_edges += poly->get_num_border_edge();
 		}else if(gctx->use_qtree){
 			num_partitions += poly->get_qtree()->leaf_count();
+			num_border_partitions += poly->get_qtree()->border_leaf_count();
 		}
 	}
-
-	logt("partitioned %d polygons with %ld average partitions", start,
+	logt("partitioned %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
 			gctx->source_polygons.size(),
-			num_partitions/gctx->source_polygons.size());
+			num_border_partitions/gctx->source_polygons.size(),
+			num_partitions/gctx->source_polygons.size(),
+			1.0*num_crosses/num_border_partitions,
+			1.0*num_edges/num_border_partitions);
+
+
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;

@@ -19,6 +19,28 @@ enum QT_Direction{
 
 class QTNode{
 
+	void internal_leaf_count(int &count){
+		if(isleaf){
+			count++;
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->internal_leaf_count(count);
+			}
+		}
+	}
+
+	void internal_border_leaf_count(int &count){
+		if(isleaf){
+			if(!interior&&!exterior){
+				count++;
+			}
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->internal_leaf_count(count);
+			}
+		}
+	}
+
 public:
 
 	bool isleaf = true;
@@ -78,16 +100,16 @@ public:
 		return (lfc*bits+7)/8;
 	}
 	int leaf_count(){
-		if(isleaf){
-			return 1;
-		}else{
-			int lc = 0;
-			for(int i=0;i<4;i++){
-				lc += children[i]->leaf_count();
-			}
-			return lc;
-		}
+		int count = 0;
+		internal_leaf_count(count);
+		return count;
 	}
+	int border_leaf_count(){
+		int count = 0;
+		internal_border_leaf_count(count);
+		return count;
+	}
+
 	QTNode *retrieve(Point &p){
 		if(!mbr.contain(p)){
 			mbr.print();

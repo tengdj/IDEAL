@@ -65,7 +65,7 @@ public:
 
 	//result
 	double distance = 0;
-	bool filter_checked_only = false;
+	bool contain = false;
 
 	//query statistic
 	size_t found = 0;

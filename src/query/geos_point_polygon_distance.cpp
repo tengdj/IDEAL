@@ -25,7 +25,7 @@ bool MySearchCallback(Geometry *poly, void* arg){
 	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
 
 	ctx->checked_count++;
-	ctx->border_checked++;
+	ctx->refine_count++;
 	ctx->edges_checked += poly->getNumPoints();
 	ctx->distance = poly->distance(p);
 	return true;

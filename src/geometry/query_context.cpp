@@ -142,6 +142,7 @@ void query_context::merge_global(){
 	global_ctx->checked_count += checked_count;
 	global_ctx->pixel_checked += pixel_checked;
 	global_ctx->border_checked += border_checked;
+	global_ctx->refine_count += refine_count;
 	global_ctx->edges_checked += edges_checked;
 	global_ctx->pixel_check_time += pixel_check_time;
 	global_ctx->edges_check_time += edges_check_time;
@@ -184,8 +185,13 @@ void query_context::print_stats(){
 	log("found count:\t%ld",found);
 
 	if(checked_count>0){
+		if(refine_count)
+		log("refine/checked:\t%f",(double)refine_count/checked_count);
+		if(pixel_checked)
 		log("pixel/checked:\t%f",(double)pixel_checked/checked_count);
+		if(border_checked)
 		log("border/checked:\t%f",(double)border_checked/checked_count);
+		if(edges_checked)
 		log("edges/checked:\t%f",(double)edges_checked/checked_count);
 	}
 	if(border_checked>0){

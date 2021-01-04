@@ -21,13 +21,11 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			poly->partition(ctx->vpr);
 		}
 		timeval start = get_cur_time();
-		bool isfound = poly->contain_try_partition(target->getMBB(), ctx);
 
-		if(ctx->filter_checked_only){
-			ctx->pixel_checked++;
-			ctx->found += isfound;
+		if(poly->contain_try_partition(target->getMBB(), ctx)){
+			ctx->found += ctx->contain;
 		}else{
-			ctx->border_checked++;
+			ctx->refine_count++;
 			ctx->found += poly->contain(target, ctx);
 			int nv = poly->get_num_vertices();
 			if(nv<5000){
@@ -39,11 +37,9 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		if(!poly->is_grid_partitioned()){
 			 poly->partition_qtree(ctx->vpr);
 		}
-		if(poly->get_qtree()->determine_contain(*(target->getMBB()))){
-			ctx->pixel_checked++;
-		}else{
+		if(!poly->get_qtree()->determine_contain(*(target->getMBB()))){
 			ctx->found += poly->contain(target,ctx);
-			ctx->border_checked++;
+			ctx->refine_count++;
 		}
 	}else{
 		ctx->found += poly->contain(target,ctx);

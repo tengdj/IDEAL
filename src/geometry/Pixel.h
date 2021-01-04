@@ -34,7 +34,11 @@ enum cross_type{
 class cross_info{
 public:
 	cross_type type;
-	double vertex;
+	int edge_num;
+	cross_info(cross_type t, int e){
+		type = t;
+		edge_num = e;
+	}
 };
 
 
@@ -61,6 +65,7 @@ public:
 	double max_distance(Point &p);
 	double distance(Point &p);
     double distance_geography(Point &p);
+    double max_distance_geography(Point &p);
 
 	void print_vertices();
 	void print();
@@ -89,45 +94,33 @@ public:
 	}
 };
 
+class edge_range{
+public:
+	int vstart = 0;
+	int vend = 0;
+	edge_range(int s, int e){
+		vstart = s;
+		vend = e;
+	}
+};
+
 class Pixel:public box{
 
 public:
 
 	PartitionStatus status = OUT;
+	vector<edge_range> edge_ranges;
 	int vstart = -1;
 	int vend = -1;
-	vector<cross_info> crosses[4];
+	vector<double> intersection_nodes[4];
+	vector<cross_info> crosses;
 
 public:
 	Pixel(){}
-//	void update(Point &p){
-//		space.update(p);
-//	}
-//
-//	double area(){
-//		return space.area();
-//	}
-//	bool intersect(Pixel &target){
-//		return space.intersect(target.space);
-//	}
-//	bool contain(Pixel &target){
-//		return space.contain(target.space);
-//	}
-//	bool contain(Point &p){
-//		return space.contain(p);
-//	}
-//	double max_distance(Point &p){
-//		return space.max_distance(p);
-//	}
-//	double distance(Point &p){
-//		return space.distance(p);
-//	}
-//    double distance_geography(Point &p){
-//		return space.distance_geography(p);
-//    }
-
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);
+	void process_crosses(int num_edges);
+	int num_edges_covered();
 };
 
 

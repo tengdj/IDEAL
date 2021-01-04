@@ -16,8 +16,6 @@
  * containment test
  *
  * */
-
-
 bool VertexSequence::contain(Point &point) {
 	bool ret = false;
 	for(int i = 0,j=num_vertices-1; i < num_vertices; j=i++) {
@@ -73,14 +71,13 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		}
 	}
 	if(ctx->is_contain_query()){
-		ctx->filter_checked_only = true;
 		ctx->checked_count++;
 	}
 
 	if(ctx->use_grid){
 
 		assert(is_grid_partitioned());
-		if(ctx->query_type==QueryType::contain){
+		if(ctx->is_contain_query()){
 			ctx->pixel_checked++;
 		}
 		struct timeval pixel_start = get_cur_time();
@@ -101,9 +98,9 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		}
 
 		if(ctx->is_contain_query()){
-			ctx->edges_checked += target->vend-target->vstart;
+			ctx->edges_checked += target->num_edges_covered();
 			ctx->border_checked++;
-			ctx->filter_checked_only = false;
+			ctx->refine_count++;
 		}
 
 		bool ret = false;
@@ -111,28 +108,30 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			struct timeval border_start = get_cur_time();
 
 			// checking the intersection edges in the target pixel
-			for(int i = target->vstart; i < target->vend; i++) {
-				int j = i+1;
-				if(((boundary->y[i] >= p.y) != (boundary->y[j] >= p.y))){
-					double int_x = (boundary->x[j] - boundary->x[i]) * (p.y - boundary->y[i]) / (boundary->y[j] - boundary->y[i]) + boundary->x[i];
-					if(p.x <= int_x && int_x <= target->high[0]){
+			for(edge_range &rg:target->edge_ranges){
+				for(int i = rg.vstart; i <= rg.vend; i++) {
+					int j = i+1;
+					if(((boundary->y[i] >= p.y) != (boundary->y[j] >= p.y))){
+						double int_x = (boundary->x[j] - boundary->x[i]) * (p.y - boundary->y[i]) / (boundary->y[j] - boundary->y[i]) + boundary->x[i];
+						if(p.x <= int_x && int_x <= target->high[0]){
+							ret = !ret;
+						}
+					}
+				}
+			}
+			// check the crossing nodes on the right bar
+			for(int i=0;i<=part_y;i++){
+				for(double &node:partitions[part_x][i].intersection_nodes[RIGHT]){
+					if(node<=p.y){
 						ret = !ret;
 					}
 				}
 			}
-
-			if(ctx->query_type==QueryType::contain){
+			if(ctx->is_contain_query()){
 				ctx->edges_check_time += get_time_elapsed(border_start);
 			}
 		}
-		// check the crossing nodes on the right bar
-		for(int i=0;i<=part_y;i++){
-			for(cross_info &info:partitions[part_x][i].crosses[RIGHT]){
-				if(info.vertex<=p.y){
-					ret = !ret;
-				}
-			}
-		}
+
 
 		return ret;
 	}else if(ctx->use_qtree){
@@ -150,8 +149,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		}else{
 			if(ctx->is_contain_query()){
 				ctx->border_checked++;
+				ctx->refine_count++;
 				ctx->edges_checked += get_num_vertices();
-				ctx->filter_checked_only = false;
 			}
 			if(ctx->perform_refine||ctx->is_within_query()){
 				if(rtree){
@@ -178,8 +177,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			if(!rtree){
 				ctx->edges_checked += get_num_vertices();
 			}
-			ctx->filter_checked_only = false;
 			ctx->border_checked++;
+			ctx->refine_count++;
 		}
 
 		if(ctx->perform_refine||ctx->is_within_query()){
@@ -196,10 +195,10 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 
 bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 
-	ctx->filter_checked_only = true;
 	Pixel *a = getMBB();
 	if(!a->contain(*b)){
-		return false;
+		ctx->contain = false;
+		return true;
 	}
 	// test all the pixels
 	int txstart = this->get_pixel_x(b->low[0]);
@@ -215,34 +214,6 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 	double height_d = (b->high[1]-b->low[1]+this->step_y*0.9999999)/this->step_y;
 	int height = double_to_int(height_d);
 
-//	//log("%f",abs(b->high[0]-this->step_x*width-b->low[0]));
-//
-//	if(b->high[0]-this->step_x*width-b->low[0]<0.000001){
-//		width--;
-//	}
-//
-
-//	//log("%f",abs(b->high[1]-this->step_y*height-b->low[1]));
-//
-//	if(b->high[1]-this->step_y*height-b->low[1]<0.000001){
-//		height--;
-//	}
-//
-//	txend = txstart + width;
-//	tyend = tystart + height;
-//	if(txend==partitions.size()){
-//		txend--;
-//	}
-//	if(tyend == partitions[0].size()){
-//		tyend--;
-//	}
-
-	//log("%d\t%d",width,height);
-
-	//log("%d %d %d %d %d %d",txstart, txend, txend-txstart, tystart,tyend,tyend-tystart);
-
-
-
 	for(int i=txstart;i<txstart+width;i++){
 		for(int j=tystart;j<tystart+height;j++){
 			total++;
@@ -254,15 +225,16 @@ bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
 			}
 		}
 	}
-	// all is in
+	// all in/out
 	if(incount==total){
+		ctx->contain = true;
 		return true;
 	}else if(outcount==total){
-		return false;
+		ctx->contain = false;
+		return true;
 	}
-	//log("%d %d %d",total,incount,outcount);
 
-	ctx->filter_checked_only = false;
+	// not determined by checking pixels only
 	return false;
 }
 
@@ -276,41 +248,6 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		}
 	}
 	return true;
-}
-
-bool MyPolygon::contain(Pixel *target, query_context *ctx){
-
-	Pixel *a = getMBB();
-	if(!a->contain(*target)){
-		return false;
-	}
-	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
-		// test all the pixels
-		int txstart = this->get_pixel_x(a->low[0]);
-		int txend = this->get_pixel_x(a->high[0]);
-		int tystart = this->get_pixel_y(a->low[1]);
-		int tyend = this->get_pixel_y(a->high[0]);
-		int incount = 0;
-		for(int i=txstart;i<=txend;i++){
-			for(int j=tystart;j<=tyend;j++){
-				if(partitions[i][j].status==OUT){
-					return false;
-				}
-				if(partitions[i][j].status==IN){
-					incount++;
-				}
-			}
-		}
-		// all is in
-		if(incount==(txend-txstart+1)*(tyend-tystart+1)){
-			return true;
-		}
-	}
-
-	Point p1(target->low[0], target->low[1]);
-	Point p2(target->high[0], target->high[1]);
-	return contain(p1, ctx)&&contain(p2, ctx);
-
 }
 
 /*
@@ -363,23 +300,6 @@ double MyPolygon::distance(Point &p){
         }
     }
     return mindist;
-}
-
-bool DistanceCallback(Triangle *triangle, void* arg){
-	query_context *ctx = (query_context *)arg;
-	Point *point = (Point *)ctx->target;
-	//MyPolygon *polygon = (MyPolygon *)ctx->target2;
-
-	for(int i=0,j=2;i<=2;j=i++){
-		Point *start = triangle->point(i);
-		Point *end = triangle->point(j);
-        double dist = point_to_segment_distance(point->x, point->y, start->x, start->y, end->x, end->y);
-        if(ctx->distance>dist){
-        	ctx->distance = dist;
-        }
-	}
-	ctx->edges_checked += 3;
-	return true;
 }
 
 
@@ -449,8 +369,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 	if(ctx->use_qtree){
 		assert(is_qtree_partitioned());
 		if(qtree->within(p, ctx->distance_buffer_size)){
-			ctx->border_checked++;
-			ctx->edges_checked += this->get_num_vertices();
+			ctx->refine_count++;
 			//grid indexing return
 			if(ctx->perform_refine){
 				if(rtree){
@@ -517,32 +436,38 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				}
 			}
 			ctx->pixel_check_time += get_time_elapsed(pixel_start);
+
+			// should never happen
+			// all the boxes are scanned
 			if(needprocess.size()==0){
+				ctx->refine_count++;
 				return distance(p);
 			}
 
 			for(Pixel *cur:needprocess){
 				ctx->pixel_checked++;
-				//cur->print();
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){
-					struct timeval border_start = get_cur_time();
 					border_checked++;
+					struct timeval border_start = get_cur_time();
 					// no need to check the edges of this pixel
-					if(ctx->is_within_query() &&
-							cur->distance_geography(p)>ctx->distance_buffer_size){
+					if(ctx->is_within_query() && cur->distance_geography(p)>ctx->distance_buffer_size){
+						continue;
+					}
+					if(cur->distance(p)>=mindist){
 						continue;
 					}
 					// the vector model need be checked.
 					ctx->border_checked++;
-					ctx->edges_checked += cur->vend-cur->vstart;
-					for (int i = cur->vstart; i <= cur->vend; i++) {
-						double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
-						if(dist<mindist){
-							mindist = dist;
+					ctx->edges_checked+=cur->num_edges_covered();
+					for(edge_range &rg:cur->edge_ranges){
+						for (int i = rg.vstart; i <= rg.vend; i++) {
+							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+							if(dist<mindist){
+								mindist = dist;
+							}
 						}
 					}
-
 					ctx->edges_check_time += get_time_elapsed(border_start);
 				}
 			}
@@ -553,7 +478,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			// for within query, if all firstly processed boundary pixels
 			// are not within the distance, it is for sure no edge will
 			// be in the specified distance
-			if(ctx->query_type==QueryType::within && border_checked>0){
+			if(ctx->is_within_query() && border_checked>0){
 				if(mindist==10000000.0){
 					return mindist;
 				}
@@ -565,12 +490,13 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 
 			step++;
 		}
+		ctx->refine_count++;
 		// IDEAL return
 		return mindist;
 
 	}else{
 		//checking convex
-		if(ctx->query_type==QueryType::within&&convex_hull){
+		if(ctx->is_within_query()&&convex_hull){
 			double min_dist = DBL_MAX;
 			for(int i=0;i<convex_hull->num_vertices-1;i++){
 				double dist = ::point_to_segment_distance(p.x, p.y, convex_hull->x[i], convex_hull->y[i], convex_hull->x[i+1], convex_hull->y[i+1], true);
@@ -583,8 +509,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 		}
 
-
-		ctx->border_checked++;
+		ctx->refine_count++;
 		//SIMPVEC return
 		if(ctx->perform_refine){
 			if(rtree){

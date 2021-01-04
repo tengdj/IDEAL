@@ -131,7 +131,6 @@ public:
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
-	bool contain(Pixel *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx);
 	double distance(Point &p);// brute-forcely calculate distance
 	double distance_rtree(Point &p, query_context *ctx);
@@ -236,6 +235,18 @@ public:
 				if(p.status==status){
 					num++;
 				}
+			}
+		}
+		return num;
+	}
+	int get_num_border_edge(){
+		if(partitions.size()==0){
+			return 0;
+		}
+		int num = 0;
+		for(vector<Pixel> &rows:partitions){
+			for(Pixel &p:rows){
+				num += p.num_edges_covered();
 			}
 		}
 		return num;
