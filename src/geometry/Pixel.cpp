@@ -151,11 +151,13 @@ void Pixel::leave(double val, Direction d, int vnum){
 	crosses.push_back(cross_info(LEAVE,vnum));
 }
 
+int idex=0;
 void Pixel::process_crosses(int num_edges){
 	if(crosses.size()==0){
 		return;
 	}
 	if(crosses.size()==1){
+		cout<<idex++<<endl;
 		edge_ranges.push_back(edge_range(crosses[0].edge_num,crosses[0].edge_num));
 		return;
 	}
