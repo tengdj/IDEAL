@@ -459,15 +459,21 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){
 					there_is_border = true;
-					struct timeval border_start = get_cur_time();
+					struct timeval pixel_start = get_cur_time();
+
 					// no need to check the edges of this pixel
 					if(ctx->is_within_query() && cur->distance_geography(p)>ctx->distance_buffer_size){
+						ctx->pixel_check_time += get_time_elapsed(pixel_start);
 						continue;
 					}
 					border_checked = true;
 					if(cur->distance(p)>=mindist){
+						ctx->pixel_check_time += get_time_elapsed(pixel_start);
 						continue;
 					}
+					ctx->pixel_check_time += get_time_elapsed(pixel_start);
+
+					struct timeval edge_start = get_cur_time();
 					ctx->border_checked++;
 					// the vector model need be checked.
 					ctx->edges_checked += cur->num_edges_covered();
@@ -479,7 +485,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							}
 						}
 					}
-					ctx->edges_check_time += get_time_elapsed(border_start);
+
+					ctx->edges_check_time += get_time_elapsed(edge_start);
 				}
 			}
 			needprocess.clear();

@@ -343,9 +343,7 @@ vector<vector<Pixel>> MyPolygon::partition(int dimx, int dimy){
 
 	for(vector<Pixel> &rows:partitions){
 		for(Pixel &pix:rows){
-			if(pix.status==BORDER){
-				pix.process_crosses(get_num_vertices());
-			}
+			pix.process_crosses(get_num_vertices());
 		}
 	}
 
