@@ -151,15 +151,13 @@ void Pixel::leave(double val, Direction d, int vnum){
 	crosses.push_back(cross_info(LEAVE,vnum));
 }
 
-int idex=0;
 void Pixel::process_crosses(int num_edges){
 	if(crosses.size()==0){
 		return;
 	}
-	//very rare case
+	//very ver very very rare case
 	if(crosses.size()%2==1){
 		crosses.push_back(cross_info((cross_type)!crosses[crosses.size()-1].type,crosses[crosses.size()-1].edge_num));
-		cout<<idex++<<endl;
 	}
 
 	assert(crosses.size()%2==0);
