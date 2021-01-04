@@ -68,86 +68,12 @@ void MyPolygon::build_rtree(){
 	delete rtree_tmp;
 }
 
-
-Pixel *MyPolygon::generateMER(int cx, int cy){
-	assert(partitions[cx][cy].status==IN);
-	Pixel *curmer = new Pixel();
-	int shift[4] = {0,0,0,0};
-	bool limit[4] = {false,false,false,false};
-	int index = 0;
-	while(!limit[0]||!limit[1]||!limit[2]||!limit[3]){
-		//left
-		if(!limit[0]){
-			shift[0]++;
-			if(cx-shift[0]<0){
-				limit[0] = true;
-				shift[0]--;
-			}else{
-				for(int i=cy-shift[1];i<=cy+shift[3];i++){
-					if(partitions[cx-shift[0]][i].status!=IN){
-						limit[0] = true;
-						shift[0]--;
-						break;
-					}
-				}
-			}
-		}
-		//bottom
-		if(!limit[1]){
-			shift[1]++;
-			if(cy-shift[1]<0){
-				limit[1] = true;
-				shift[1]--;
-			}else{
-				for(int i=cx-shift[0];i<=cx+shift[2];i++){
-					if(partitions[i][cy-shift[1]].status!=IN){
-						limit[1] = true;
-						shift[1]--;
-						break;
-					}
-				}
-			}
-		}
-		//right
-		if(!limit[2]){
-			shift[2]++;
-			if(cx+shift[2]>=partitions.size()){
-				limit[2] = true;
-				shift[2]--;
-			}else{
-				for(int i=cy-shift[1];i<=cy+shift[3];i++){
-					if(partitions[cx+shift[2]][i].status!=IN){
-						limit[2] = true;
-						shift[2]--;
-						break;
-					}
-				}
-			}
-		}
-		//top
-		if(!limit[3]){
-			shift[3]++;
-			if(cy+shift[3]>=partitions[0].size()){
-				limit[3] = true;
-				shift[3]--;
-			}else{
-				for(int i=cx-shift[0];i<=cx+shift[2];i++){
-					if(partitions[i][cy+shift[3]].status!=IN){
-						limit[3] = true;
-						shift[3]--;
-						break;
-					}
-				}
-			}
-		}
+Pixel *MyPolygon::getMBB(){
+	if(this->mbr){
+		return mbr;
 	}
-
-	curmer->low[0] = partitions[cx-shift[0]][cy-shift[1]].low[0];
-	curmer->low[1] = partitions[cx-shift[0]][cy-shift[1]].low[1];
-	curmer->high[0] = partitions[cx+shift[2]][cy+shift[3]].high[0];
-	curmer->high[1] = partitions[cx+shift[2]][cy+shift[3]].high[1];
-
-	return curmer;
+	mbr = boundary->getMBR();
+	return mbr;
 }
 
 Pixel *MyPolygon::getMER(query_context *ctx){
@@ -155,19 +81,9 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	if(mer){
 		return mer;
 	}
-	if(!is_grid_partitioned()){
-		partition(ctx->vpr);
-	}
 
-	assert(this->is_grid_partitioned());
-	vector<int> interiors;
-	for(int i=0;i<partitions.size();i++){
-		for(int j=0;j<partitions[0].size();j++){
-			if(partitions[i][j].status==IN){
-				interiors.push_back(i*partitions[0].size()+j);
-			}
-		}
-	}
+	MyRaster *ras = new MyRaster(boundary,ctx->vpr);
+	vector<Pixel *> interiors = ras->get_pixels(IN);
 	if(interiors.size()==0){
 		return NULL;
 	}
@@ -176,9 +92,7 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	Pixel *max_mer = NULL;
 	while(loops-->0){
 		int sample = get_rand_number(interiors.size())-1;
-		int cx = interiors[sample]/partitions[0].size();
-		int cy = interiors[sample]%partitions[0].size();
-		Pixel *curmer = generateMER(cx,cy);
+		Pixel *curmer = raster->extractMER(interiors[sample]);
 		if(max_mer){
 			if(max_mer->area()<curmer->area()){
 				delete max_mer;
@@ -187,14 +101,12 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 				delete curmer;
 			}
 		}else{
-
 			max_mer = curmer;
 		}
 	}
-	interiors.size();
+	interiors.clear();
 	mer = max_mer;
 	return mer;
-
 }
 
 // To find orientation of ordered triplet (p, q, r).
@@ -578,4 +490,95 @@ void preprocess(query_context *gctx){
 		process_internal_rtree(gctx);
 	}
 }
+
+
+
+
+void *partition_unit(void *args){
+	query_context *ctx = (query_context *)args;
+	query_context *gctx = ctx->global_ctx;
+	//log("thread %d is started",ctx->thread_id);
+	int local_count = 0;
+	while(ctx->next_batch(1)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			struct timeval start = get_cur_time();
+
+			if(ctx->use_grid){
+				gctx->source_polygons[i]->rasterization(ctx->vpr);
+			}
+			if(ctx->use_qtree){
+				gctx->source_polygons[i]->partition_qtree(ctx->vpr);
+			}
+			double latency = get_time_elapsed(start);
+			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
+			//ctx->report_latency(num_vertices, latency);
+			if(latency>10000||num_vertices>200000){
+				logt("partition %d vertices",start,num_vertices);
+			}
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void process_partition(query_context *gctx){
+
+	// must be non-empty
+	assert(gctx->source_polygons.size()>0);
+
+	gctx->index = 0;
+	size_t former = gctx->target_num;
+	gctx->target_num = gctx->source_polygons.size();
+
+	struct timeval start = get_cur_time();
+	pthread_t threads[gctx->num_threads];
+	query_context ctx[gctx->num_threads];
+	for(int i=0;i<gctx->num_threads;i++){
+		ctx[i] = *gctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = gctx;
+	}
+
+
+	for(int i=0;i<gctx->num_threads;i++){
+		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < gctx->num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+	//collect partitioning status
+	size_t num_partitions = 0;
+	size_t num_crosses = 0;
+	size_t num_border_partitions = 0;
+	size_t num_edges = 0;
+	for(MyPolygon *poly:gctx->source_polygons){
+		if(gctx->use_grid){
+			num_partitions += poly->get_rastor()->get_num_pixels();
+			num_crosses += poly->get_rastor()->get_num_crosses();
+			num_border_partitions += poly->get_rastor()->get_num_pixels(BORDER);
+			num_edges += poly->get_rastor()->get_num_border_edge();
+		}else if(gctx->use_qtree){
+			num_partitions += poly->get_qtree()->leaf_count();
+			num_border_partitions += poly->get_qtree()->border_leaf_count();
+		}
+	}
+	logt("partitioned %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
+			gctx->source_polygons.size(),
+			num_border_partitions/gctx->source_polygons.size(),
+			num_partitions/gctx->source_polygons.size(),
+			1.0*num_crosses/num_border_partitions,
+			1.0*num_edges/num_border_partitions);
+
+
+	gctx->index = 0;
+	gctx->query_count = 0;
+	gctx->target_num = former;
+}
+
+
+
 

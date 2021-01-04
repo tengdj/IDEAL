@@ -76,16 +76,12 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 
 	if(ctx->use_grid){
 
-		assert(is_grid_partitioned());
+		assert(raster);
 		if(ctx->is_contain_query()){
 			ctx->pixel_checked++;
 		}
 		struct timeval pixel_start = get_cur_time();
-		int part_x = get_pixel_x(p.x);
-		int part_y = get_pixel_y(p.y);
-		assert(part_x<partitions.size());
-		assert(part_y<partitions[0].size());
-		Pixel *target = &partitions[part_x][part_y];
+		Pixel *target = raster->get_pixel(p);
 		if(ctx->is_contain_query()){
 			ctx->pixel_check_time += get_time_elapsed(pixel_start);
 		}
@@ -120,22 +116,19 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 				}
 			}
 			// check the crossing nodes on the right bar
-			for(int i=0;i<=part_y;i++){
-				for(double &node:partitions[part_x][i].intersection_nodes[RIGHT]){
-					if(node<=p.y){
-						ret = !ret;
-					}
-				}
+			// swap the state of ret if odd number of intersection
+			// nodes encountered at the right side of the border
+			if(raster->count_intersection_nodes(p)%2==1){
+				ret = !ret;
 			}
 			if(ctx->is_contain_query()){
 				ctx->edges_check_time += get_time_elapsed(border_start);
 			}
 		}
 
-
 		return ret;
 	}else if(ctx->use_qtree){
-		assert(is_qtree_partitioned());
+		assert(qtree);
 		QTNode *tnode = get_qtree()->retrieve(p);
 		assert(tnode->isleaf&&tnode->mbr.contain(p));
 		if(ctx->is_contain_query()){
@@ -191,53 +184,6 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		}
 	}
 }
-
-
-bool MyPolygon::contain_try_partition(Pixel *b, query_context *ctx){
-
-	Pixel *a = getMBB();
-	if(!a->contain(*b)){
-		ctx->contain = false;
-		return true;
-	}
-	// test all the pixels
-	int txstart = this->get_pixel_x(b->low[0]);
-	int tystart = this->get_pixel_y(b->low[1]);
-
-	int incount = 0;
-	int outcount = 0;
-	int total = 0;
-
-	double width_d = (b->high[0]-b->low[0]+this->step_x*0.9999999)/this->step_x;
-	int width = double_to_int(width_d);
-
-	double height_d = (b->high[1]-b->low[1]+this->step_y*0.9999999)/this->step_y;
-	int height = double_to_int(height_d);
-
-	for(int i=txstart;i<txstart+width;i++){
-		for(int j=tystart;j<tystart+height;j++){
-			total++;
-			if(partitions[i][j].status==OUT){
-				outcount++;
-			}
-			if(partitions[i][j].status==IN){
-				incount++;
-			}
-		}
-	}
-	// all in/out
-	if(incount==total){
-		ctx->contain = true;
-		return true;
-	}else if(outcount==total){
-		ctx->contain = false;
-		return true;
-	}
-
-	// not determined by checking pixels only
-	return false;
-}
-
 
 bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 	// check each vertex in target
@@ -367,7 +313,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 	ctx->checked_count++;
 
 	if(ctx->use_qtree){
-		assert(is_qtree_partitioned());
+		assert(qtree);
 		if(qtree->within(p, ctx->distance_buffer_size)){
 			ctx->refine_count++;
 			//grid indexing return
@@ -384,16 +330,14 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		}
 		return DBL_MAX;
 	}else if(ctx->use_grid){
-		assert(is_grid_partitioned());
+		assert(raster);
 		double mbrdist = mbr->distance(p);
 
 		//initialize the starting pixel
-		int start_pixx, start_pixy;
-
-		get_closest_pixel(p,start_pixx,start_pixy);
+		Pixel *closest = raster->get_closest_pixel(p);
 
 		int step = 0;
-		double step_size = min(step_x,step_y);
+		double step_size = raster->get_step();
 
 		vector<Pixel *> needprocess;
 		double mindist = 10000000.0;
@@ -413,35 +357,35 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		while(true){
 			struct timeval pixel_start = get_cur_time();
 			if(step==0){
-				needprocess.push_back(&partitions[start_pixx][start_pixy]);
+				needprocess.push_back(closest);
 			}else{
-				int xmin = max(0,start_pixx-step);
-				int xmax = min((int)partitions.size()-1,start_pixx+step);
-				int ymin = max(0,start_pixy-step);
-				int ymax = min((int)partitions[0].size()-1,start_pixy+step);
+				int xmin = max(0,closest->id[0]-step);
+				int xmax = min(raster->get_dimx()-1,closest->id[0]+step);
+				int ymin = max(0,closest->id[1]-step);
+				int ymax = min(raster->get_dimy()-1,closest->id[1]+step);
 
 				//left scan
-				if(start_pixx-step>=0){
+				if(closest->id[0]-step>=0){
 					for(int y=ymin;y<=ymax;y++){
-						needprocess.push_back(&partitions[start_pixx-step][y]);
+						needprocess.push_back(raster->get(closest->id[0]-step,y));
 					}
 				}
 				//right scan
-				if(start_pixx+step<partitions.size()){
+				if(closest->id[0]+step<raster->get_dimx()){
 					for(int y=ymin;y<=ymax;y++){
-						needprocess.push_back(&partitions[start_pixx+step][y]);
+						needprocess.push_back(raster->get(closest->id[0]+step,y));
 					}
 				}
 				//bottom scan
-				if(start_pixy-step>=0){
+				if(closest->id[1]-step>=0){
 					for(int x=xmin+1;x<xmax;x++){
-						needprocess.push_back(&partitions[x][start_pixy-step]);
+						needprocess.push_back(raster->get(x,closest->id[1]-step));
 					}
 				}
 				//top scan
-				if(start_pixy+step<partitions[0].size()){
+				if(closest->id[1]+step<raster->get_dimy()){
 					for(int x=xmin+1;x<xmax;x++){
-						needprocess.push_back(&partitions[x][start_pixy+step]);
+						needprocess.push_back(raster->get(x,closest->id[1]+step));
 					}
 				}
 			}
@@ -555,25 +499,26 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	if(!a->intersect(*b)){
 		return false;
 	}
-	if(ctx&&ctx->use_grid&&is_grid_partitioned()){
+	if(raster){
 		// test all the pixels
-		int txstart = this->get_pixel_x(a->low[0]);
-		int txend = this->get_pixel_x(a->high[0]);
-		int tystart = this->get_pixel_y(a->low[1]);
-		int tyend = this->get_pixel_y(a->high[0]);
+		vector<Pixel *> covered = raster->get_pixels(b);
 		int outcount = 0;
-		for(int i=txstart;i<=txend;i++){
-			for(int j=tystart;j<=tyend;j++){
-				if(partitions[i][j].status==OUT){
-					outcount++;
-				}else if(partitions[i][j].status==IN){
-					return true;
-				}
+		int incount = 0;
+		for(Pixel *pix:covered){
+			if(pix->status==OUT){
+				outcount++;
+			}else if(pix->status==IN){
+				incount++;
 			}
 		}
+		int total = covered.size();
+		covered.clear();
 		// all is out
-		if(outcount==(txend-txstart+1)*(tyend-tystart+1)){
+		if(outcount==total){
 			return false;
+		}
+		if(incount==total){
+			return true;
 		}
 	}
 

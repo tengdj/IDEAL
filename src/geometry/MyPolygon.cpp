@@ -48,6 +48,30 @@ vector<Point *> VertexSequence::pack_to_polyline(){
 	return polyline;
 }
 
+Pixel *VertexSequence::getMBR(){
+	Pixel *mbr = new Pixel();
+	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
+	for(int i=0;i<num_vertices;i++){
+		if(min_x>x[i]){
+			min_x = x[i];
+		}
+		if(max_x<x[i]){
+			max_x = x[i];
+		}
+		if(min_y>y[i]){
+			min_y = y[i];
+		}
+		if(max_y<y[i]){
+			max_y = y[i];
+		}
+	}
+	mbr->low[0] = min_x;
+	mbr->low[1] = min_y;
+	mbr->high[0] = max_x;
+	mbr->high[1] = max_y;
+	return mbr;
+}
+
 void VertexSequence::fix(){
 	if(num_vertices<=3){
 		return;
@@ -336,10 +360,9 @@ MyPolygon::~MyPolygon(){
 	if(mer){
 		delete mer;
 	}
-	for(vector<Pixel> &pt:partitions){
-		pt.clear();
+	if(raster){
+		delete raster;
 	}
-	partitions.clear();
 	if(qtree){
 		delete qtree;
 	}
@@ -442,37 +465,6 @@ vector<MyPolygon *> MyPolygon::generate_test_polygons(int num){
 }
 
 
-
-Pixel *MyPolygon::getMBB(){
-	if(this->mbr){
-		return mbr;
-	}
-
-	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
-	for(int i=0;i<boundary->num_vertices;i++){
-		if(min_x>boundary->x[i]){
-			min_x = boundary->x[i];
-		}
-		if(max_x<boundary->x[i]){
-			max_x = boundary->x[i];
-		}
-		if(min_y>boundary->y[i]){
-			min_y = boundary->y[i];
-		}
-		if(max_y<boundary->y[i]){
-			max_y = boundary->y[i];
-		}
-	}
-	mbr = new Pixel();
-	mbr->low[0] = min_x;
-	mbr->low[1] = min_y;
-	mbr->high[0] = max_x;
-	mbr->high[1] = max_y;
-	return mbr;
-}
-
-
-
 void MyPolygon::print_without_head(bool print_hole){
 	assert(boundary);
 	cout<<"(";
@@ -568,21 +560,6 @@ void MyPolygon::print_partition(query_context qt){
 			}
 		}
 	}
-	if(qt.use_grid){
-		partition(qt.vpr);
-		for(int i=0;i<partitions.size();i++){
-			for(int j=0;j<partitions[0].size();j++){
-				MyPolygon *m = gen_box(partitions[i][j]);
-				if(partitions[i][j].status==BORDER){
-					borderpolys->insert_polygon(m);
-				}else if(partitions[i][j].status==IN){
-					inpolys->insert_polygon(m);
-				}else if(partitions[i][j].status==OUT){
-					outpolys->insert_polygon(m);
-				}
-			}
-		}
-	}
 
 	cout<<"border:"<<endl;
 	borderpolys->print();
@@ -595,6 +572,210 @@ void MyPolygon::print_partition(query_context qt){
 	delete borderpolys;
 	delete inpolys;
 	delete outpolys;
+}
+
+void MyPolygon::rasterization(int vpr){
+	assert(vpr>0);
+
+	pthread_mutex_lock(&ideal_partition_lock);
+	if(raster==NULL){
+		raster = new MyRaster(boundary,vpr);
+		raster->rasterization();
+	}
+	pthread_mutex_unlock(&ideal_partition_lock);
+}
+
+
+QTNode *MyPolygon::partition_qtree(const int vpr){
+
+	pthread_mutex_lock(&qtree_partition_lock);
+	if(qtree){
+		pthread_mutex_unlock(&qtree_partition_lock);
+		return qtree;
+	}
+
+	int num_boxes = get_num_vertices()/vpr;
+	int level = 1;
+	while(pow(4,level)<num_boxes){
+		level++;
+	}
+	int dimx = pow(2,level);
+	int dimy = dimx;
+
+	MyRaster *ras = new MyRaster(boundary,dimx,dimy);
+	ras->rasterization();
+	int box_count = 4;
+	int cur_level = 1;
+
+	qtree = new QTNode(*(this->getMBB()));
+	std::stack<QTNode *> ws;
+	qtree->split();
+	qtree->push(ws);
+
+	vector<QTNode *> level_nodes;
+
+	//breadth first traverse
+	query_context qc;
+	while(box_count<num_boxes||!ws.empty()){
+		if(cur_level>level){
+			dimx *= 2;
+			dimy *= 2;
+			level = cur_level;
+			delete ras;
+			ras = new MyRaster(boundary,dimx,dimy);
+			ras->rasterization();
+		}
+
+		while(!ws.empty()){
+			QTNode *cur = ws.top();
+			ws.pop();
+			bool contained = false;
+			if(!ras->contain(&cur->mbr, contained)){
+				level_nodes.push_back(cur);
+			}else if(contained){
+				cur->interior = true;
+			}else{
+				cur->exterior = true;
+			}
+		}
+
+
+		for(QTNode *n:level_nodes){
+			if(box_count<num_boxes){
+				n->split();
+				n->push(ws);
+				box_count += 3;
+			}else{
+				break;
+			}
+		}
+		cur_level++;
+		level_nodes.clear();
+	}
+	//assert(box_count>=num_boxes);
+
+	delete ras;
+	pthread_mutex_unlock(&qtree_partition_lock);
+
+	return qtree;
+}
+
+
+
+vector<vector<Pixel>> MyPolygon::decode_partition(char *data){
+	assert(data);
+	vector<vector<Pixel>> partitions;
+
+	int dimx = data[0];
+	int dimy = data[1];
+	if(dimx==0||dimy==0||dimx>255||dimy>255){
+		return partitions;
+	}
+	double *meta = (double *)(data+2);
+	double start_x = meta[0], start_y = meta[1], step_x = meta[2], step_y = meta[3];
+
+	int index = 2+4*8;
+	for(int i=0;i<dimx;i++){
+		char cur = data[index++];
+		int shift = 0;
+		vector<Pixel> row;
+		for(int j=0;j<dimy;j++){
+			Pixel p;
+			p.id[0] = i;
+			p.id[1] = j;
+			p.status = (PartitionStatus)((cur>>shift)&3);
+			p.low[0] = i*step_x+start_x;
+			p.low[1] = j*step_y+start_y;
+			p.high[0] = (i+1)*step_x+start_x;
+			p.high[1] = (j+1)*step_y+start_y;
+			row.push_back(p);
+			if(shift==6){
+				cur = data[index++];
+				shift=0;
+			}else{
+				shift+=2;
+			}
+		}
+		partitions.push_back(row);
+	}
+
+	return partitions;
+}
+
+char *MyPolygon::encode_partition(vector<vector<Pixel>> partitions){
+	int dimx = partitions.size();
+	if(dimx==0){
+		return NULL;
+	}
+	int dimy = partitions[0].size();
+	if(dimy==0){
+		return NULL;
+	}
+	for(vector<Pixel> &rows:partitions){
+		 if(rows.size()!=dimy){
+			 return NULL;
+		 }
+	}
+	assert(dimx<=255&&dimy<=255);
+
+	char *data = new char[((dimy+3)/4*dimx)+2+4*8];
+	data[0] = (char)dimx;
+	data[1] = (char)dimy;
+	double *meta = (double *)(data+2);
+	meta[0] = partitions[0][0].low[0];
+	meta[1] = partitions[0][0].low[1];
+	meta[2] = partitions[0][0].high[0]-partitions[0][0].low[0];
+	meta[3] = partitions[0][0].high[1]-partitions[0][0].low[1];
+	int index = 2+4*8;
+	for(int i=0;i<dimx;i++){
+		char cur = 0;
+		int shift = 0;
+		for(int j=0;j<dimy;j++){
+			cur |= ((uint8_t)partitions[i][j].status)<<shift;
+			if(shift==6){
+				data[index++]=cur;
+				cur = 0;
+				shift=0;
+			}else{
+				shift+=2;
+			}
+		}
+		if(shift>0){
+			data[index++]=cur;
+		}
+	}
+	return data;
+}
+
+
+
+size_t MyPolygon::partition_size(){
+	size_t size = 0;
+	const int nump = raster->get_num_pixels();
+
+	const int nump_border = raster->get_num_pixels(BORDER);
+	int bits_b = 0;
+	int tmp = nump_border+2;
+	while(tmp>0){
+		bits_b++;
+		tmp /= 2;
+	}
+
+	int numv = this->get_num_vertices();
+	tmp = numv;
+	int bits_v = 0;
+	while(tmp>0){
+		bits_v++;
+		tmp /= 2;
+	}
+
+	bits_v = bits_v*2;
+
+//	bits_b = (2+bits_b+7)/8*8;
+//	bits_v = (2*bits_v+7)/8*8;
+
+	int numc = raster->get_num_crosses();
+	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;
 }
 
 

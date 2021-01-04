@@ -17,13 +17,12 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	MyPolygon *target = (MyPolygon *)ctx->target;
 	// query with parition
 	if(ctx->use_grid){
-		if(!poly->is_grid_partitioned()){
-			poly->partition(ctx->vpr);
-		}
+		poly->rasterization(ctx->vpr);
 		timeval start = get_cur_time();
 
-		if(poly->contain_try_partition(target->getMBB(), ctx)){
-			ctx->found += ctx->contain;
+		bool contained = false;
+		if(poly->get_rastor()->contain(target->getMBB(), contained)){
+			ctx->found += contained;
 		}else{
 			ctx->refine_count++;
 			ctx->found += poly->contain(target, ctx);
@@ -34,9 +33,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			}
 		}
 	}else if(ctx->use_qtree){
-		if(!poly->is_grid_partitioned()){
-			 poly->partition_qtree(ctx->vpr);
-		}
+		poly->partition_qtree(ctx->vpr);
 		if(!poly->get_qtree()->determine_contain(*(target->getMBB()))){
 			ctx->found += poly->contain(target,ctx);
 			ctx->refine_count++;
@@ -123,9 +120,6 @@ int main(int argc, char** argv) {
 //				,global_ctx.found);
 		global_ctx.print_stats();
 		logt("query time",start);
-		for(MyPolygon *p:global_ctx.source_polygons){
-			p->reset_grid_partition();
-		}
 
 	}
 //	for(MyPolygon *p:source){

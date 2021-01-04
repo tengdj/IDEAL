@@ -39,7 +39,7 @@ int main(int argc, char **argv){
 	vector<MyPolygon *> polys = MyPolygon::load_binary_file(input_path.c_str(), ctx);
 	logt("read polygons", start);
 	for(MyPolygon *p:polys){
-		p->partition(vpr);
+		p->rasterization(vpr);
 	}
 	logt("partitioning polygons", start);
 	Point target(x,y);

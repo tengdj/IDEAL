@@ -47,6 +47,7 @@ public:
 	~VertexSequence();
 	vector<Point *> pack_to_polyline();
 	VertexSequence *clone();
+	Pixel *getMBR();
 	void print();
 	bool clockwise();
 	void reverse();
@@ -57,20 +58,86 @@ public:
 };
 
 
+class MyRaster{
+	Pixel *mbr = NULL;
+	VertexSequence *vs = NULL;
+	vector<vector<Pixel *>> pixels;
+	double step_x = 0.0;
+	double step_y = 0.0;
+	int dimx = 0;
+	int dimy = 0;
+	void init_pixels();
+	void evaluate_edges();
+	void scanline_reandering();
+
+public:
+
+	MyRaster(VertexSequence *vs, int epp);
+	MyRaster(VertexSequence *vs, int dimx, int dimy);
+	void rasterization();
+	~MyRaster();
+
+	bool contain(Pixel *,bool &contained);
+	vector<Pixel *> get_pixels(Pixel *pix);
+	Pixel *get_pixel(Point &p);
+	Pixel *get_closest_pixel(Point &p);
+	int get_offset_x(double x);
+	int get_offset_y(double y);
+
+	/* statistics collection*/
+	int count_intersection_nodes(Point &p);
+	int get_num_border_edge();
+	int get_num_pixels(PartitionStatus status);
+
+	size_t get_num_pixels();
+	size_t get_num_gridlines();
+	size_t get_num_crosses();
+	void print();
+
+	vector<Pixel *> get_pixels(PartitionStatus status);
+	Pixel *extractMER(Pixel *starter);
+
+	/*
+	 * the gets functions
+	 *
+	 * */
+	double get_step_x(){
+		return step_x;
+	}
+	double get_step_y(){
+		return step_y;
+	}
+	double get_step(){
+		return min(step_x, step_y);
+	}
+	int get_dimx(){
+		return dimx;
+	}
+	int get_dimy(){
+		return dimy;
+	}
+
+	Pixel *get(int dx, int dy){
+		assert(dx>=0&&dx<=dimx);
+		assert(dy>=0&&dy<=dimy);
+		return pixels[dx][dy];
+	}
+
+};
+
 
 
 class MyPolygon{
+	int id = 0;
+
 	Pixel *mbr = NULL;
 	Pixel *mer = NULL;
-	vector<vector<Pixel>> partitions;
+	MyRaster *raster = NULL;
+
 	QTNode *qtree = NULL;
 	vector<Triangle *> triangles;
 	RTNode *rtree = NULL;
 
-	double step_x = 0;
-	double step_y = 0;
-	int id = 0;
-	double area_buffer = -1;
 	pthread_mutex_t ideal_partition_lock;
 	pthread_mutex_t qtree_partition_lock;
 
@@ -89,6 +156,9 @@ public:
 	}
 	~MyPolygon();
 	MyPolygon *clone();
+	MyRaster *get_rastor(){
+		return raster;
+	}
 
 	void triangulate();
 	size_t get_triangle_size(){
@@ -135,8 +205,6 @@ public:
 	double distance(Point &p);// brute-forcely calculate distance
 	double distance_rtree(Point &p, query_context *ctx);
 
-	bool contain_try_partition(Pixel *target, query_context *ctx);
-
 	void print_without_head(bool print_hole = false);
 	void print(bool print_hole=false);
 	void print_triangles();
@@ -144,46 +212,18 @@ public:
 	string to_string(bool clockwise = false);
 	Pixel *getMBB();
 	Pixel *getMER(query_context *ctx=NULL);
-	Pixel *generateMER(int cx, int cy);
-
-	void init_partition(const int dimx, const int dimy);
-	void evaluate_edges(const int dimx, const int dimy);
-
 
 	VertexSequence *get_convex_hull();
 
 	size_t partition_size();
-	size_t get_cross_num();
-	size_t get_grid_num(){
-		if(partitions.size()==0){
-			return 0;
-		}
-		return partitions.size()+partitions[0].size();
-	}
-	vector<vector<Pixel>> partition(int vertex_per_raster);
-	vector<vector<Pixel>> partition(int xdim, int ydim);
-	vector<vector<Pixel>> partition_with_query(int vertex_per_raster);
-	vector<Pixel *> get_pixels(PartitionStatus status);
 
-	void get_closest_pixel(Point p, int &pixx, int &pixy);
+	void rasterization(int vertex_per_raster);
+
 	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){
 		return qtree;
 	}
 
-	void reset_grid_partition(){
-		for(vector<Pixel> &rows:partitions){
-			rows.clear();
-		}
-		partitions.clear();
-	}
-
-	bool is_grid_partitioned(){
-		return partitions.size()>0;
-	}
-	bool is_qtree_partitioned(){
-		return qtree!=NULL;
-	}
 	inline int get_num_vertices(){
 		if(!boundary){
 			return 0;
@@ -198,16 +238,7 @@ public:
 		assert(boundary&&index<boundary->num_vertices);
 		return boundary->y[index];
 	}
-	inline int get_pixel_x(double xval){
-		assert(mbr);
-		int x = double_to_int((xval-mbr->low[0])/step_x);
-		return x;
-	}
-	inline int get_pixel_y(double yval){
-		assert(mbr);
-		int y = double_to_int((yval-mbr->low[1])/step_y);
-		return y;
-	}
+
 	inline int getid(){
 		return id;
 	}
@@ -219,48 +250,13 @@ public:
 	size_t encode_to(char *target);
 	size_t decode_from(char *source);
 
-	int get_num_partitions(){
-		if(partitions.size()==0){
-			return 0;
-		}
-		return partitions.size()*partitions[0].size();
-	}
-	int get_num_partitions(PartitionStatus status){
-		if(partitions.size()==0){
-			return 0;
-		}
-		int num = 0;
-		for(vector<Pixel> &rows:partitions){
-			for(Pixel &p:rows){
-				if(p.status==status){
-					num++;
-				}
-			}
-		}
-		return num;
-	}
-	int get_num_border_edge(){
-		if(partitions.size()==0){
-			return 0;
-		}
-		int num = 0;
-		for(vector<Pixel> &rows:partitions){
-			for(Pixel &p:rows){
-				num += p.num_edges_covered();
-			}
-		}
-		return num;
-	}
-
 	static char *encode_partition(vector<vector<Pixel>> partitions);
 	static vector<vector<Pixel>> decode_partition(char *);
 	vector<Point> generate_test_points(int num);
 	vector<MyPolygon *> generate_test_polygons(int num);
 
 	double area(){
-		if(area_buffer>=0){
-			return area_buffer;
-		}
+		double area_buffer = 0;
 		assert(boundary);
 		double sum = boundary->area();
 		//assert(sum>=0);

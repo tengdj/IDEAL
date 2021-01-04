@@ -34,10 +34,10 @@ enum cross_type{
 class cross_info{
 public:
 	cross_type type;
-	int edge_num;
+	int edge_id;
 	cross_info(cross_type t, int e){
 		type = t;
-		edge_num = e;
+		edge_id = e;
 	}
 };
 
@@ -105,15 +105,13 @@ public:
 };
 
 class Pixel:public box{
+	vector<cross_info> crosses;
 
 public:
-
+	unsigned short id[2];
 	PartitionStatus status = OUT;
 	vector<edge_range> edge_ranges;
-	int vstart = -1;
-	int vend = -1;
 	vector<double> intersection_nodes[4];
-	vector<cross_info> crosses;
 
 public:
 	Pixel(){}

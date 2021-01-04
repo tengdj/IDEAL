@@ -21,9 +21,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	// query with parition
 	if(ctx->use_grid){
-		if(!poly->is_grid_partitioned()){
-			poly->partition(ctx->vpr);
-		}
+		poly->rasterization(ctx->vpr);
 	}
 	Point *p = (Point *)ctx->target;
 	if(poly->getMBB()->distance_geography(*p)>(double)ctx->distance_buffer_size){

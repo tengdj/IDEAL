@@ -43,10 +43,10 @@ int main(int argc, char **argv){
 		data_size += poly->get_data_size();
 		if(global_ctx.use_grid){
 			partition_size += poly->partition_size();
-			num_partitions += poly->get_num_partitions();
-			num_border_partitions += poly->get_num_partitions(BORDER);
-			num_nodes += poly->get_cross_num();
-			num_grids += poly->get_grid_num();
+			num_partitions += poly->get_rastor()->get_num_pixels();
+			num_border_partitions += poly->get_rastor()->get_num_pixels(BORDER);
+			num_nodes += poly->get_rastor()->get_num_crosses();
+			num_grids += poly->get_rastor()->get_num_gridlines();
 		}
 		if(global_ctx.use_qtree){
 			partition_size += poly->get_qtree()->size();

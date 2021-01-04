@@ -14,7 +14,7 @@ using namespace std;
 
 int main(int argc, char **argv){
 	MyPolygon *polygon=MyMultiPolygon::read_one_polygon();
-	polygon->partition(10);
+	polygon->rasterization(10);
 	Point p(-117.915111,33.799661);
 	query_context ctx;
 	ctx.use_grid = true;

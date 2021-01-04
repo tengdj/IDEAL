@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
 	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str(),ctx);
 	logt("loaded %ld polygons", start, source.size());
 	for(MyPolygon *p:source){
-		p->partition(10);
+		p->rasterization(10);
 	}
 	logt("partition polygons", start);
 
