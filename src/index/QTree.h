@@ -130,7 +130,6 @@ public:
 		}
 		if(mbr.distance_geography(p)<=within_dist){
 			if(isleaf){
-				assert(!interior&&!exterior);
 				// boundary pixel
 				return true;
 			}else{
