@@ -155,6 +155,10 @@ void Pixel::process_crosses(int num_edges){
 	if(crosses.size()==0){
 		return;
 	}
+	if(crosses.size()==1){
+		edge_ranges.push_back(edge_range(crosses[0].edge_num,crosses[0].edge_num));
+		return;
+	}
 	if(crosses.size()%2!=0){
 		cout<<crosses.size()<<endl;
 		exit(0);
