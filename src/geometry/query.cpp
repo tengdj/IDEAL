@@ -398,14 +398,14 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		vector<Pixel *> needprocess;
 		double mindist = 10000000.0;
 
-		for(vector<Pixel> &rows:partitions){
-			for(Pixel &pix:rows){
-				if(pix.status==BORDER&&pix.distance_geography(p)<=ctx->distance_buffer_size){
-					ctx->refine_count++;
-					return 0;
-				}
-			}
-		}
+//		for(vector<Pixel> &rows:partitions){
+//			for(Pixel &pix:rows){
+//				if(pix.status==BORDER&&pix.distance_geography(p)<=ctx->distance_buffer_size){
+//					ctx->refine_count++;
+//					return 0;
+//				}
+//			}
+//		}
 
 		bool there_is_border = false;
 		bool border_checked = false;
