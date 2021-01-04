@@ -156,15 +156,12 @@ void Pixel::process_crosses(int num_edges){
 	if(crosses.size()==0){
 		return;
 	}
-	if(crosses.size()==1){
+	//very rare case
+	if(crosses.size()%2==1){
+		crosses.push_back(cross_info((cross_type)!crosses[crosses.size()-1].type,crosses[crosses.size()-1].edge_num));
 		cout<<idex++<<endl;
-		edge_ranges.push_back(edge_range(crosses[0].edge_num,crosses[0].edge_num));
-		return;
 	}
-	if(crosses.size()%2!=0){
-		cout<<crosses.size()<<endl;
-		exit(0);
-	}
+
 	assert(crosses.size()%2==0);
 	int start = 0;
 	int end = crosses.size()-1;
