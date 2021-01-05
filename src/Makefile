@@ -37,13 +37,13 @@ all:	polygon_in_polygon point_polygon_distance point_in_polygon resque_polygon_i
 
 # for macro queries
 
-polygon_in_polygon:	query/polygon_in_polygon.o $(GEOMETRY_OBJS)
+contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-point_polygon_distance:	query/point_polygon_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+within:	query/within.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-point_in_polygon:	query/point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+contain:	query/contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 
@@ -78,7 +78,7 @@ debug_contain:	query/debug_contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 triangulate:	query/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 # micro tests
-partition:	stats/partition.o $(GEOMETRY_OBJS)
+partition:	stats/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 flatness:	stats/flatness.o $(GEOMETRY_OBJS) 

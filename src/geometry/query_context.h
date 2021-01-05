@@ -23,6 +23,55 @@ enum QueryType{
     within = 2
 };
 
+class execute_step{
+public:
+	int counter = 0;
+	double execution_time = 0;
+	execute_step& operator=(execute_step const &obj){
+		counter = obj.counter;
+		execution_time = obj.counter;
+		return *this;
+	}
+	void reset(){
+		counter = 0;
+		execution_time = 0;
+	}
+
+	execute_step& operator+=(const execute_step& rhs){
+		this->counter += rhs.counter;
+		this->execution_time += rhs.execution_time;
+	    return *this;
+	}
+
+};
+
+
+class configurations{
+public:
+	int thread_id = 0;
+	int num_threads = 0;
+	int vpr = 10;
+	int vpr_end = 10;
+	bool use_grid = false;
+	bool use_qtree = false;
+	bool use_convex_hull = false;
+	bool use_mer = false;
+	bool use_triangulate = false;
+	int mer_sample_round = 20;
+	bool perform_refine = true;
+	bool gpu = false;
+	bool collect_latency = false;
+	float sample_rate = 1.0;
+	int small_threshold = 500;
+	int big_threshold = 1000000;
+	bool sort_polygons = false;
+	int distance_buffer_size = 10;
+	QueryType query_type = QueryType::contain;
+	string source_path;
+	string target_path;
+	string valid_path;
+};
+
 class query_context{
 public:
 	//configuration
@@ -47,7 +96,6 @@ public:
 	QueryType query_type = QueryType::contain;
 	string source_path;
 	string target_path;
-
 	string valid_path;
 
 	//query target, for temporary use
@@ -70,15 +118,14 @@ public:
 	//query statistic
 	size_t found = 0;
 	size_t query_count = 0;
-	size_t checked_count = 0;
 	size_t refine_count = 0;
 
-	size_t pixel_checked = 0;
-	size_t border_checked = 0;
-	size_t edges_checked = 0;
-	double pixel_check_time = 0;
-	double edges_check_time = 0;
-	double check_time = 0;
+	execute_step object_checked;
+	execute_step pixel_evaluated;
+	execute_step border_evaluated;
+	execute_step border_checked;
+	execute_step edge_checked;
+	execute_step intersection_checked;
 
 
 	// temporary storage for query processing
@@ -96,7 +143,6 @@ public:
 	query_context();
 	~query_context();
 	query_context(query_context &t);
-	query_context operator + (query_context const &obj);
 	query_context& operator=(query_context const &obj);
 
 	void report_latency(int num_v, double latency);
@@ -108,15 +154,15 @@ public:
 		//query statistic
 		found = 0;
 		query_count = 0;
-		checked_count = 0;
 		refine_count = 0;
-		pixel_checked = 0;
-		border_checked = 0;
-		edges_checked = 0;
-		pixel_check_time = 0;
-		edges_check_time = 0;
-		check_time = 0;
 		index = 0;
+
+		object_checked.reset();
+		pixel_evaluated.reset();
+		border_evaluated.reset();
+		border_checked.reset();
+		edge_checked.reset();
+		intersection_checked.reset();
 	}
 
 	bool is_within_query(){

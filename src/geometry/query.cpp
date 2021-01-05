@@ -38,6 +38,7 @@ bool contain_rtree(RTNode *node, Point &p, query_context *ctx){
 	}
 	if(node->is_leaf()){
 		Triangle *triangle = (Triangle *)node->node_element;
+		struct timeval start = get_cur_time();
 		bool ret = false;
 		for(int i=0,j=2;i<=2;j=i++){
 			Point *start = triangle->point(i);
@@ -50,7 +51,8 @@ bool contain_rtree(RTNode *node, Point &p, query_context *ctx){
 			}
 		}
 		if(ctx->is_contain_query()){
-			ctx->edges_checked += 3;
+			ctx->edge_checked.counter += 3;
+			ctx->edge_checked.execution_time += get_time_elapsed(start);
 		}
 		return !ret;
 	}
@@ -64,27 +66,19 @@ bool contain_rtree(RTNode *node, Point &p, query_context *ctx){
 
 bool MyPolygon::contain(Point &p, query_context *ctx){
 
-	if(ctx->is_within_query()){
-		// the MBB may not be checked for within query
-		if(!mbr->contain(p)){
-			return false;
-		}
+	// the MBB may not be checked for within query
+	if(!mbr->contain(p)){
+		return false;
 	}
-	if(ctx->is_contain_query()){
-		ctx->checked_count++;
-	}
+	ctx->object_checked.counter++;
 
-	if(ctx->use_grid){
-
-		assert(raster);
-		if(ctx->is_contain_query()){
-			ctx->pixel_checked++;
-		}
-		struct timeval pixel_start = get_cur_time();
+	struct timeval start = get_cur_time();
+	if(raster){
+		start = get_cur_time();
 		Pixel *target = raster->get_pixel(p);
-		if(ctx->is_contain_query()){
-			ctx->pixel_check_time += get_time_elapsed(pixel_start);
-		}
+		ctx->pixel_evaluated.counter++;
+		ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
+
 
 		if(target->status==IN){
 			return true;
@@ -93,67 +87,73 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			return false;
 		}
 
-		if(ctx->is_contain_query()){
-			ctx->edges_checked += target->num_edges_covered();
-			ctx->border_checked++;
-			ctx->refine_count++;
-		}
-
+		start = get_cur_time();
 		bool ret = false;
-		if(ctx->perform_refine||ctx->is_within_query()){
-			struct timeval border_start = get_cur_time();
 
-			// checking the intersection edges in the target pixel
-			for(edge_range &rg:target->edge_ranges){
-				for(int i = rg.vstart; i <= rg.vend; i++) {
-					int j = i+1;
-					if(((boundary->y[i] >= p.y) != (boundary->y[j] >= p.y))){
-						double int_x = (boundary->x[j] - boundary->x[i]) * (p.y - boundary->y[i]) / (boundary->y[j] - boundary->y[i]) + boundary->x[i];
-						if(p.x <= int_x && int_x <= target->high[0]){
-							ret = !ret;
-						}
+		// checking the intersection edges in the target pixel
+		for(edge_range &rg:target->edge_ranges){
+			for(int i = rg.vstart; i <= rg.vend; i++) {
+				int j = i+1;
+				if(((boundary->y[i] >= p.y) != (boundary->y[j] >= p.y))){
+					double int_x = (boundary->x[j] - boundary->x[i]) * (p.y - boundary->y[i]) / (boundary->y[j] - boundary->y[i]) + boundary->x[i];
+					if(p.x <= int_x && int_x <= target->high[0]){
+						ret = !ret;
 					}
 				}
 			}
-			// check the crossing nodes on the right bar
-			// swap the state of ret if odd number of intersection
-			// nodes encountered at the right side of the border
-			if(raster->count_intersection_nodes(p)%2==1){
-				ret = !ret;
-			}
-			if(ctx->is_contain_query()){
-				ctx->edges_check_time += get_time_elapsed(border_start);
-			}
 		}
+
+		ctx->edge_checked.counter += target->num_edges_covered();
+		ctx->edge_checked.execution_time += get_time_elapsed(start);
+
+		// check the crossing nodes on the right bar
+		// swap the state of ret if odd number of intersection
+		// nodes encountered at the right side of the border
+		struct timeval tstart = get_cur_time();
+		int nc = raster->count_intersection_nodes(p);
+		if(nc%2==1){
+			ret = !ret;
+		}
+		ctx->intersection_checked.counter += nc;
+		ctx->intersection_checked.execution_time += get_time_elapsed(tstart);
+
+		ctx->border_checked.counter++;
+		ctx->border_checked.execution_time += get_time_elapsed(start);
+		ctx->refine_count++;
 
 		return ret;
-	}else if(ctx->use_qtree){
-		assert(qtree);
+	}else if(qtree){
+		start = get_cur_time();
 		QTNode *tnode = get_qtree()->retrieve(p);
 		assert(tnode->isleaf&&tnode->mbr.contain(p));
-		if(ctx->is_contain_query()){
-			ctx->pixel_checked++;
-		}
+		ctx->pixel_evaluated.counter++;
+		ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
+		//refinement step
+		start = get_cur_time();
+		bool contained = false;
 		if(tnode->exterior){
-			return false;
+			contained = false;
 		}else if(tnode->interior){
-			return true;
+			contained = true;
 		}else{
-			if(ctx->is_contain_query()){
-				ctx->border_checked++;
-				ctx->refine_count++;
-				ctx->edges_checked += get_num_vertices();
-			}
-			if(ctx->perform_refine||ctx->is_within_query()){
+			if(ctx->perform_refine){
 				if(rtree){
-					return contain_rtree(rtree,p,ctx);
+					contained = contain_rtree(rtree,p,ctx);
+				}else{
+					contained = contain(p);
 				}
-				return contain(p);
-			}else{
-				return false;
 			}
 		}
+		ctx->refine_count++;
+		ctx->edge_checked.counter += get_num_vertices();
+		ctx->edge_checked.execution_time += get_time_elapsed(start);
+		ctx->border_checked.counter++;
+		ctx->border_checked.execution_time += get_time_elapsed(start);
+
+
+		// qtree return
+		return contained;
 	}else{
 
 		// check the maximum enclosed rectangle (MER)
@@ -165,23 +165,25 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 			return false;
 		}
 
+		// refinement step
+		start = get_cur_time();
+		bool contained = false;
 
-		if(ctx->is_contain_query()){
-			if(!rtree){
-				ctx->edges_checked += get_num_vertices();
-			}
-			ctx->border_checked++;
-			ctx->refine_count++;
-		}
-
-		if(ctx->perform_refine||ctx->is_within_query()){
+		if(ctx->perform_refine){
 			if(rtree){
-				return contain_rtree(rtree,p,ctx);
+				contained = contain_rtree(rtree,p,ctx);
+			}else{
+				contained = contain(p);
 			}
-			return contain(p);
-		}else{
-			return false;
 		}
+		ctx->refine_count++;
+		ctx->edge_checked.counter += get_num_vertices();
+		ctx->edge_checked.execution_time += get_time_elapsed(start);
+		ctx->border_checked.counter++;
+		ctx->border_checked.execution_time += get_time_elapsed(start);
+
+		// qtree return
+		return contained;
 	}
 }
 
@@ -288,7 +290,7 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 							ctx->distance = dist;
 						}
 					}
-					ctx->edges_checked += 3;
+					ctx->edge_checked.counter += 3;
 				}else{
 					for(RTNode *p:pr.first->children){
 						pixq.push(p);
@@ -306,31 +308,18 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 double MyPolygon::distance(Point &p, query_context *ctx){
 
 	// distance is 0 if contained by the polygon
-	if(contain(p, ctx)){
+	query_context tmpctx = *ctx;
+	tmpctx.perform_refine = true;
+	bool contained = contain(p, &tmpctx);
+
+	if(contained){
 		return 0;
 	}
 
-	ctx->checked_count++;
+	struct timeval start;
+	ctx->object_checked.counter++;
 
-	if(ctx->use_qtree){
-		assert(qtree);
-		if(qtree->within(p, ctx->distance_buffer_size)){
-			ctx->refine_count++;
-			//grid indexing return
-			if(ctx->perform_refine){
-				if(rtree){
-					return distance_rtree(p,ctx);
-				}else{
-					ctx->edges_checked += this->get_num_vertices();
-					return distance(p);
-				}
-			}else{
-				return DBL_MAX;
-			}
-		}
-		return DBL_MAX;
-	}else if(ctx->use_grid){
-		assert(raster);
+	if(raster){
 		double mbrdist = mbr->distance(p);
 
 		//initialize the starting pixel
@@ -355,7 +344,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		bool border_checked = false;
 		// for filtering
 		while(true){
-			struct timeval pixel_start = get_cur_time();
+			start = get_cur_time();
 			if(step==0){
 				needprocess.push_back(closest);
 			}else{
@@ -389,7 +378,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 				}
 			}
-			ctx->pixel_check_time += get_time_elapsed(pixel_start);
+			ctx->pixel_evaluated.counter++;
+			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
 			// should never happen
 			// all the boxes are scanned
@@ -399,28 +389,26 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 
 			for(Pixel *cur:needprocess){
-				ctx->pixel_checked++;
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->status==BORDER){
 					there_is_border = true;
-					struct timeval pixel_start = get_cur_time();
-
+					start = get_cur_time();
+					ctx->border_evaluated.counter++;
 					// no need to check the edges of this pixel
-					if(ctx->is_within_query() && cur->distance_geography(p)>ctx->distance_buffer_size){
-						ctx->pixel_check_time += get_time_elapsed(pixel_start);
+					bool toofar = ctx->is_within_query() && cur->distance_geography(p)>ctx->distance_buffer_size;
+					bool tooclose = cur->distance(p)>=mindist;
+					ctx->border_evaluated.execution_time += get_time_elapsed(start);
+					if(toofar||tooclose){
 						continue;
 					}
 					border_checked = true;
-					if(cur->distance(p)>=mindist){
-						ctx->pixel_check_time += get_time_elapsed(pixel_start);
-						continue;
-					}
-					ctx->pixel_check_time += get_time_elapsed(pixel_start);
 
-					struct timeval edge_start = get_cur_time();
-					ctx->border_checked++;
+
 					// the vector model need be checked.
-					ctx->edges_checked += cur->num_edges_covered();
+
+					start = get_cur_time();
+					ctx->border_checked.counter++;
+					ctx->edge_checked.counter += cur->num_edges_covered();
 					for(edge_range &rg:cur->edge_ranges){
 						for (int i = rg.vstart; i <= rg.vend; i++) {
 							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
@@ -429,8 +417,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 							}
 						}
 					}
-
-					ctx->edges_check_time += get_time_elapsed(edge_start);
+					ctx->edge_checked.execution_time += get_time_elapsed(start);
 				}
 			}
 			needprocess.clear();
@@ -454,6 +441,22 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		// IDEAL return
 		return mindist;
 
+	}else if(qtree){
+		if(qtree->within(p, ctx->distance_buffer_size)){
+			ctx->refine_count++;
+			//grid indexing return
+			if(ctx->perform_refine){
+				if(rtree){
+					return distance_rtree(p,ctx);
+				}else{
+					ctx->edge_checked.counter += this->get_num_vertices();
+					return distance(p);
+				}
+			}else{
+				return DBL_MAX;
+			}
+		}
+		return DBL_MAX;
 	}else{
 		//checking convex
 		if(ctx->is_within_query()&&convex_hull){
@@ -475,7 +478,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			if(rtree){
 				return distance_rtree(p,ctx);
 			}else{
-				ctx->edges_checked += this->get_num_vertices();
+				ctx->edge_checked.counter += get_num_vertices();
 				return distance(p);
 			}
 		}else{

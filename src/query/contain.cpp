@@ -5,36 +5,30 @@
  *      Author: teng
  */
 
-#include "../geometry/MyPolygon.h"
-#include <fstream>
+
+
 #include "../index/RTree.h"
 #include <queue>
-#include <boost/program_options.hpp>
+#include <fstream>
+#include "../geometry/MyPolygon.h"
 
-namespace po = boost::program_options;
-using namespace std;
 
+
+// some shared parameters
 
 RTree<MyPolygon *, double, 2, double> tree;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
-	// query with parition
-	if(ctx->use_grid){
-		poly->rasterization(ctx->vpr);
-	}
-	Point *p = (Point *)ctx->target;
-	if(poly->getMBB()->distance_geography(*p)>(double)ctx->distance_buffer_size){
-        return true;
-	}
 
-	timeval start = get_cur_time();
-	ctx->distance = poly->distance(*p,ctx);
+	struct timeval start = get_cur_time();
+	ctx->found += poly->contain(*(Point *)ctx->target, ctx);
+	double timepassed = get_time_elapsed(start);
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
 			nv = 100*(nv/100);
-			ctx->report_latency(nv, get_time_elapsed(start));
+			ctx->report_latency(nv, timepassed);
 		}
 	}
 	return true;
@@ -43,46 +37,35 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
-	pthread_mutex_lock(&gctx->lock);
-	log("thread %d is started",ctx->thread_id);
-	pthread_mutex_unlock(&gctx->lock);
-	ctx->query_count = 0;
-	double buffer_low[2];
-	double buffer_high[2];
-
+	//log("thread %d is started",ctx->thread_id);
 	while(ctx->next_batch(100)){
-
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			if(!tryluck(gctx->sample_rate)){
+			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
-			struct timeval query_start = get_cur_time();
+			struct timeval start = get_cur_time();
 			Point p(gctx->points[2*i],gctx->points[2*i+1]);
 			ctx->target = (void *)&p;
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
-			double shifty = degree_per_kilometer_latitude*gctx->distance_buffer_size;
-			buffer_low[0] = gctx->points[2*i]-shiftx;
-			buffer_low[1] = gctx->points[2*i+1]-shifty;
-			buffer_high[0] = gctx->points[2*i]+shiftx;
-			buffer_high[1] = gctx->points[2*i+1]+shifty;
-			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+			tree.Search(gctx->points+2*i, gctx->points+2*i, MySearchCallback, (void *)ctx);
+			ctx->object_checked.execution_time += ::get_time_elapsed(start);
 			ctx->report_progress();
-			ctx->check_time += get_time_elapsed(query_start);
 		}
 	}
 	ctx->merge_global();
+
 	return NULL;
 }
 
 
 
 int main(int argc, char** argv) {
+
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
-	global_ctx.query_type = QueryType::within;
+	global_ctx.query_type = QueryType::contain;
 
-
-    global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+	global_ctx.sort_polygons = false;
+	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
 	preprocess(&global_ctx);
 
@@ -95,16 +78,15 @@ int main(int argc, char** argv) {
 	// read all the points
 	global_ctx.load_points();
 
-	start = get_cur_time();
 
-    pthread_t threads[global_ctx.num_threads];
+	start = get_cur_time();
+	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
-		ctx[i] = query_context(global_ctx);
+		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 	}
-
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
 	}
@@ -113,9 +95,9 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-
 	global_ctx.print_stats();
 	logt("total query",start);
+
 
 	return 0;
 }

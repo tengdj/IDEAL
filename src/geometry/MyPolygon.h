@@ -37,6 +37,8 @@ public:
 	int num_vertices = 0;
 	double *x = NULL;
 	double *y = NULL;
+public:
+
 	VertexSequence(){};
 	VertexSequence(int nv);
 	VertexSequence(int nv, double *xx, double *yy);
@@ -271,21 +273,6 @@ public:
 	}
 
 	void print_partition(query_context qc);
-};
-
-class queue_element{
-public:
-	int id = 0;
-	vector<MyPolygon *> polys;
-	queue_element(int i){
-		id = i;
-	}
-	~queue_element(){
-		for(MyPolygon *p:polys){
-			delete p;
-		}
-		polys.clear();
-	}
 };
 
 class MyMultiPolygon{

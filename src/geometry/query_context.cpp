@@ -88,11 +88,6 @@ query_context& query_context::operator=(query_context const &t){
 
 }
 
-query_context query_context::operator+ (query_context const &obj) {
-	query_context res = *this;
-
-	return res;
-}
 void query_context::report_latency(int num_v, double lt){
 	if(vertex_number.find(num_v)==vertex_number.end()){
 		vertex_number[num_v] = 1;
@@ -139,14 +134,15 @@ void query_context::merge_global(){
 	pthread_mutex_lock(&global_ctx->lock);
 	global_ctx->found += found;
 	global_ctx->query_count += query_count;
-	global_ctx->checked_count += checked_count;
-	global_ctx->pixel_checked += pixel_checked;
-	global_ctx->border_checked += border_checked;
 	global_ctx->refine_count += refine_count;
-	global_ctx->edges_checked += edges_checked;
-	global_ctx->pixel_check_time += pixel_check_time;
-	global_ctx->edges_check_time += edges_check_time;
-	global_ctx->check_time += check_time;
+
+
+	global_ctx->object_checked += object_checked;
+	global_ctx->pixel_evaluated += pixel_evaluated;
+	global_ctx->border_evaluated += border_evaluated;
+	global_ctx->border_checked += border_checked;
+	global_ctx->edge_checked += edge_checked;
+	global_ctx->intersection_checked += intersection_checked;
 
 	for(auto &it :vertex_number){
 		const double lt = latency.at(it.first);
@@ -181,30 +177,39 @@ bool query_context::next_batch(int batch_num){
 void query_context::print_stats(){
 
 	log("query count:\t%ld",query_count);
-	log("checked count:\t%ld",checked_count);
+	log("checked count:\t%ld",object_checked.counter);
 	log("found count:\t%ld",found);
 
-	if(checked_count>0){
+	if(object_checked.counter>0){
 		if(refine_count)
-		log("refine/checked:\t%f",(double)refine_count/checked_count);
-		if(pixel_checked)
-		log("pixel/checked:\t%f",(double)pixel_checked/checked_count);
-		if(border_checked)
-		log("border/checked:\t%f",(double)border_checked/checked_count);
-		if(edges_checked)
-		log("edges/checked:\t%f",(double)edges_checked/checked_count);
+		log("refine/checked:\t%f",(double)refine_count/object_checked.counter);
+		if(pixel_evaluated.counter)
+		log("pixel/checked:\t%f",(double)pixel_evaluated.counter/object_checked.counter);
+		if(border_checked.counter)
+		log("border/checked:\t%f",(double)border_checked.counter/object_checked.counter);
+		if(edge_checked.counter)
+		log("checked/edges:\t%f",(double)edge_checked.counter/object_checked.counter);
 	}
-	if(border_checked>0){
-		log("edges/border:\t%f",(double)edges_checked/border_checked);
+
+	if(border_checked.counter>0){
+		log("border/edges:\t%f",(double)edge_checked.counter/border_checked.counter);
+		log("node/border:\t%f",(double)intersection_checked.counter/border_checked.counter);
 	}
-	if(pixel_check_time>0){
-		log("latency/pixel:\t%f",pixel_check_time/pixel_checked);
+
+	if(pixel_evaluated.counter>0){
+		log("latency/pixel:\t%f",pixel_evaluated.execution_time/pixel_evaluated.counter);
 	}
-	if(edges_check_time>0){
-		log("latency/edge:\t%f",edges_check_time/edges_checked);
+	if(border_evaluated.counter>0){
+		log("latency/border:\t%f",border_evaluated.execution_time/border_evaluated.counter);
 	}
-	if(check_time>0){
-		log("latency/other:\t%f",(check_time-edges_check_time-pixel_check_time)/checked_count);
+	if(edge_checked.execution_time>0){
+		log("latency/edge:\t%f",edge_checked.execution_time/edge_checked.counter);
+	}
+	if(intersection_checked.execution_time>0){
+		log("latency/node:\t%f",intersection_checked.execution_time/intersection_checked.counter);
+	}
+	if(object_checked.execution_time>0){
+		log("latency/other:\t%f",(object_checked.execution_time-pixel_evaluated.execution_time-border_evaluated.execution_time-edge_checked.execution_time)/object_checked.counter);
 	}
 
 	if(collect_latency){
@@ -248,10 +253,6 @@ query_context get_parameters(int argc, char **argv){
 	}
 	po::notify(vm);
 
-//	if(!vm.count("source")||!vm.count("target")){
-//		cout << desc << "\n";
-//		exit(0);
-//	}
 	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
 	global_ctx.perform_refine = !vm.count("raster_only");
@@ -261,6 +262,5 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.use_triangulate = vm.count("triangulate");
 
 
-	assert(!(global_ctx.use_grid&&global_ctx.use_qtree));
 	return global_ctx;
 }
