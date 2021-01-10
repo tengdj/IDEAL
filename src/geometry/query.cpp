@@ -331,14 +331,12 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		vector<Pixel *> needprocess;
 		double mindist = 10000000.0;
 
-//		for(vector<Pixel> &rows:partitions){
-//			for(Pixel &pix:rows){
-//				if(pix.status==BORDER&&pix.distance_geography(p)<=ctx->distance_buffer_size){
-//					ctx->refine_count++;
-//					return 0;
-//				}
-//			}
-//		}
+		for(Pixel *pix:raster->get_pixels(BORDER)){
+			if(pix->distance_geography(p)<=ctx->distance_buffer_size){
+				ctx->refine_count++;
+				return 0;
+			}
+		}
 
 		bool there_is_border = false;
 		bool border_checked = false;
@@ -442,19 +440,15 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		return mindist;
 
 	}else if(qtree){
-		if(qtree->within(p, ctx->distance_buffer_size)){
-			ctx->refine_count++;
-			//grid indexing return
-			if(ctx->perform_refine){
-				if(rtree){
-					return distance_rtree(p,ctx);
-				}else{
-					ctx->edge_checked.counter += this->get_num_vertices();
-					return distance(p);
-				}
-			}else{
-				return DBL_MAX;
-			}
+		if(ctx->is_within_query()&&
+				!qtree->within(p, ctx->distance_buffer_size)){
+			return DBL_MAX;
+		}
+
+		ctx->refine_count++;
+		if(ctx->perform_refine){
+			ctx->edge_checked.counter += this->get_num_vertices();
+			return distance(p);
 		}
 		return DBL_MAX;
 	}else{

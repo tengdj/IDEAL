@@ -41,6 +41,27 @@ class QTNode{
 		}
 	}
 
+	void internal_distance(Point &p, double &dist, bool geography = false){
+		if(interior || exterior){
+			return;
+		}
+		double tmpd;
+		if(geography){
+			tmpd = mbr.distance_geography(p);
+		}else{
+			tmpd = mbr.distance(p);
+		}
+
+		if(!isleaf){
+			for(QTNode *c:children){
+				c->internal_distance(p, dist, geography);
+			}
+		}else if(tmpd<dist){
+			dist = tmpd;
+		}
+
+	}
+
 public:
 
 	bool isleaf = true;
@@ -122,6 +143,12 @@ public:
 			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
 			return children[offset]->retrieve(p);
 		}
+	}
+
+	double distance(Point &p,bool geography = false){
+		double dist = DBL_MAX;
+		internal_distance(p,dist,geography);
+		return dist;
 	}
 
 	bool within(Point &p, double within_dist){
