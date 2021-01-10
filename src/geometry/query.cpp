@@ -331,14 +331,15 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		vector<Pixel *> needprocess;
 		double mindist = 10000000.0;
 
-		for(Pixel *pix:raster->get_pixels(BORDER)){
-			if(pix->distance_geography(p)<=ctx->distance_buffer_size){
-				ctx->refine_count++;
-				return 0;
-			}
-		}
-
-		return mindist;
+//		needprocess = raster->get_pixels(BORDER);
+//		for(Pixel *pix:needprocess){
+//			if(pix->distance_geography(p)<=ctx->distance_buffer_size){
+//				ctx->refine_count++;
+//				break;
+//			}
+//		}
+//		needprocess.clear();
+//		return 0;
 
 		bool there_is_border = false;
 		bool border_checked = false;
