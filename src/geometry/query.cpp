@@ -338,6 +338,8 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			}
 		}
 
+		return mindist;
+
 		bool there_is_border = false;
 		bool border_checked = false;
 		// for filtering
