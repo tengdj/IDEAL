@@ -233,8 +233,8 @@ inline double point_to_segment_distance(const double x, const double y, const do
   double dx = x - xx;
   double dy = y - yy;
   if(geography){
-      dx = dx/degree_per_kilometer_latitude;
-      dy = dy/degree_per_kilometer_longitude(y);
+      dy = dy/degree_per_kilometer_latitude;
+      dx = dx/degree_per_kilometer_longitude(y);
   }
   return sqrt(dx * dx + dy * dy);
 }

@@ -26,6 +26,7 @@ namespace{
 
 #define TENG_RANDOM_NUMBER 0315
 #define OSM_SRID 4326
+#define PI 3.14159265
 
 // some utility function
 
@@ -37,7 +38,7 @@ inline double degree_per_kilometer_longitude(double latitude){
 		absla = 89;
 	}
 	assert(absla<90);
-	return 360.0/(sin((90-absla)/90)*40076);
+	return 360.0/(sin((90-absla)*PI/180)*40076);
 }
 
 inline int double_to_int(double val){

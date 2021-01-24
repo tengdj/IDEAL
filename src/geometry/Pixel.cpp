@@ -68,8 +68,8 @@ double box::distance_geography(Point &p){
 	}
 	double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
 	double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
-	dx = dx/degree_per_kilometer_latitude;
-	dy = dy/degree_per_kilometer_longitude(p.y);
+	dy = dy/degree_per_kilometer_latitude;
+	dx = dx/degree_per_kilometer_longitude(p.y);
 	return sqrt(dx * dx + dy * dy);
 }
 
@@ -98,8 +98,8 @@ inline double geogdist(double x1, double y1, double x2, double y2){
 
 	double dx = x2-x1;
 	double dy = y2-y1;
-	dx = dx/degree_per_kilometer_latitude;
-	dy = dy/degree_per_kilometer_longitude(y1);
+	dy = dy/degree_per_kilometer_latitude;
+	dx = dx/degree_per_kilometer_longitude(y1);
 	return dx*dx+dy*dy;
 }
 
