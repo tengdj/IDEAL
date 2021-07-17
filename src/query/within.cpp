@@ -51,7 +51,6 @@ void *query(void *args){
 	double buffer_high[2];
 
 	while(ctx->next_batch(100)){
-
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(gctx->sample_rate)){
 				continue;

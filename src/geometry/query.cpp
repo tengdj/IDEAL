@@ -78,8 +78,6 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		Pixel *target = raster->get_pixel(p);
 		ctx->pixel_evaluated.counter++;
 		ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
-
-
 		if(target->status==IN){
 			return true;
 		}
@@ -91,6 +89,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		bool ret = false;
 
 		// checking the intersection edges in the target pixel
+		uint edge_count = 0;
 		for(edge_range &rg:target->edge_ranges){
 			for(int i = rg.vstart; i <= rg.vend; i++) {
 				int j = i+1;
@@ -101,9 +100,9 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 					}
 				}
 			}
+			edge_count += rg.size();
 		}
-
-		ctx->edge_checked.counter += target->num_edges_covered();
+		ctx->edge_checked.counter += edge_count;
 		ctx->edge_checked.execution_time += get_time_elapsed(start);
 
 		// check the crossing nodes on the right bar
@@ -379,15 +378,16 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 				}
 			}
-			ctx->pixel_evaluated.counter++;
-			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
 			// should never happen
 			// all the boxes are scanned
 			if(needprocess.size()==0){
+				//assert(false&&"should not evaluated all boxes");
 				ctx->refine_count++;
 				return distance(p);
 			}
+			ctx->pixel_evaluated.counter += needprocess.size();
+			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
 			for(Pixel *cur:needprocess){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
@@ -404,12 +404,10 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					}
 					border_checked = true;
 
-
 					// the vector model need be checked.
-
 					start = get_cur_time();
 					ctx->border_checked.counter++;
-					ctx->edge_checked.counter += cur->num_edges_covered();
+					int edge_num = 0;
 					for(edge_range &rg:cur->edge_ranges){
 						for (int i = rg.vstart; i <= rg.vend; i++) {
 							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
@@ -417,7 +415,9 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 								mindist = dist;
 							}
 						}
+						edge_num += rg.size();
 					}
+					ctx->edge_checked.counter += cur->num_edges_covered();
 					ctx->edge_checked.execution_time += get_time_elapsed(start);
 				}
 			}

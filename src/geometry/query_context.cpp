@@ -174,6 +174,11 @@ bool query_context::next_batch(int batch_num){
 	return true;
 }
 
+//epp = [10 20 30 40 50 60 70 80 90 100]
+//
+//border = [0.207285 0.288498 0.347719 0.39932 0.434262 0.46625 0.493314 0.516715 0.534164 0.551719]
+//edges = [66.482446 94.79277 119.693534 146.500647 166.748356 196.448964 220.291613 240.176293 266.363209 289.240302]
+
 void query_context::print_stats(){
 
 	log("query count:\t%ld",query_count);
@@ -182,34 +187,37 @@ void query_context::print_stats(){
 
 	if(object_checked.counter>0){
 		if(refine_count)
-		log("refine/checked:\t%f",(double)refine_count/object_checked.counter);
+		log("checked-refine:\t%f",(double)refine_count/object_checked.counter);
 		if(pixel_evaluated.counter)
-		log("pixel/checked:\t%f",(double)pixel_evaluated.counter/object_checked.counter);
-		if(border_checked.counter)
-		log("border/checked:\t%f",(double)border_checked.counter/object_checked.counter);
+		log("checked-pixel:\t%f",(double)pixel_evaluated.counter/object_checked.counter);
 		if(edge_checked.counter)
-		log("checked/edges:\t%f",(double)edge_checked.counter/object_checked.counter);
+		log("checked-edges:\t%f",(double)edge_checked.counter/object_checked.counter);
 	}
 
 	if(border_checked.counter>0){
-		log("border/edges:\t%f",(double)edge_checked.counter/border_checked.counter);
-		log("node/border:\t%f",(double)intersection_checked.counter/border_checked.counter);
+		log("border-eval:\t%f",(double)border_evaluated.counter/object_checked.counter);
+		log("border-checked:\t%f",(double)border_checked.counter/object_checked.counter);
+		log("border-edges:\t%f",(double)edge_checked.counter/border_checked.counter);
+		log("border-border:\t%f",(double)intersection_checked.counter/border_checked.counter);
 	}
 
 	if(pixel_evaluated.counter>0){
-		log("latency/pixel:\t%f",pixel_evaluated.execution_time/pixel_evaluated.counter);
+		log("latency-pixel:\t%f",pixel_evaluated.execution_time/pixel_evaluated.counter);
 	}
 	if(border_evaluated.counter>0){
-		log("latency/border:\t%f",border_evaluated.execution_time/border_evaluated.counter);
+		log("latency-border:\t%f",border_evaluated.execution_time/border_evaluated.counter);
 	}
 	if(edge_checked.execution_time>0){
-		log("latency/edge:\t%f",edge_checked.execution_time/edge_checked.counter);
+		log("latency-edge:\t%.7f",edge_checked.execution_time/edge_checked.counter);
 	}
 	if(intersection_checked.execution_time>0){
-		log("latency/node:\t%f",intersection_checked.execution_time/intersection_checked.counter);
+		log("latency-node:\t%f",intersection_checked.execution_time/intersection_checked.counter);
 	}
 	if(object_checked.execution_time>0){
-		log("latency/other:\t%f",(object_checked.execution_time-pixel_evaluated.execution_time-border_evaluated.execution_time-edge_checked.execution_time)/object_checked.counter);
+		log("latency-other:\t%f",(object_checked.execution_time-
+									pixel_evaluated.execution_time-border_evaluated.execution_time-
+									edge_checked.execution_time-intersection_checked.execution_time
+									)/object_checked.counter);
 	}
 
 	if(collect_latency){

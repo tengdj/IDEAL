@@ -102,6 +102,9 @@ public:
 		vstart = s;
 		vend = e;
 	}
+	int size(){
+		return vend-vstart+1;
+	}
 };
 
 class Pixel:public box{

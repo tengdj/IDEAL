@@ -25,7 +25,7 @@ enum QueryType{
 
 class execute_step{
 public:
-	int counter = 0;
+	size_t counter = 0;
 	double execution_time = 0;
 	execute_step& operator=(execute_step const &obj){
 		counter = obj.counter;
@@ -90,7 +90,7 @@ public:
 	bool collect_latency = false;
 	float sample_rate = 1.0;
 	int small_threshold = 500;
-	int big_threshold = 1000000;
+	int big_threshold = 400000;
 	bool sort_polygons = false;
 	int distance_buffer_size = 10;
 	QueryType query_type = QueryType::contain;
