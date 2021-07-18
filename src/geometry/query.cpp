@@ -307,15 +307,17 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 double MyPolygon::distance(Point &p, query_context *ctx){
 
 	// distance is 0 if contained by the polygon
+	double mindist = 10000000.0;
 	query_context tmpctx = *ctx;
 	tmpctx.perform_refine = true;
+	struct timeval query_start = get_cur_time();
 	bool contained = contain(p, &tmpctx);
-
+	ctx->contain_check.execution_time += get_time_elapsed(query_start,true);
+	ctx->contain_check.counter++;
 	if(contained){
-		return 0;
+		return mindist;
 	}
 
-	struct timeval start;
 	ctx->object_checked.counter++;
 
 	if(raster){
@@ -328,7 +330,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		double step_size = raster->get_step();
 
 		vector<Pixel *> needprocess;
-		double mindist = 10000000.0;
+		mindist = 10000000.0;
 
 //		needprocess = raster->get_pixels(BORDER);
 //		for(Pixel *pix:needprocess){
@@ -344,7 +346,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		bool border_checked = false;
 		// for filtering
 		while(true){
-			start = get_cur_time();
+			struct timeval start = get_cur_time();
 			if(step==0){
 				needprocess.push_back(closest);
 			}else{

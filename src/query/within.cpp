@@ -30,6 +30,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 
 	timeval start = get_cur_time();
 	ctx->distance = poly->distance(*p,ctx);
+	ctx->found += ctx->distance<10000000.0;
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
@@ -65,8 +66,8 @@ void *query(void *args){
 			buffer_high[0] = gctx->points[2*i]+shiftx;
 			buffer_high[1] = gctx->points[2*i+1]+shifty;
 			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
-			ctx->report_progress();
 			ctx->object_checked.execution_time += get_time_elapsed(query_start);
+			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();

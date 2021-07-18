@@ -137,6 +137,7 @@ void query_context::merge_global(){
 	global_ctx->refine_count += refine_count;
 
 
+	global_ctx->contain_check += contain_check;
 	global_ctx->object_checked += object_checked;
 	global_ctx->pixel_evaluated += pixel_evaluated;
 	global_ctx->border_evaluated += border_evaluated;
@@ -181,43 +182,52 @@ bool query_context::next_batch(int batch_num){
 
 void query_context::print_stats(){
 
-	log("query count:\t%ld",query_count);
-	log("checked count:\t%ld",object_checked.counter);
-	log("found count:\t%ld",found);
+	log("count-query:\t%ld",query_count);
+	log("count-contain:\t%ld",this->contain_check.counter);
+	log("count-checked:\t%ld",object_checked.counter);
+	log("count-found:\t%ld",found);
 
 	if(object_checked.counter>0){
 		if(refine_count)
-		log("checked-refine:\t%f",(double)refine_count/object_checked.counter);
+		log("checked-refine:\t%.7f",(double)refine_count/object_checked.counter);
 		if(pixel_evaluated.counter)
-		log("checked-pixel:\t%f",(double)pixel_evaluated.counter/object_checked.counter);
+		log("checked-pixel:\t%.7f",(double)pixel_evaluated.counter/object_checked.counter);
 		if(edge_checked.counter)
-		log("checked-edges:\t%f",(double)edge_checked.counter/object_checked.counter);
+		log("checked-edges:\t%.7f",(double)edge_checked.counter/object_checked.counter);
 	}
 
 	if(border_checked.counter>0){
-		log("border-eval:\t%f",(double)border_evaluated.counter/object_checked.counter);
-		log("border-checked:\t%f",(double)border_checked.counter/object_checked.counter);
-		log("border-edges:\t%f",(double)edge_checked.counter/border_checked.counter);
-		log("border-border:\t%f",(double)intersection_checked.counter/border_checked.counter);
+		log("border-eval:\t%.7f",(double)border_evaluated.counter/object_checked.counter);
+		log("border-checked:\t%.7f",(double)border_checked.counter/object_checked.counter);
+		log("border-edges:\t%.7f",(double)edge_checked.counter/border_checked.counter);
+		log("border-node:\t%.7f",(double)intersection_checked.counter/border_checked.counter);
+	}
+
+	if(contain_check.counter>0){
+		log("latency-ctn:\t%.7f",contain_check.execution_time/contain_check.counter);
 	}
 
 	if(pixel_evaluated.counter>0){
-		log("latency-pixel:\t%f",pixel_evaluated.execution_time/pixel_evaluated.counter);
+		log("latency-pixel:\t%.7f",pixel_evaluated.execution_time/pixel_evaluated.counter);
 	}
 	if(border_evaluated.counter>0){
-		log("latency-border:\t%f",border_evaluated.execution_time/border_evaluated.counter);
+		log("latency-border:\t%.7f",border_evaluated.execution_time/border_evaluated.counter);
 	}
 	if(edge_checked.execution_time>0){
 		log("latency-edge:\t%.7f",edge_checked.execution_time/edge_checked.counter);
 	}
 	if(intersection_checked.execution_time>0){
-		log("latency-node:\t%f",intersection_checked.execution_time/intersection_checked.counter);
+		log("latency-node:\t%.7f",intersection_checked.execution_time/intersection_checked.counter);
 	}
 	if(object_checked.execution_time>0){
-		log("latency-other:\t%f",(object_checked.execution_time-
+		log("latency-other:\t%.7f",(object_checked.execution_time-
 									pixel_evaluated.execution_time-border_evaluated.execution_time-
-									edge_checked.execution_time-intersection_checked.execution_time
+									edge_checked.execution_time-intersection_checked.execution_time-
+									contain_check.execution_time
 									)/object_checked.counter);
+	}
+	if(object_checked.execution_time>0){
+		log("latency-all:\t%.7f",object_checked.execution_time/object_checked.counter);
 	}
 
 	if(collect_latency){

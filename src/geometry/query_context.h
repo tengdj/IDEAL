@@ -121,6 +121,8 @@ public:
 	size_t refine_count = 0;
 
 	execute_step object_checked;
+	execute_step node_check;
+	execute_step contain_check;
 	execute_step pixel_evaluated;
 	execute_step border_evaluated;
 	execute_step border_checked;
@@ -163,6 +165,8 @@ public:
 		border_checked.reset();
 		edge_checked.reset();
 		intersection_checked.reset();
+		node_check.reset();
+		contain_check.reset();
 	}
 
 	bool is_within_query(){
