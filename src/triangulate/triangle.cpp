@@ -33,7 +33,7 @@
 
 namespace p2t {
 
-Triangle::Triangle(Point& a, Point& b, Point& c)
+Triangle::Triangle(Vertex& a, Vertex& b, Vertex& c)
 {
   points_[0] = &a; points_[1] = &b; points_[2] = &c;
   neighbors_[0] = NULL; neighbors_[1] = NULL; neighbors_[2] = NULL;
@@ -43,7 +43,7 @@ Triangle::Triangle(Point& a, Point& b, Point& c)
 }
 
 // Update neighbor pointers
-void Triangle::MarkNeighbor(Point* p1, Point* p2, Triangle* t)
+void Triangle::MarkNeighbor(Vertex* p1, Vertex* p2, Triangle* t)
 {
   if ((p1 == points_[2] && p2 == points_[1]) || (p1 == points_[1] && p2 == points_[2]))
     neighbors_[0] = t;
@@ -116,9 +116,9 @@ void Triangle::ClearDelunayEdges()
   delaunay_edge[0] = delaunay_edge[1] = delaunay_edge[2] = false;
 }
 
-Point* Triangle::OppositePoint(Triangle& t, Point& p)
+Vertex* Triangle::OppositePoint(Triangle& t, Vertex& p)
 {
-  Point *cw = t.PointCW(p);
+  Vertex *cw = t.PointCW(p);
   double x = cw->x;
   double y = cw->y;
   x = p.x;
@@ -127,7 +127,7 @@ Point* Triangle::OppositePoint(Triangle& t, Point& p)
 }
 
 // Legalized triangle by rotating clockwise around point(0)
-void Triangle::Legalize(Point& point)
+void Triangle::Legalize(Vertex& point)
 {
   points_[1] = points_[0];
   points_[0] = points_[2];
@@ -135,7 +135,7 @@ void Triangle::Legalize(Point& point)
 }
 
 // Legalize triagnle by rotating clockwise around oPoint
-void Triangle::Legalize(Point& opoint, Point& npoint)
+void Triangle::Legalize(Vertex& opoint, Vertex& npoint)
 {
   if (&opoint == points_[0]) {
     points_[1] = points_[0];
@@ -154,7 +154,7 @@ void Triangle::Legalize(Point& opoint, Point& npoint)
   }
 }
 
-int Triangle::Index(const Point* p)
+int Triangle::Index(const Vertex* p)
 {
   if (p == points_[0]) {
     return 0;
@@ -167,7 +167,7 @@ int Triangle::Index(const Point* p)
   return 0;
 }
 
-int Triangle::EdgeIndex(const Point* p1, const Point* p2)
+int Triangle::EdgeIndex(const Vertex* p1, const Vertex* p2)
 {
   if (points_[0] == p1) {
     if (points_[1] == p2) {
@@ -202,7 +202,7 @@ void Triangle::MarkConstrainedEdge(Edge& edge)
 }
 
 // Mark edge as constrained
-void Triangle::MarkConstrainedEdge(Point* p, Point* q)
+void Triangle::MarkConstrainedEdge(Vertex* p, Vertex* q)
 {
   if ((q == points_[0] && p == points_[1]) || (q == points_[1] && p == points_[0])) {
     constrained_edge[2] = true;
@@ -214,7 +214,7 @@ void Triangle::MarkConstrainedEdge(Point* p, Point* q)
 }
 
 // The point counter-clockwise to given point
-Point* Triangle::PointCW(Point& point)
+Vertex* Triangle::PointCW(Vertex& point)
 {
   if (&point == points_[0]) {
     return points_[2];
@@ -228,7 +228,7 @@ Point* Triangle::PointCW(Point& point)
 }
 
 // The point counter-clockwise to given point
-Point* Triangle::PointCCW(Point& point)
+Vertex* Triangle::PointCCW(Vertex& point)
 {
   if (&point == points_[0]) {
     return points_[1];
@@ -242,7 +242,7 @@ Point* Triangle::PointCCW(Point& point)
 }
 
 // The neighbor clockwise to given point
-Triangle* Triangle::NeighborCW(Point& point)
+Triangle* Triangle::NeighborCW(Vertex& point)
 {
   if (&point == points_[0]) {
     return neighbors_[1];
@@ -253,7 +253,7 @@ Triangle* Triangle::NeighborCW(Point& point)
 }
 
 // The neighbor counter-clockwise to given point
-Triangle* Triangle::NeighborCCW(Point& point)
+Triangle* Triangle::NeighborCCW(Vertex& point)
 {
   if (&point == points_[0]) {
     return neighbors_[2];
@@ -263,7 +263,7 @@ Triangle* Triangle::NeighborCCW(Point& point)
   return neighbors_[1];
 }
 
-bool Triangle::GetConstrainedEdgeCCW(Point& p)
+bool Triangle::GetConstrainedEdgeCCW(Vertex& p)
 {
   if (&p == points_[0]) {
     return constrained_edge[2];
@@ -273,7 +273,7 @@ bool Triangle::GetConstrainedEdgeCCW(Point& p)
   return constrained_edge[1];
 }
 
-bool Triangle::GetConstrainedEdgeCW(Point& p)
+bool Triangle::GetConstrainedEdgeCW(Vertex& p)
 {
   if (&p == points_[0]) {
     return constrained_edge[1];
@@ -283,7 +283,7 @@ bool Triangle::GetConstrainedEdgeCW(Point& p)
   return constrained_edge[0];
 }
 
-void Triangle::SetConstrainedEdgeCCW(Point& p, bool ce)
+void Triangle::SetConstrainedEdgeCCW(Vertex& p, bool ce)
 {
   if (&p == points_[0]) {
     constrained_edge[2] = ce;
@@ -294,7 +294,7 @@ void Triangle::SetConstrainedEdgeCCW(Point& p, bool ce)
   }
 }
 
-void Triangle::SetConstrainedEdgeCW(Point& p, bool ce)
+void Triangle::SetConstrainedEdgeCW(Vertex& p, bool ce)
 {
   if (&p == points_[0]) {
     constrained_edge[1] = ce;
@@ -305,7 +305,7 @@ void Triangle::SetConstrainedEdgeCW(Point& p, bool ce)
   }
 }
 
-bool Triangle::GetDelunayEdgeCCW(Point& p)
+bool Triangle::GetDelunayEdgeCCW(Vertex& p)
 {
   if (&p == points_[0]) {
     return delaunay_edge[2];
@@ -315,7 +315,7 @@ bool Triangle::GetDelunayEdgeCCW(Point& p)
   return delaunay_edge[1];
 }
 
-bool Triangle::GetDelunayEdgeCW(Point& p)
+bool Triangle::GetDelunayEdgeCW(Vertex& p)
 {
   if (&p == points_[0]) {
     return delaunay_edge[1];
@@ -325,7 +325,7 @@ bool Triangle::GetDelunayEdgeCW(Point& p)
   return delaunay_edge[0];
 }
 
-void Triangle::SetDelunayEdgeCCW(Point& p, bool e)
+void Triangle::SetDelunayEdgeCCW(Vertex& p, bool e)
 {
   if (&p == points_[0]) {
     delaunay_edge[2] = e;
@@ -336,7 +336,7 @@ void Triangle::SetDelunayEdgeCCW(Point& p, bool e)
   }
 }
 
-void Triangle::SetDelunayEdgeCW(Point& p, bool e)
+void Triangle::SetDelunayEdgeCW(Vertex& p, bool e)
 {
   if (&p == points_[0]) {
     delaunay_edge[1] = e;
@@ -348,7 +348,7 @@ void Triangle::SetDelunayEdgeCW(Point& p, bool e)
 }
 
 // The neighbor across to given point
-Triangle& Triangle::NeighborAcross(Point& opoint)
+Triangle& Triangle::NeighborAcross(Vertex& opoint)
 {
   if (&opoint == points_[0]) {
     return *neighbors_[0];

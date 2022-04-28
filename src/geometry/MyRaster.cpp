@@ -104,10 +104,10 @@ void MyRaster::evaluate_edges(){
 	const double start_y = mbr->low[1];
 
 	for(int i=0;i<vs->num_vertices-1;i++){
-		double x1 = vs->x[i];
-		double y1 = vs->y[i];
-		double x2 = vs->x[i+1];
-		double y2 = vs->y[i+1];
+		double x1 = vs->p[i].x;
+		double y1 = vs->p[i].y;
+		double x2 = vs->p[i+1].x;
+		double y2 = vs->p[i+1].y;
 
 		int cur_startx = (x1-start_x)/step_x;
 		int cur_endx = (x2-start_x)/step_x;
@@ -312,12 +312,12 @@ void MyRaster::rasterization(){
 int MyRaster::get_offset_x(double xval){
 	assert(mbr);
 	int x = double_to_int((xval-mbr->low[0])/step_x);
-	return x;
+	return min(max(x, 0), dimx);
 }
 int MyRaster::get_offset_y(double yval){
 	assert(mbr);
 	int y = double_to_int((yval-mbr->low[1])/step_y);
-	return y;
+	return min(max(y, 0), dimy);
 }
 Pixel *MyRaster::get_pixel(Point &p){
 	int xoff = get_offset_x(p.x);
@@ -511,6 +511,24 @@ Pixel *MyRaster::extractMER(Pixel *starter){
 }
 
 
+vector<Pixel *> MyRaster::retrieve_pixels(Pixel *target){
+
+	vector<Pixel *> ret;
+	int start_x = get_offset_x(target->low[0]);
+	int start_y = get_offset_y(target->low[1]);
+	int end_x = get_offset_x(target->high[0]);
+	int end_y = get_offset_y(target->high[1]);
+
+	//log("%d %d %d %d %d %d",dimx,dimy,start_x,end_x,start_y,end_y);
+	for(int i=start_x;i<=end_x;i++){
+		for(int j=start_y;j<=end_y;j++){
+			ret.push_back(pixels[i][j]);
+		}
+	}
+
+	return ret;
+}
+
 bool MyRaster::contain(Pixel *b, bool &contained){
 
 	if(!mbr->contain(*b)){
@@ -544,8 +562,6 @@ bool MyRaster::contain(Pixel *b, bool &contained){
 	// not determined by checking pixels only
 	return false;
 }
-
-
 
 int MyRaster::get_num_pixels(PartitionStatus status){
 	int num = 0;

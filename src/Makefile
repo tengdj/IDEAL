@@ -90,7 +90,7 @@ pixeldensity:	stats/pixeldensity.o $(GEOMETRY_OBJS)
 
 
 # for data extraction
-load:	datagen/loadwkt.o $(GEOMETRY_OBJS)
+load:	datagen/loadwkt.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS)
@@ -102,7 +102,8 @@ geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
 geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-
+test:	query/test.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

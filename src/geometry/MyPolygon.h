@@ -35,19 +35,18 @@ const static char *polygon_char = "POLYGON";
 class VertexSequence{
 public:
 	int num_vertices = 0;
-	double *x = NULL;
-	double *y = NULL;
+	Point *p = NULL;
 public:
 
 	VertexSequence(){};
 	VertexSequence(int nv);
-	VertexSequence(int nv, double *xx, double *yy);
+	VertexSequence(int nv, Point *pp);
 	size_t encode(char *dest);
 	size_t decode(char *source);
 	size_t get_data_size();
 
 	~VertexSequence();
-	vector<Point *> pack_to_polyline();
+	vector<Vertex *> pack_to_polyline();
 	VertexSequence *clone();
 	Pixel *getMBR();
 	void print();
@@ -99,6 +98,8 @@ public:
 	vector<Pixel *> get_pixels(PartitionStatus status);
 	Pixel *extractMER(Pixel *starter);
 
+	vector<Pixel *> retrieve_pixels(Pixel *);
+
 	/*
 	 * the gets functions
 	 *
@@ -146,7 +147,6 @@ class MyPolygon{
 
 public:
 	size_t offset = 0;
-	vector<Point *> polyline;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
 	bool valid_for_triangulate = false;
@@ -194,7 +194,7 @@ public:
 	static MyPolygon *gen_box(Pixel &pix);
 	static MyPolygon *read_one_polygon();
 
-	static vector<MyPolygon *> load_binary_file(const char *path, query_context ctx, bool sample=false);
+	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
 	static MyPolygon * load_binary_file_single(const char *path, query_context ctx, int idx);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
@@ -208,7 +208,7 @@ public:
 	double distance_rtree(Point &p, query_context *ctx);
 
 	void print_without_head(bool print_hole = false);
-	void print(bool print_hole=false);
+	void print(bool print_id=true, bool print_hole=false);
 	void print_triangles();
 	void print_without_return(bool print_hole=false);
 	string to_string(bool clockwise = false);
@@ -234,11 +234,11 @@ public:
 	}
 	inline double getx(int index){
 		assert(boundary&&index<boundary->num_vertices);
-		return boundary->x[index];
+		return boundary->p[index].x;
 	}
 	inline double gety(int index){
 		assert(boundary&&index<boundary->num_vertices);
-		return boundary->y[index];
+		return boundary->p[index].y;
 	}
 
 	inline int getid(){

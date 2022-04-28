@@ -82,7 +82,7 @@ private:
    * @param point
    * @return
    */
-  Node& PointEvent(SweepContext& tcx, Point& point);
+  Node& PointEvent(SweepContext& tcx, Vertex& point);
 
    /**
      * 
@@ -93,7 +93,7 @@ private:
      */
   void EdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
 
-  void EdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* triangle, Point& point);
+  void EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* triangle, Vertex& point);
 
   /**
    * Creates a new front triangle and legalize it
@@ -103,7 +103,7 @@ private:
    * @param node
    * @return
    */
-  Node& NewFrontTriangle(SweepContext& tcx, Point& point, Node& node);
+  Node& NewFrontTriangle(SweepContext& tcx, Vertex& point, Node& node);
 
   /**
    * Adds a triangle to the advancing front to fill a hole.
@@ -141,7 +141,7 @@ private:
    * @param d - point opposite a
    * @return true if d is inside circle, false if on circle edge
    */
-  bool Incircle(Point& pa, Point& pb, Point& pc, Point& pd);
+  bool Incircle(Vertex& pa, Vertex& pb, Vertex& pc, Vertex& pd);
 
   /**
    * Rotates a triangle pair one vertex CW
@@ -157,7 +157,7 @@ private:
    *       n4                    n4
    * </pre>
    */
-  void RotateTrianglePair(Triangle& t, Point& p, Triangle& ot, Point& op);
+  void RotateTrianglePair(Triangle& t, Vertex& p, Triangle& ot, Vertex& op);
 
   /**
    * Fills holes in the Advancing Front
@@ -171,9 +171,9 @@ private:
   // Decision-making about when to Fill hole. 
   // Contributed by ToolmakerSteve2
   bool LargeHole_DontFill(Node* node);
-  bool AngleExceeds90Degrees(Point* origin, Point* pa, Point* pb);
-  bool AngleExceedsPlus90DegreesOrIsNegative(Point* origin, Point* pa, Point* pb);
-  double Angle(Point& origin, Point& pa, Point& pb);
+  bool AngleExceeds90Degrees(Vertex* origin, Vertex* pa, Vertex* pb);
+  bool AngleExceedsPlus90DegreesOrIsNegative(Vertex* origin, Vertex* pa, Vertex* pb);
+  double Angle(Vertex& origin, Vertex& pa, Vertex& pb);
 
   /**
    *
@@ -209,7 +209,7 @@ private:
 
   bool IsShallow(SweepContext& tcx, Node& node);
 
-  bool IsEdgeSideOfTriangle(Triangle& triangle, Point& ep, Point& eq);
+  bool IsEdgeSideOfTriangle(Triangle& triangle, Vertex& ep, Vertex& eq);
 
   void FillEdgeEvent(SweepContext& tcx, Edge* edge, Node* node);
 
@@ -229,7 +229,7 @@ private:
 
   void FillLeftConvexEdgeEvent(SweepContext& tcx, Edge* edge, Node& node);
 
-  void FlipEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle* t, Point& p);
+  void FlipEdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* t, Vertex& p);
 
   /**
    * After a flip we have two triangles and know that only one will still be
@@ -243,7 +243,7 @@ private:
    * @param op - another point shared by both triangles
    * @return returns the triangle still intersecting the edge
    */
-  Triangle& NextFlipTriangle(SweepContext& tcx, int o, Triangle&  t, Triangle& ot, Point& p, Point& op);
+  Triangle& NextFlipTriangle(SweepContext& tcx, int o, Triangle&  t, Triangle& ot, Vertex& p, Vertex& op);
 
    /**
      * When we need to traverse from one triangle to the next we need 
@@ -256,7 +256,7 @@ private:
      * @param op
      * @return
      */
-  Point& NextFlipPoint(Point& ep, Point& eq, Triangle& ot, Point& op);
+  Vertex& NextFlipPoint(Vertex& ep, Vertex& eq, Triangle& ot, Vertex& op);
 
    /**
      * Scan part of the FlipScan algorithm<br>
@@ -271,7 +271,7 @@ private:
      * @param t
      * @param p
      */
-  void FlipScanEdgeEvent(SweepContext& tcx, Point& ep, Point& eq, Triangle& flip_triangle, Triangle& t, Point& p);
+  void FlipScanEdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle& flip_triangle, Triangle& t, Vertex& p);
 
   void FinalizationPolygon(SweepContext& tcx);
 

@@ -24,7 +24,7 @@ int main(int argc, char **argv){
 
 	//cout<<"1\n\n"<<ch->num_vertices-1<<endl;
 	for(int i=0;i<ch->num_vertices-1;i++){
-		printf("%f %f\n",ch->x[i],ch->y[i]);
+		printf("%f %f\n",ch->p[i].x,ch->p[i].y);
 	}
 	return 0;
 //	int *triangles = polygon->triangulate();

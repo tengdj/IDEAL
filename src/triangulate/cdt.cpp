@@ -32,18 +32,18 @@
 
 namespace p2t {
 
-CDT::CDT(std::vector<Point*> polyline)
+CDT::CDT(std::vector<Vertex*> polyline)
 {
   sweep_context_ = new SweepContext(polyline);
   sweep_ = new Sweep;
 }
 
-//void CDT::AddHole(std::vector<Point*> polyline)
+//void CDT::AddHole(std::vector<Vertex*> polyline)
 //{
 //  sweep_context_->AddHole(polyline);
 //}
 
-//void CDT::AddPoint(Point* point) {
+//void CDT::AddPoint(Vertex* point) {
 //  sweep_context_->AddPoint(point);
 //}
 

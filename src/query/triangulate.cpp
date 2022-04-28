@@ -82,15 +82,14 @@ int main(int argc, char* argv[]){
 	}else{
 
 		MyPolygon *polygon = MyPolygon::load_binary_file_single(global_ctx.source_path.c_str(),global_ctx, global_ctx.vpr);
-		vector<Point*> polyline;
+		vector<Vertex*> polyline;
 		for(int i=0;i<polygon->boundary->num_vertices-1;i++){
-			polyline.push_back(new Point(polygon->boundary->x[i],polygon->boundary->y[i]));
+			polyline.push_back(new Vertex(polygon->boundary->p[i].x,polygon->boundary->p[i].y));
 		}
 		struct timeval start = get_cur_time();
 		CDT* cdt = new CDT(polyline);
 		cdt->Triangulate();
 		vector<Triangle*> triangles = cdt->GetTriangles();
-		cout<<global_ctx.vpr<<endl;
 	}
 
 

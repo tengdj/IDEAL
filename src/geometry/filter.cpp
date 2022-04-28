@@ -16,16 +16,12 @@ void MyPolygon::triangulate(){
 	if(!this->valid_for_triangulate){
 		return;
 	}
-	for(Point *p:polyline){
-		delete p;
-	}
-	polyline.clear();
 	for(Triangle *tri:triangles){
 		delete tri;
 	}
 	triangles.clear();
 
-	polyline = boundary->pack_to_polyline();
+	vector<Vertex *> polyline = boundary->pack_to_polyline();
 	assert(polyline.size()>0);
 	CDT *cdt = new CDT(polyline);
 	cdt->Triangulate();
@@ -34,6 +30,11 @@ void MyPolygon::triangulate(){
 	for(int i=0;i<tri.size();i++){
 		triangles[i] = new Triangle(*tri[i]->point(0),*tri[i]->point(1),*tri[i]->point(2));
 	}
+
+	for(Vertex *v:polyline){
+		delete v;
+	}
+	polyline.clear();
 	delete cdt;
 }
 
@@ -41,9 +42,9 @@ void MyPolygon::build_rtree(){
 	if(!this->valid_for_triangulate){
 		return;
 	}
-	if(triangles.size()>0){
-		triangulate();
-	}
+
+	triangulate();
+
 	if(rtree){
 		delete rtree;
 		rtree = NULL;
@@ -143,7 +144,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
     // Find the leftmost point
     int p = 0;
     for (int i = 1; i < n; i++)
-        if (boundary->x[i] < boundary->x[p])
+        if (boundary->p[i].x < boundary->p[p].x)
         	p = i;
 
     // Start from leftmost point, keep moving counterclockwise
@@ -166,7 +167,7 @@ VertexSequence *convexHull(VertexSequence *boundary)
         {
            // If i is more counterclockwise than current q, then
            // update q
-           if (q!=i && orientation(boundary->x[p], boundary->y[p],boundary->x[i], boundary->y[i],boundary->x[q],boundary->y[q]) == 2)
+           if (q!=i && orientation(boundary->p[p].x, boundary->p[p].y,boundary->p[i].x, boundary->p[i].y,boundary->p[q].x,boundary->p[q].y) == 2)
                q = i;
         }
 
@@ -181,11 +182,11 @@ VertexSequence *convexHull(VertexSequence *boundary)
 
    VertexSequence *ch = new VertexSequence(hull.size()+1);
    for (int i=0;i<hull.size();i++){
-	   ch->x[i] = boundary->x[hull[i]];
-	   ch->y[i] = boundary->y[hull[i]];
+	   ch->p[i].x = boundary->p[hull[i]].x;
+	   ch->p[i].y = boundary->p[hull[i]].y;
    }
-   ch->x[hull.size()] = ch->x[0];
-   ch->y[hull.size()] = ch->y[0];
+   ch->p[hull.size()].x = ch->p[0].x;
+   ch->p[hull.size()].y = ch->p[0].y;
    hull.clear();
    return ch;
 }

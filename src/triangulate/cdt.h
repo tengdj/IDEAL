@@ -53,7 +53,7 @@ public:
    * 
    * @param polyline
    */
-  CDT(std::vector<Point*> polyline);
+  CDT(std::vector<Vertex*> polyline);
   
    /**
    * Destructor - clean up memory
@@ -65,14 +65,14 @@ public:
    * 
    * @param polyline
    */
-  void AddHole(std::vector<Point*> polyline);
+  void AddHole(std::vector<Vertex*> polyline);
   
   /**
    * Add a steiner point
    * 
    * @param point
    */
-  void AddPoint(Point* point);
+  void AddPoint(Vertex* point);
   
   /**
    * Triangulate - do this AFTER you've added the polyline, holes, and Steiner points

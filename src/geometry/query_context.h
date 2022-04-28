@@ -98,6 +98,8 @@ public:
 	string target_path;
 	string valid_path;
 
+	size_t max_num_polygons = INT_MAX;
+
 	//query target, for temporary use
 	void *target = NULL;
 	void *target2 = NULL;

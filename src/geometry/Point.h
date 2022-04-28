@@ -13,9 +13,8 @@
 using namespace std;
 
 const static char *point_char = "POINT";
-
-
 class Edge;
+
 class Point{
 public:
 	double x;
@@ -60,12 +59,6 @@ public:
 
 		return p;
 	}
-
-
-	  /// The edges this point constitutes an upper ending point
-	  std::vector<Edge*> edge_list;
-
-
 	  /// Set this point to all zeros.
 	  void set_zero()
 	  {
@@ -96,6 +89,11 @@ public:
 	    v.set(-x, -y);
 	    return v;
 	  }
+
+	  Point operator-(const Point& p) const {
+		  return Point(x - p.x, y - p.y);
+	  }
+
 
 	  /// Add a point to this point.
 	  void operator +=(const Point& v)
@@ -132,18 +130,35 @@ public:
 	    y /= len;
 	    return len;
 	  }
+
+	  double cross(const Point& p) const {
+		  return x * p.y - y * p.x;
+	  }
+
+	  double cross(const Point& a, const Point& b) const {
+		  return (a - *this).cross(b - *this);
+	  }
+
 };
 
-struct Edge;
+class Vertex: public Point{
+public:
+	/// The edges this point constitutes an upper ending point
+	std::vector<Edge*> edge_list;
 
+	Vertex(double xx, double yy){
+		x = xx;
+		y = yy;
+	}
+};
 
 // Represents a simple polygon's edge
 class Edge {
 public:
-  Point* p, *q;
+  Vertex* p, *q;
 
   /// Constructor
-  Edge(Point& p1, Point& p2) : p(&p1), q(&p2)
+  Edge(Vertex& p1, Vertex& p2) : p(&p1), q(&p2)
   {
     if (p1.y > p2.y) {
       q = &p1;

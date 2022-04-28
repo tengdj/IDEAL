@@ -34,7 +34,7 @@
 
 namespace p2t {
 
-SweepContext::SweepContext(std::vector<Point*> polyline) :
+SweepContext::SweepContext(std::vector<Vertex*> polyline) :
   front_(0),
   head_(0),
   tail_(0),
@@ -50,7 +50,7 @@ SweepContext::SweepContext(std::vector<Point*> polyline) :
   InitEdges(points_);
 }
 
-//void SweepContext::AddHole(std::vector<Point*> polyline)
+//void SweepContext::AddHole(std::vector<Vertex*> polyline)
 //{
 //  InitEdges(polyline);
 //  for(unsigned int i = 0; i < polyline.size(); i++) {
@@ -58,7 +58,7 @@ SweepContext::SweepContext(std::vector<Point*> polyline) :
 //  }
 //}
 //
-//void SweepContext::AddPoint(Point* point) {
+//void SweepContext::AddPoint(Vertex* point) {
 //  points_.push_back(point);
 //}
 
@@ -79,7 +79,7 @@ void SweepContext::InitTriangulation()
 
   // Calculate bounds.
   for (unsigned int i = 0; i < points_.size(); i++) {
-    Point& p = *points_[i];
+    Vertex& p = *points_[i];
     if (p.x > xmax)
       xmax = p.x;
     if (p.x < xmin)
@@ -92,15 +92,15 @@ void SweepContext::InitTriangulation()
 
   double dx = kAlpha * (xmax - xmin);
   double dy = kAlpha * (ymax - ymin);
-  head_ = new Point(xmax + dx, ymin - dy);
-  tail_ = new Point(xmin - dx, ymin - dy);
+  head_ = new Vertex(xmax + dx, ymin - dy);
+  tail_ = new Vertex(xmin - dx, ymin - dy);
 
   // Sort points along y-axis
   std::sort(points_.begin(), points_.end(), cmp);
 
 }
 
-void SweepContext::InitEdges(std::vector<Point*> polyline)
+void SweepContext::InitEdges(std::vector<Vertex*> polyline)
 {
   int num_points = polyline.size();
   for (int i = 0; i < num_points; i++) {
@@ -109,7 +109,7 @@ void SweepContext::InitEdges(std::vector<Point*> polyline)
   }
 }
 
-Point* SweepContext::GetPoint(const int& index)
+Vertex* SweepContext::GetPoint(const int& index)
 {
   return points_[index];
 }
@@ -119,7 +119,7 @@ void SweepContext::AddToMap(Triangle* triangle)
   map_.push_back(triangle);
 }
 
-Node& SweepContext::LocateNode(Point& point)
+Node& SweepContext::LocateNode(Vertex& point)
 {
   // TODO implement search tree
   return *front_->LocateNode(point.x);

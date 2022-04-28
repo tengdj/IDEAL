@@ -9,7 +9,7 @@
 #include "MyPolygon.h"
 #include <float.h>
 #include <math.h>
-
+#include "geometry_computation.h"
 
 /*
  *
@@ -19,8 +19,8 @@
 bool VertexSequence::contain(Point &point) {
 	bool ret = false;
 	for(int i = 0,j=num_vertices-1; i < num_vertices; j=i++) {
-		if( ( (y[i] >= point.y ) != (y[j] >= point.y) ) &&
-				(point.x <= (x[j] - x[i]) * (point.y - y[i]) / (y[j] - y[i]) + x[i])){
+		if( ( (p[i].y >= point.y ) != (p[j].y >= point.y) ) &&
+				(point.x <= (p[j].x - p[i].x) * (point.y - p[i].y) / (p[j].y - p[i].y) + p[i].x)){
 			ret = !ret;
 		}
 	}
@@ -93,8 +93,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		for(edge_range &rg:target->edge_ranges){
 			for(int i = rg.vstart; i <= rg.vend; i++) {
 				int j = i+1;
-				if(((boundary->y[i] >= p.y) != (boundary->y[j] >= p.y))){
-					double int_x = (boundary->x[j] - boundary->x[i]) * (p.y - boundary->y[i]) / (boundary->y[j] - boundary->y[i]) + boundary->x[i];
+				if(((boundary->p[i].y >= p.y) != (boundary->p[j].y >= p.y))){
+					double int_x = (boundary->p[j].x - boundary->p[i].x) * (p.y - boundary->p[i].y) / (boundary->p[j].y - boundary->p[i].y) + boundary->p[i].x;
 					if(p.x <= int_x && int_x <= target->high[0]){
 						ret = !ret;
 					}
@@ -181,61 +181,73 @@ bool MyPolygon::contain(Point &p, query_context *ctx){
 		ctx->border_checked.counter++;
 		ctx->border_checked.execution_time += get_time_elapsed(start);
 
-		// qtree return
 		return contained;
 	}
 }
 
 bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
-	// check each vertex in target
-	for(int i=0;i<target->get_num_vertices();i++){
-		Point p(target->getx(i),target->gety(i));
-		if(!contain(p, ctx)){
+	if(!getMBB()->contain(*target->getMBB())){
+		//log("mbb do not contain");
+		return false;
+	}
+
+	if(raster){
+		vector<Pixel *> pxs = raster->retrieve_pixels(target->getMBB());
+		int etn = 0;
+		int itn = 0;
+		vector<Pixel *> bpxs;
+		for(Pixel *p:pxs){
+			if(p->status==OUT){
+				etn++;
+			}else if(p->status==IN){
+				itn++;
+			}else{
+				bpxs.push_back(p);
+			}
+		}
+		pxs.clear();
+
+		if(etn == pxs.size()){
 			return false;
 		}
+		if(itn == pxs.size()){
+			return true;
+		}
+
+		struct timeval start = get_cur_time();
+		if(target->raster){
+			vector<Pixel *> bpxs2;
+			for(Pixel *p:bpxs){
+				bpxs2 = target->raster->retrieve_pixels(p);
+				for(Pixel *p2:bpxs2){
+					for(edge_range &r:p->edge_ranges){
+						for(edge_range &r2:p2->edge_ranges){
+							if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size())){
+								return false;
+							}
+						}
+					}
+				}
+				bpxs2.clear();
+			}
+		}else{
+			for(Pixel *p:bpxs){
+				for(edge_range &r:p->edge_ranges){
+					if(segment_intersect_batch(this->boundary->p+r.vstart, target->boundary->p, r.size(), target->boundary->num_vertices)){
+						logt("%ld boundary %d(%ld) %d(%ld)",start,bpxs.size(),getid(),this->get_num_vertices(),target->getid(), target->get_num_vertices());
+						return false;
+					}
+				}
+			}
+		}
+		bpxs.clear();
+	} else if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices)){
+		return false;
 	}
-	return true;
-}
+	//log("do not intersect");
+	Point p(target->getx(0),target->gety(0));
+	return contain(p, ctx);
 
-/*
- *
- * distance calculation
- *
- * */
-
-inline double point_to_segment_distance(const double x, const double y, const double x1, double y1, const double x2, const double y2, bool geography = false) {
-
-  double A = x - x1;
-  double B = y - y1;
-  double C = x2 - x1;
-  double D = y2 - y1;
-
-  double dot = A * C + B * D;
-  double len_sq = C * C + D * D;
-  double param = -1;
-  if (len_sq != 0) //in case of 0 length line
-      param = dot / len_sq;
-
-  double xx, yy;
-
-  if (param < 0) {
-    xx = x1;
-    yy = y1;
-  } else if (param > 1) {
-    xx = x2;
-    yy = y2;
-  } else {
-    xx = x1 + param * C;
-    yy = y1 + param * D;
-  }
-
-  double dx = x - xx;
-  double dy = y - yy;
-  if(geography){
-      dy = dy/degree_per_kilometer_latitude;
-      dx = dx/degree_per_kilometer_longitude(y);
-  }
-  return sqrt(dx * dx + dy * dy);
 }
 
 double MyPolygon::distance(Point &p){
@@ -461,7 +473,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		if(ctx->is_within_query()&&convex_hull){
 			double min_dist = DBL_MAX;
 			for(int i=0;i<convex_hull->num_vertices-1;i++){
-				double dist = ::point_to_segment_distance(p.x, p.y, convex_hull->x[i], convex_hull->y[i], convex_hull->x[i+1], convex_hull->y[i+1], true);
+				double dist = point_to_segment_distance(p.x, p.y, convex_hull->p[i].x, convex_hull->p[i].y, convex_hull->p[i+1].x, convex_hull->p[i+1].y, true);
 				if(dist<min_dist){
 					min_dist = dist;
 				}

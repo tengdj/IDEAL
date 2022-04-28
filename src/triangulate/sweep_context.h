@@ -51,21 +51,21 @@ class SweepContext {
 public:
 
 /// Constructor
-SweepContext(std::vector<Point*> polyline);
+SweepContext(std::vector<Vertex*> polyline);
 /// Destructor
 ~SweepContext();
 
-void set_head(Point* p1);
+void set_head(Vertex* p1);
 
-Point* head();
+Vertex* head();
 
-void set_tail(Point* p1);
+void set_tail(Vertex* p1);
 
-Point* tail();
+Vertex* tail();
 
 int point_count();
 
-Node& LocateNode(Point& point);
+Node& LocateNode(Vertex& point);
 
 void RemoveNode(Node* node);
 
@@ -76,15 +76,15 @@ void MapTriangleToNodes(Triangle& t);
 
 void AddToMap(Triangle* triangle);
 
-Point* GetPoint(const int& index);
+Vertex* GetPoint(const int& index);
 
-Point* GetPoints();
+Vertex* GetPoints();
 
 void RemoveFromMap(Triangle* triangle);
 
-void AddHole(std::vector<Point*> polyline);
+void AddHole(std::vector<Vertex*> polyline);
 
-void AddPoint(Point* point);
+void AddPoint(Vertex* point);
 
 AdvancingFront* front();
 
@@ -135,19 +135,19 @@ friend class Sweep;
 
 std::vector<Triangle*> triangles_;
 std::list<Triangle*> map_;
-std::vector<Point*> points_;
+std::vector<Vertex*> points_;
 
 // Advancing front
 AdvancingFront* front_;
 // head point used with advancing front
-Point* head_;
+Vertex* head_;
 // tail point used with advancing front
-Point* tail_;
+Vertex* tail_;
 
 Node *af_head_, *af_middle_, *af_tail_;
 
 void InitTriangulation();
-void InitEdges(std::vector<Point*> polyline);
+void InitEdges(std::vector<Vertex*> polyline);
 
 };
 
@@ -161,22 +161,22 @@ inline int SweepContext::point_count()
   return points_.size();
 }
 
-inline void SweepContext::set_head(Point* p1)
+inline void SweepContext::set_head(Vertex* p1)
 {
   head_ = p1;
 }
 
-inline Point* SweepContext::head()
+inline Vertex* SweepContext::head()
 {
   return head_;
 }
 
-inline void SweepContext::set_tail(Point* p1)
+inline void SweepContext::set_tail(Vertex* p1)
 {
   tail_ = p1;
 }
 
-inline Point* SweepContext::tail()
+inline Vertex* SweepContext::tail()
 {
   return tail_;
 }

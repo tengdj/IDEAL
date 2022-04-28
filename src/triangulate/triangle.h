@@ -47,7 +47,7 @@ class Triangle {
 private:
 
 	/// Triangle points
-	Point* points_[3];
+	Vertex* points_[3];
 	/// Neighbor list
 	Triangle* neighbors_[3];
 
@@ -56,45 +56,45 @@ private:
 public:
 
 	/// Constructor
-	Triangle(Point& a, Point& b, Point& c);
+	Triangle(Vertex& a, Vertex& b, Vertex& c);
 
 	/// Flags to determine if an edge is a Constrained edge
 	bool constrained_edge[3];
 	/// Flags to determine if an edge is a Delauney edge
 	bool delaunay_edge[3];
 
-	Point* GetPoint(const int& index);
-	Point* PointCW(Point& point);
-	Point* PointCCW(Point& point);
-	Point* OppositePoint(Triangle& t, Point& p);
+	Vertex* GetPoint(const int& index);
+	Vertex* PointCW(Vertex& point);
+	Vertex* PointCCW(Vertex& point);
+	Vertex* OppositePoint(Triangle& t, Vertex& p);
 
 	Triangle* GetNeighbor(const int& index);
-	void MarkNeighbor(Point* p1, Point* p2, Triangle* t);
+	void MarkNeighbor(Vertex* p1, Vertex* p2, Triangle* t);
 	void MarkNeighbor(Triangle& t);
 
 	void MarkConstrainedEdge(const int index);
 	void MarkConstrainedEdge(Edge& edge);
-	void MarkConstrainedEdge(Point* p, Point* q);
+	void MarkConstrainedEdge(Vertex* p, Vertex* q);
 
-	int Index(const Point* p);
-	int EdgeIndex(const Point* p1, const Point* p2);
+	int Index(const Vertex* p);
+	int EdgeIndex(const Vertex* p1, const Vertex* p2);
 
-	Triangle* NeighborCW(Point& point);
-	Triangle* NeighborCCW(Point& point);
-	bool GetConstrainedEdgeCCW(Point& p);
-	bool GetConstrainedEdgeCW(Point& p);
-	void SetConstrainedEdgeCCW(Point& p, bool ce);
-	void SetConstrainedEdgeCW(Point& p, bool ce);
-	bool GetDelunayEdgeCCW(Point& p);
-	bool GetDelunayEdgeCW(Point& p);
-	void SetDelunayEdgeCCW(Point& p, bool e);
-	void SetDelunayEdgeCW(Point& p, bool e);
+	Triangle* NeighborCW(Vertex& point);
+	Triangle* NeighborCCW(Vertex& point);
+	bool GetConstrainedEdgeCCW(Vertex& p);
+	bool GetConstrainedEdgeCW(Vertex& p);
+	void SetConstrainedEdgeCCW(Vertex& p, bool ce);
+	void SetConstrainedEdgeCW(Vertex& p, bool ce);
+	bool GetDelunayEdgeCCW(Vertex& p);
+	bool GetDelunayEdgeCW(Vertex& p);
+	void SetDelunayEdgeCCW(Vertex& p, bool e);
+	void SetDelunayEdgeCW(Vertex& p, bool e);
 
-	bool Contains(Point* p);
+	bool Contains(Vertex* p);
 	bool Contains(const Edge& e);
-	bool Contains(Point* p, Point* q);
-	void Legalize(Point& point);
-	void Legalize(Point& opoint, Point& npoint);
+	bool Contains(Vertex* p, Vertex* q);
+	void Legalize(Vertex& point);
+	void Legalize(Vertex& opoint, Vertex& npoint);
 	/**
 	 * Clears all references to all other triangles and points
 	 */
@@ -106,12 +106,12 @@ public:
 	inline bool IsInterior();
 	inline void IsInterior(bool b);
 
-	Triangle& NeighborAcross(Point& opoint);
+	Triangle& NeighborAcross(Vertex& opoint);
 
 
 	void DebugPrint();
 
-	Point *point(int p){
+	Vertex *point(int p){
 		return points_[p];
 	}
 	void print(){
@@ -124,7 +124,7 @@ public:
 
 };
 
-inline bool cmp(const Point* a, const Point* b)
+inline bool cmp(const Vertex* a, const Vertex* b)
 {
   if (a->y < b->y) {
 	return true;
@@ -138,60 +138,60 @@ inline bool cmp(const Point* a, const Point* b)
 }
 
 /// Add two points_ component-wise.
-inline Point operator +(const Point& a, const Point& b)
+inline Vertex operator +(const Vertex& a, const Vertex& b)
 {
-  return Point(a.x + b.x, a.y + b.y);
+  return Vertex(a.x + b.x, a.y + b.y);
 }
 
 /// Subtract two points_ component-wise.
-inline Point operator -(const Point& a, const Point& b)
+inline Vertex operator -(const Vertex& a, const Vertex& b)
 {
-  return Point(a.x - b.x, a.y - b.y);
+  return Vertex(a.x - b.x, a.y - b.y);
 }
 
 /// Multiply point by scalar
-inline Point operator *(double s, const Point& a)
+inline Vertex operator *(double s, const Vertex& a)
 {
-  return Point(s * a.x, s * a.y);
+  return Vertex(s * a.x, s * a.y);
 }
 
-inline bool operator ==(const Point& a, const Point& b)
+inline bool operator ==(const Vertex& a, const Vertex& b)
 {
   return a.x == b.x && a.y == b.y;
 }
 
-inline bool operator !=(const Point& a, const Point& b)
+inline bool operator !=(const Vertex& a, const Vertex& b)
 {
   return !(a.x == b.x) && !(a.y == b.y);
 }
 
 /// Peform the dot product on two vectors.
-inline double Dot(const Point& a, const Point& b)
+inline double Dot(const Vertex& a, const Vertex& b)
 {
   return a.x * b.x + a.y * b.y;
 }
 
 /// Perform the cross product on two vectors. In 2D this produces a scalar.
-inline double Cross(const Point& a, const Point& b)
+inline double Cross(const Vertex& a, const Vertex& b)
 {
   return a.x * b.y - a.y * b.x;
 }
 
 /// Perform the cross product on a point and a scalar. In 2D this produces
 /// a point.
-inline Point Cross(const Point& a, double s)
+inline Vertex Cross(const Vertex& a, double s)
 {
-  return Point(s * a.y, -s * a.x);
+  return Vertex(s * a.y, -s * a.x);
 }
 
 /// Perform the cross product on a scalar and a point. In 2D this produces
 /// a point.
-inline Point Cross(const double s, const Point& a)
+inline Vertex Cross(const double s, const Vertex& a)
 {
-  return Point(-s * a.y, s * a.x);
+  return Vertex(-s * a.y, s * a.x);
 }
 
-inline Point* Triangle::GetPoint(const int& index)
+inline Vertex* Triangle::GetPoint(const int& index)
 {
   return points_[index];
 }
@@ -201,7 +201,7 @@ inline Triangle* Triangle::GetNeighbor(const int& index)
   return neighbors_[index];
 }
 
-inline bool Triangle::Contains(Point* p)
+inline bool Triangle::Contains(Vertex* p)
 {
   return p == points_[0] || p == points_[1] || p == points_[2];
 }
@@ -211,7 +211,7 @@ inline bool Triangle::Contains(const Edge& e)
   return Contains(e.p) && Contains(e.q);
 }
 
-inline bool Triangle::Contains(Point* p, Point* q)
+inline bool Triangle::Contains(Vertex* p, Vertex* q)
 {
   return Contains(p) && Contains(q);
 }

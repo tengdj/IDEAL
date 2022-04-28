@@ -18,32 +18,26 @@
 using namespace std;
 
 VertexSequence::VertexSequence(int nv){
-	x = new double[nv];
-	y = new double[nv];
+	p = new Point[nv];
 	num_vertices = nv;
 }
-VertexSequence::VertexSequence(int nv, double *xx, double *yy){
+VertexSequence::VertexSequence(int nv, Point *pp){
 	num_vertices = nv;
-	x = new double[nv];
-	y = new double[nv];
-	memcpy((char *)x,(char *)xx,num_vertices*sizeof(double));
-	memcpy((char *)y,(char *)yy,num_vertices*sizeof(double));
+	p = new Point[nv];
+	memcpy((char *)p,(char *)pp,num_vertices*sizeof(Point));
 };
 
 VertexSequence::~VertexSequence(){
-	if(x){
-		delete []x;
-	}
-	if(y){
-		delete []y;
+	if(p){
+		delete []p;
 	}
 }
 
-vector<Point *> VertexSequence::pack_to_polyline(){
-	vector<Point *> polyline;
+vector<Vertex *> VertexSequence::pack_to_polyline(){
+	vector<Vertex *> polyline;
 	polyline.resize(num_vertices-1);
 	for(int i=0;i<num_vertices-1;i++){
-		polyline[i] = new Point(x[i],y[i]);
+		polyline[i] = new Vertex(p[i].x,p[i].y);
 	}
 	return polyline;
 }
@@ -52,17 +46,17 @@ Pixel *VertexSequence::getMBR(){
 	Pixel *mbr = new Pixel();
 	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
 	for(int i=0;i<num_vertices;i++){
-		if(min_x>x[i]){
-			min_x = x[i];
+		if(min_x>p[i].x){
+			min_x = p[i].x;
 		}
-		if(max_x<x[i]){
-			max_x = x[i];
+		if(max_x<p[i].x){
+			max_x = p[i].x;
 		}
-		if(min_y>y[i]){
-			min_y = y[i];
+		if(min_y>p[i].y){
+			min_y = p[i].y;
 		}
-		if(max_y<y[i]){
-			max_y = y[i];
+		if(max_y<p[i].y){
+			max_y = p[i].y;
 		}
 	}
 	mbr->low[0] = min_x;
@@ -79,15 +73,13 @@ void VertexSequence::fix(){
 	int cur = 0;
 	int cur_store = 0;
 	while(cur<num_vertices-1){
-		if(!double_equal(x[cur],x[cur+1])||!double_equal(y[cur],y[cur+1])){
-			x[cur_store] = x[cur];
-			y[cur_store] = y[cur];
+		if(!double_equal(p[cur].x,p[cur+1].x)||!double_equal(p[cur].y,p[cur+1].y)){
+			p[cur_store] = p[cur];
 			cur_store++;
 		}
 		cur++;
 	}
-	x[cur_store] = x[cur];
-	y[cur_store] = y[cur];
+	p[cur_store] = p[cur];
 	num_vertices = cur_store+1;
 }
 
@@ -95,35 +87,29 @@ size_t VertexSequence::encode(char *dest){
 	size_t encoded = 0;
 	((long *)dest)[0] = num_vertices;
 	encoded += sizeof(long);
-	memcpy(dest+encoded,(char *)x,num_vertices*sizeof(double));
-	encoded += num_vertices*sizeof(double);
-	memcpy(dest+encoded,(char *)y,num_vertices*sizeof(double));
-	encoded += num_vertices*sizeof(double);
+	memcpy(dest+encoded,(char *)p,num_vertices*sizeof(Point));
+	encoded += num_vertices*sizeof(Point);
 	return encoded;
 }
 
 size_t VertexSequence::decode(char *source){
 	size_t decoded = 0;
 	num_vertices = ((long *)source)[0];
-	x = new double[num_vertices];
-	y = new double[num_vertices];
+	p = new Point[num_vertices];
 	decoded += sizeof(long);
-	memcpy((char *)x,source+decoded,num_vertices*sizeof(double));
-	decoded += num_vertices*sizeof(double);
-	memcpy((char *)y,source+decoded,num_vertices*sizeof(double));
-	decoded += num_vertices*sizeof(double);
+	memcpy((char *)p,source+decoded,num_vertices*sizeof(Point));
+	decoded += num_vertices*sizeof(Point);
 	return decoded;
 }
 
 size_t VertexSequence::get_data_size(){
-	return sizeof(long)+num_vertices*2*sizeof(double);
+	return sizeof(long)+num_vertices*sizeof(Point);
 }
 
 
 VertexSequence *VertexSequence::clone(){
 	VertexSequence *ret = new VertexSequence(num_vertices);
-	memcpy((void *)ret->x,(void *)x,sizeof(double)*num_vertices);
-	memcpy((void *)ret->y,(void *)y,sizeof(double)*num_vertices);
+	memcpy((void *)ret->p,(void *)p,sizeof(Point)*num_vertices);
 	return ret;
 }
 void VertexSequence::print(){
@@ -132,8 +118,8 @@ void VertexSequence::print(){
 		if(i!=0){
 			cout<<",";
 		}
-		printf("%f ",x[i]);
-		printf("%f",y[i]);
+		printf("%f ",p[i].x);
+		printf("%f",p[i].y);
 	}
 	cout<<")";
 }
@@ -141,7 +127,7 @@ void VertexSequence::print(){
 double VertexSequence::area(){
 	double sum = 0;
 	for(int i=0;i<num_vertices-1;i++){
-		sum += (x[i]-x[i+1])*(y[i+1]+y[i]);
+		sum += (p[i].x-p[i+1].x)*(p[i+1].y+p[i].y);
 	}
 	return sum;
 }
@@ -151,14 +137,11 @@ bool VertexSequence::clockwise(){
 }
 
 void VertexSequence::reverse(){
-	double tmp = 0;
+	Point tmp;
 	for(int i=0;i<num_vertices/2;i++){
-		tmp = x[i];
-		x[i] = x[num_vertices-1-i];
-		x[num_vertices-1-i] = tmp;
-		tmp = y[i];
-		y[i] = y[num_vertices-1-i];
-		y[num_vertices-1-i] = tmp;
+		tmp = p[i];
+		p[i] = p[num_vertices-1-i];
+		p[num_vertices-1-i] = tmp;
 	}
 }
 
@@ -180,8 +163,8 @@ VertexSequence *MyPolygon::read_vertices(const char *wkt, size_t &offset, bool c
 
 	// read x/y
 	for(int i=0;i<num_vertices;i++){
-		vs->x[i] = read_double(wkt, offset);
-		vs->y[i] = read_double(wkt, offset);
+		vs->p[i].x = read_double(wkt, offset);
+		vs->p[i].y = read_double(wkt, offset);
 	}
 	if(clockwise){
 		if(!vs->clockwise()){
@@ -210,8 +193,7 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 	}
 	MyPolygon *poly = new MyPolygon();
 	poly->boundary = new VertexSequence(num_vertices);
-	infile.read((char *)poly->boundary->x,num_vertices*sizeof(double));
-	infile.read((char *)poly->boundary->y,num_vertices*sizeof(double));
+	infile.read((char *)poly->boundary->p,num_vertices*sizeof(Point));
 	if(poly->boundary->clockwise()){
 		poly->boundary->reverse();
 	}
@@ -225,8 +207,7 @@ MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
 		infile.read((char *)&num_vertices,sizeof(long));
 		assert(num_vertices);
 		VertexSequence *vs = new VertexSequence(num_vertices);
-		infile.read((char *)vs->x,num_vertices*sizeof(double));
-		infile.read((char *)vs->y,num_vertices*sizeof(double));
+		infile.read((char *)vs->p,num_vertices*sizeof(Point));
 		if(!vs->clockwise()){
 			vs->reverse();
 		}
@@ -259,7 +240,7 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 }
 
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context ctx, bool sample){
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -271,10 +252,19 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	infile.open(path, ios::in | ios::binary);
 	size_t off;
 	size_t num_polygons = 0;
+	infile.seekg(0, infile.end);
 	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
 	infile.read((char *)&num_polygons, sizeof(size_t));
+	assert(num_polygons>0 && "the file should contain at least one polygon");
 	size_t *offsets = new size_t[num_polygons];
+
+	infile.seekg(-sizeof(size_t)*(num_polygons+1), infile.end);
 	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
+	num_polygons = min(num_polygons, ctx.max_num_polygons);
+
+	log("loaded %ld",num_polygons);
+
 	size_t num_edges = 0;
 	size_t data_size = 0;
 	int next = 10;
@@ -369,10 +359,6 @@ MyPolygon::~MyPolygon(){
 	if(rtree){
 		delete rtree;
 	}
-	for(Point *p:polyline){
-		delete p;
-	}
-	polyline.clear();
 	for(Triangle *tri:triangles){
 		delete tri;
 	}
@@ -418,16 +404,16 @@ size_t MyPolygon::decode_from(char *source){
 MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_y){
 	MyPolygon *mbr = new MyPolygon();
 	mbr->boundary = new VertexSequence(5);
-	mbr->boundary->x[0] = min_x;
-	mbr->boundary->y[0] = min_y;
-	mbr->boundary->x[1] = max_x;
-	mbr->boundary->y[1] = min_y;
-	mbr->boundary->x[2] = max_x;
-	mbr->boundary->y[2] = max_y;
-	mbr->boundary->x[3] = min_x;
-	mbr->boundary->y[3] = max_y;
-	mbr->boundary->x[4] = min_x;
-	mbr->boundary->y[4] = min_y;
+	mbr->boundary->p[0].x = min_x;
+	mbr->boundary->p[0].y = min_y;
+	mbr->boundary->p[1].x = max_x;
+	mbr->boundary->p[1].y = min_y;
+	mbr->boundary->p[2].x = max_x;
+	mbr->boundary->p[2].y = max_y;
+	mbr->boundary->p[3].x = min_x;
+	mbr->boundary->p[3].y = max_y;
+	mbr->boundary->p[4].x = min_x;
+	mbr->boundary->p[4].y = min_y;
 	return mbr;
 }
 
@@ -493,8 +479,10 @@ void MyPolygon::print_triangles(){
 	printf(")\n");
 }
 
-void MyPolygon::print(bool print_hole){
-	cout<<"id:\t"<<this->id<<endl;
+void MyPolygon::print(bool print_id, bool print_hole){
+	if(print_id){
+		cout<<"id:\t"<<this->id<<endl;
+	}
 	cout<<"POLYGON";
 	print_without_head(print_hole);
 	cout<<endl;
@@ -514,7 +502,7 @@ string MyPolygon::to_string(bool clockwise){
 			if(i!=0){
 				ss<<",";
 			}
-			sprintf(double_str,"%f %f",boundary->x[i],boundary->y[i]);
+			sprintf(double_str,"%f %f",boundary->p[i].x,boundary->p[i].y);
 			ss<<double_str;
 		}
 	}else{
@@ -522,7 +510,7 @@ string MyPolygon::to_string(bool clockwise){
 			if(i!=boundary->num_vertices-1){
 				ss<<",";
 			}
-			sprintf(double_str,"%f %f",boundary->x[i],boundary->y[i]);
+			sprintf(double_str,"%f %f",boundary->p[i].x,boundary->p[i].y);
 			ss<<double_str;
 		}
 	}

@@ -40,7 +40,7 @@ struct Node;
 
 // Advancing front node
 struct Node {
-  Point* point;
+  Vertex* point;
   Triangle* triangle;
 
   Node* next;
@@ -48,11 +48,11 @@ struct Node {
 
   double value;
 
-  Node(Point& p) : point(&p), triangle(NULL), next(NULL), prev(NULL), value(p.x)
+  Node(Vertex& p) : point(&p), triangle(NULL), next(NULL), prev(NULL), value(p.x)
   {
   }
 
-  Node(Point& p, Triangle& t) : point(&p), triangle(&t), next(NULL), prev(NULL), value(p.x)
+  Node(Vertex& p, Triangle& t) : point(&p), triangle(&t), next(NULL), prev(NULL), value(p.x)
   {
   }
 
@@ -76,7 +76,7 @@ void set_search(Node* node);
 /// Locate insertion point along advancing front
 Node* LocateNode(const double& x);
 
-Node* LocatePoint(const Point* point);
+Node* LocatePoint(const Vertex* point);
 
 private:
 

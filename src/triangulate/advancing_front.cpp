@@ -68,7 +68,7 @@ Node* AdvancingFront::FindSearchNode(const double& x)
   return search_node_;
 }
 
-Node* AdvancingFront::LocatePoint(const Point* point)
+Node* AdvancingFront::LocatePoint(const Vertex* point)
 {
   const double px = point->x;
   Node* node = FindSearchNode(px);
