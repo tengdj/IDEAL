@@ -16,7 +16,11 @@
  *
  * */
 
-// calculating the distance between a point to a segment
+/*
+ *
+ * calculating distance between point and polygon
+ *
+ * */
 inline double point_to_segment_distance(const double x, const double y, const double x1, double y1, const double x2, const double y2, bool geography = false) {
 
   double A = x - x1;
@@ -52,11 +56,43 @@ inline double point_to_segment_distance(const double x, const double y, const do
   return sqrt(dx * dx + dy * dy);
 }
 
-inline double segment_to_segment_distance(const double x11, const double y11, const double x12, const double y12,
-	  	  	  	  	  	  	  	  	  	  const double x21, const double y21, const double x22, const double y22,
-										  bool geography = false) {
-	return 0;
+inline double point_to_segment_distance_batch(Point &p, Point *vs, size_t seq_len, bool geography = false){
+    double mindist = DBL_MAX;
+    for (int i = 0; i < seq_len-1; i++) {
+        double dist = point_to_segment_distance(p.x, p.y, vs[i].x, vs[i].y, vs[i+1].x, vs[i+1].y, geography);
+        if(dist<mindist){
+            mindist = dist;
+        }
+    }
+    return mindist;
 }
+
+/*
+ * calculating distance between segments, for distance calculation between polygons
+ * */
+
+inline double segment_to_segment_distance_batch(Point *vs1, Point *vs2, size_t s1, size_t s2, bool geography = false){
+    double mindist = DBL_MAX;
+	for(int i=0;i<s1;i++){
+		double dist = point_to_segment_distance_batch(vs1[i], vs2, s2, geography);
+		if(dist<mindist){
+			mindist = dist;
+		}
+	}
+	for(int i=0;i<s2;i++){
+		double dist = point_to_segment_distance_batch(vs2[i], vs1, s1, geography);
+		if(dist<mindist){
+			mindist = dist;
+		}
+	}
+	return mindist;
+}
+
+/*
+ *
+ * checking whether two polygons intersect
+ *
+ * */
 
 inline int sgn(const double& x) {
 	return x >= 0 ? x ? 1 : 0 : -1;

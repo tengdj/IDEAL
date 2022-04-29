@@ -62,7 +62,7 @@ void *query(void *args){
 int main(int argc, char** argv) {
 
 	query_context global_ctx;
-	//global_ctx.max_num_polygons = 1000;
+	global_ctx.max_num_polygons = 100;
 	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/data/source.dat",global_ctx, false);
 
 	timeval start = get_cur_time();
@@ -72,6 +72,26 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %ld nodes", start, source_polygons.size());
 	query_context ctx(global_ctx);
+	int p1 = 28;
+	int p2 = 4;
+	for(MyPolygon *p:source_polygons)
+	{
+//		if(p->getid()!=p2){
+//			continue;
+//		}
+		//double dist = source_polygons[p1]->distance(p, &ctx);
+		double dist = p->distance(source_polygons[p1], &ctx);
+
+		//source_polygons[p1]->print(false);
+		//source_polygons[p2]->print(false);
+		logt("%d-%d:\t%f %ld %ld",start,source_polygons[p1]->getid(),p->getid(),dist,source_polygons[p1]->get_num_vertices(),p->get_num_vertices());
+	}
+
+
+//	for(MyPolygon *p:source_polygons){
+//		log("%d %d", p->getid(), p->get_num_vertices());
+//	}
+	return 0;
 	int i=0;
 	for(MyPolygon *p:source_polygons){
 		struct timeval start = get_cur_time();

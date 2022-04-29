@@ -45,53 +45,65 @@ bool box::contain(Point &p){
 		   p.y<=high[1];
 }
 
-
-
 double box::area(){
 	return (high[0]-low[0])*(high[1]-low[1]);
 }
 
+double box::distance(box &t, bool geography){
+	if(this->intersect(t)){
+		return 0;
+	}
+	double dx = 0;
+	double dy = 0;
 
+	if(t.low[1]>high[1]){
+		dy = t.low[1] - high[1];
+	}else if(t.high[1]<low[1]){
+		dy = low[1] - t.high[1];
+	}else{
+		dy = 0;
+	}
 
-double box::distance(Point &p){
+	if(t.low[0]>high[0]){
+		dx = t.low[0] - high[0];
+	}else if(t.high[0]<low[0]){
+		dx = low[0] - t.high[0];
+	}else{
+		dx = 0;
+	}
+
+	if(geography){
+		dy = dy/degree_per_kilometer_latitude;
+		dx = dx/degree_per_kilometer_longitude(low[1]);
+	}
+	return sqrt(dx * dx + dy * dy);
+}
+
+double box::max_distance(box &target, bool geography){
+	double highx = max(high[0],target.high[0]);
+	double highy = max(high[1],target.high[1]);
+	double lowx = min(low[0], target.low[0]);
+	double lowy = min(low[1], target.low[1]);
+	double dx = highx - lowx;
+	double dy = highy - lowy;
+	if(geography){
+		dy = dy/degree_per_kilometer_latitude;
+		dx = dx/degree_per_kilometer_longitude(low[1]);
+	}
+	return sqrt(dx * dx + dy * dy);
+}
+
+double box::distance(Point &p, bool geography){
 	if(this->contain(p)){
 		return 0;
 	}
 	double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
 	double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
+	if(geography){
+		dy = dy/degree_per_kilometer_latitude;
+		dx = dx/degree_per_kilometer_longitude(p.y);
+	}
 	return sqrt(dx * dx + dy * dy);
-}
-
-double box::distance_geography(Point &p){
-	if(this->contain(p)){
-		return 0.0;
-	}
-	double dx = max(abs(p.x-(low[0]+high[0])/2) - (high[0]-low[0])/2, 0.0);
-	double dy = max(abs(p.y-(low[1]+high[1])/2) - (high[1]-low[1])/2, 0.0);
-	dy = dy/degree_per_kilometer_latitude;
-	dx = dx/degree_per_kilometer_longitude(p.y);
-	return sqrt(dx * dx + dy * dy);
-}
-
-double box::max_distance(Point &p){
-	double md = 0;
-	double dist = (p.x-low[0])*(p.x-low[0])+(p.y-low[1])*(p.y-low[1]);
-	if(dist>md){
-		md = dist;
-	}
-	dist = (p.x-low[0])*(p.x-low[0])+(p.y-high[1])*(p.y-high[1]);
-	if(dist>md){
-		md = dist;
-	}
-	dist = (p.x-high[0])*(p.x-high[0])+(p.y-low[1])*(p.y-low[1]);
-	if(dist>md){
-		md = dist;
-	}
-	dist = (p.x-high[0])*(p.x-high[0])+(p.y-high[1])*(p.y-high[1]);
-	if(dist>md){
-		md = dist;
-	}
-	return sqrt(md);
 }
 
 inline double geogdist(double x1, double y1, double x2, double y2){
@@ -103,23 +115,16 @@ inline double geogdist(double x1, double y1, double x2, double y2){
 	return dx*dx+dy*dy;
 }
 
-double box::max_distance_geography(Point &p){
-	double md = 0;
-	double dist = geogdist(p.x, p.y, low[0], low[1]);
-	md = dist;
-	dist = geogdist(p.x, p.y, low[0], high[1]);
-	if(dist>md){
-		md = dist;
+double box::max_distance(Point &p, bool geography){
+
+	double dx = max(abs(p.x-low[0]), abs(p.x-high[0]));
+	double dy = max(abs(p.y-low[1]), abs(p.y-high[1]));
+
+	if(geography){
+		dy = dy/degree_per_kilometer_latitude;
+		dx = dx/degree_per_kilometer_longitude(p.y);
 	}
-	dist = geogdist(p.x, p.y, high[0], low[1]);
-	if(dist>md){
-		md = dist;
-	}
-	dist = geogdist(p.x, p.y, high[0], high[1]);
-	if(dist>md){
-		md = dist;
-	}
-	return sqrt(md);
+	return sqrt(dx*dx+dy*dy);
 }
 
 void box::print_vertices(){
@@ -138,13 +143,10 @@ void box::print(){
 
 }
 
-
 void Pixel::enter(double val, Direction d, int vnum){
 	intersection_nodes[d].push_back(val);
 	crosses.push_back(cross_info(ENTER,vnum));
 }
-
-
 
 void Pixel::leave(double val, Direction d, int vnum){
 	intersection_nodes[d].push_back(val);
@@ -194,11 +196,9 @@ void Pixel::process_crosses(int num_edges){
 }
 
 int Pixel::num_edges_covered(){
-		int c = 0;
-		for(edge_range &r:edge_ranges){
-			c += r.vend-r.vstart+1;
-		}
-		return c;
+	int c = 0;
+	for(edge_range &r:edge_ranges){
+		c += r.vend-r.vstart+1;
 	}
-
-
+	return c;
+}

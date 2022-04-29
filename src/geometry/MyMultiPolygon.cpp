@@ -81,5 +81,15 @@ void MyMultiPolygon::print_separate(){
 	}
 }
 
+void print_boxes(vector<Pixel *> boxes){
+	MyMultiPolygon *cboxes = new MyMultiPolygon();
+	for(Pixel *p:boxes){
+		MyPolygon *m = MyPolygon::gen_box(*p);
+		cboxes->insert_polygon(m);
+	}
+	cboxes->print();
+	delete cboxes;
+}
+
 
 

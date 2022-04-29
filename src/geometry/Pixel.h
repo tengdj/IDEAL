@@ -62,10 +62,12 @@ public:
 	bool intersect(box &target);
 	bool contain(box &target);
 	bool contain(Point &p);
-	double max_distance(Point &p);
-	double distance(Point &p);
-    double distance_geography(Point &p);
-    double max_distance_geography(Point &p);
+
+	double distance(box &target, bool geography = false);
+	double max_distance(box &target, bool geography = false);
+
+	double distance(Point &p, bool geography = false);
+	double max_distance(Point &p, bool geography = false);
 
 	void print_vertices();
 	void print();
@@ -117,6 +119,9 @@ public:
 	vector<double> intersection_nodes[4];
 
 public:
+	bool is_boundary(){
+		return status = BORDER;
+	}
 	Pixel(){}
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);

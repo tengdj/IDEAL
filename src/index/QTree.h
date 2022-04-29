@@ -45,12 +45,7 @@ class QTNode{
 		if(interior || exterior){
 			return;
 		}
-		double tmpd;
-		if(geography){
-			tmpd = mbr.distance_geography(p);
-		}else{
-			tmpd = mbr.distance(p);
-		}
+		double tmpd = mbr.distance(p, geography);
 
 		if(!isleaf){
 			for(QTNode *c:children){
@@ -155,7 +150,7 @@ public:
 		if(isleaf&&(interior||exterior)){
 			return false;
 		}
-		if(mbr.distance_geography(p)<=within_dist){
+		if(mbr.distance(p, true)<=within_dist){
 			if(isleaf){
 				// boundary pixel
 				return true;
@@ -172,7 +167,7 @@ public:
 	}
 
 	void retrieve_within(Point &p, vector<QTNode *> &candidates, double within_dist){
-		if(this->mbr.distance_geography(p)<=within_dist){
+		if(this->mbr.distance(p, true)<=within_dist){
 			if(isleaf){
 				if(!interior&&!exterior){
 					candidates.push_back(this);

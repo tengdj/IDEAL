@@ -79,9 +79,13 @@ public:
 	~MyRaster();
 
 	bool contain(Pixel *,bool &contained);
-	vector<Pixel *> get_pixels(Pixel *pix);
+	vector<Pixel *> get_intersect_pixels(Pixel *pix);
+	vector<Pixel *> get_closest_pixels(Pixel *target);
 	Pixel *get_pixel(Point &p);
 	Pixel *get_closest_pixel(Point &p);
+	Pixel *get_closest_pixel(Pixel *target);
+	vector<Pixel *> expand_radius(Pixel *center, int step);
+
 	int get_offset_x(double x);
 	int get_offset_y(double y);
 
@@ -204,7 +208,7 @@ public:
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx);
-	double distance(Point &p);// brute-forcely calculate distance
+	double distance(MyPolygon *target, query_context *ctx);
 	double distance_rtree(Point &p, query_context *ctx);
 
 	void print_without_head(bool print_hole = false);
@@ -314,7 +318,7 @@ public:
 
 
 //utility functions
-
+void print_boxes(vector<Pixel *> boxes);
 void process_partition(query_context *ctx);
 void process_convex_hull(query_context *ctx);
 void process_mer(query_context *ctx);

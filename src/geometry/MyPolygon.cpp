@@ -183,7 +183,7 @@ VertexSequence *MyPolygon::read_vertices(const char *wkt, size_t &offset, bool c
 }
 
 
-MyPolygon * MyPolygon::read_polygon_binary_file(ifstream &infile){
+MyPolygon *MyPolygon::read_polygon_binary_file(ifstream &infile){
 	long num_holes = 0;
 	infile.read((char *)&num_holes,sizeof(long));
 	long num_vertices = 0;
@@ -238,7 +238,6 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 	return poly;
 
 }
-
 
 vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample){
 	vector<MyPolygon *> polygons;
@@ -648,8 +647,6 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	return qtree;
 }
 
-
-
 vector<vector<Pixel>> MyPolygon::decode_partition(char *data){
 	assert(data);
 	vector<vector<Pixel>> partitions;
@@ -735,8 +732,6 @@ char *MyPolygon::encode_partition(vector<vector<Pixel>> partitions){
 	return data;
 }
 
-
-
 size_t MyPolygon::partition_size(){
 	size_t size = 0;
 	const int nump = raster->get_num_pixels();
@@ -765,9 +760,3 @@ size_t MyPolygon::partition_size(){
 	int numc = raster->get_num_crosses();
 	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;
 }
-
-
-
-
-
-

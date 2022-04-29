@@ -309,11 +309,13 @@ void MyRaster::rasterization(){
 	scanline_reandering();
 }
 
+// the range must be [0, dimx]
 int MyRaster::get_offset_x(double xval){
 	assert(mbr);
 	int x = double_to_int((xval-mbr->low[0])/step_x);
 	return min(max(x, 0), dimx);
 }
+// the range must be [0, dimy]
 int MyRaster::get_offset_y(double yval){
 	assert(mbr);
 	int y = double_to_int((yval-mbr->low[1])/step_y);
@@ -326,6 +328,49 @@ Pixel *MyRaster::get_pixel(Point &p){
 	assert(yoff<=dimy);
 	return pixels[xoff][yoff];
 }
+
+
+vector<Pixel *> MyRaster::expand_radius(Pixel *center, int step){
+
+	vector<Pixel *> needprocess;
+	int ymin = max(0,center->id[1]-step);
+	int ymax = min(get_dimy(),center->id[1]+step);
+
+	//left scan
+	if(center->id[0]-step>=0){
+		for(int y=ymin;y<=ymax;y++){
+			needprocess.push_back(get(center->id[0]-step,y));
+		}
+	}
+	//right scan
+	if(center->id[0]+step<=get_dimx()){
+		for(int y=ymin;y<=ymax;y++){
+			needprocess.push_back(get(center->id[0]+step,y));
+		}
+	}
+
+	// skip the first if there is left scan
+	int xmin = max(0,center->id[0]-step+(center->id[0]-step>=0));
+	// skip the last if there is right scan
+	int xmax = min(get_dimx(),center->id[0]+step-(center->id[0]+step<=get_dimx()));
+	//bottom scan
+	if(center->id[1]-step>=0){
+		for(int x=xmin;x<=xmax;x++){
+			needprocess.push_back(get(x,center->id[1]-step));
+		}
+	}
+	//top scan
+	if(center->id[1]+step<=get_dimy()){
+		for(int x=xmin;x<=xmax;x++){
+			needprocess.push_back(get(x,center->id[1]+step));
+		}
+	}
+
+	return needprocess;
+}
+
+
+
 Pixel *MyRaster::get_closest_pixel(Point &p){
 	int pixx = get_offset_x(p.x);
 	int pixy = get_offset_y(p.y);
@@ -344,17 +389,49 @@ Pixel *MyRaster::get_closest_pixel(Point &p){
 	return pixels[pixx][pixy];
 }
 
+// retrieve the pixels in the raster which is closest to the target pixels
+vector<Pixel *> MyRaster::get_closest_pixels(Pixel *target){
 
-vector<Pixel *> MyRaster::get_pixels(Pixel *b){
+	// note that at 0 or dimx/dimy will be returned if
+	// the range of target is beyound this, as expected
+	int txstart = get_offset_x(target->low[0]);
+	int txend = get_offset_x(target->high[0]);
+	int tystart = get_offset_y(target->low[1]);
+	int tyend = get_offset_y(target->high[1]);
+	vector<Pixel *> ret;
+	for(int i=txstart;i<=txend;i++){
+		for(int j=tystart;j<=tyend;j++){
+			ret.push_back(pixels[i][j]);
+		}
+	}
+	return ret;
+}
+
+// retrieve the pixel in the raster which is closest to the target pixels
+// pick the one in the middle if there is multiple pixels
+Pixel * MyRaster::get_closest_pixel(Pixel *target){
+
+	// note that at 0 or dimx/dimy will be returned if
+	// the range of target is beyound this, as expected
+	int txstart = get_offset_x(target->low[0]);
+	int txend = get_offset_x(target->high[0]);
+	int tystart = get_offset_y(target->low[1]);
+	int tyend = get_offset_y(target->high[1]);
+
+	return pixels[(txstart+txend)/2][(tystart+tyend)/2];
+}
+
+
+vector<Pixel *> MyRaster::get_intersect_pixels(Pixel *b){
 
 	// test all the pixels
 	int txstart = get_offset_x(b->low[0]);
 	int tystart = get_offset_y(b->low[1]);
 
-	double width_d = (b->high[0]-b->low[0]+this->step_x*0.9999999)/this->step_x;
+	double width_d = (b->high[0]-b->low[0]+step_x*0.9999999)/step_x;
 	int width = double_to_int(width_d);
 
-	double height_d = (b->high[1]-b->low[1]+this->step_y*0.9999999)/this->step_y;
+	double height_d = (b->high[1]-b->low[1]+step_y*0.9999999)/step_y;
 	int height = double_to_int(height_d);
 
 	vector<Pixel *> ret;
@@ -535,8 +612,8 @@ bool MyRaster::contain(Pixel *b, bool &contained){
 		contained = false;
 		return true;
 	}
-	// test all the pixels
-	vector<Pixel *> covered = get_pixels(b);
+	// test all the pixels that intersects b
+	vector<Pixel *> covered = get_intersect_pixels(b);
 
 	int incount = 0;
 	int outcount = 0;
