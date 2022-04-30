@@ -49,6 +49,9 @@ double box::area(){
 	return (high[0]-low[0])*(high[1]-low[1]);
 }
 
+/*
+ * distance related functions
+ * */
 double box::distance(box &t, bool geography){
 	if(this->intersect(t)){
 		return 0;
@@ -106,15 +109,6 @@ double box::distance(Point &p, bool geography){
 	return sqrt(dx * dx + dy * dy);
 }
 
-inline double geogdist(double x1, double y1, double x2, double y2){
-
-	double dx = x2-x1;
-	double dy = y2-y1;
-	dy = dy/degree_per_kilometer_latitude;
-	dx = dx/degree_per_kilometer_longitude(y1);
-	return dx*dx+dy*dy;
-}
-
 double box::max_distance(Point &p, bool geography){
 
 	double dx = max(abs(p.x-low[0]), abs(p.x-high[0]));
@@ -127,6 +121,9 @@ double box::max_distance(Point &p, bool geography){
 	return sqrt(dx*dx+dy*dy);
 }
 
+/*
+ * print functions
+ * */
 void box::print_vertices(){
 	printf("%f %f, %f %f, %f %f, %f %f, %f %f",
 				low[0],low[1],

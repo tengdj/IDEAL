@@ -84,6 +84,7 @@ public:
 	Pixel *get_pixel(Point &p);
 	Pixel *get_closest_pixel(Point &p);
 	Pixel *get_closest_pixel(Pixel *target);
+	vector<Pixel *> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<Pixel *> expand_radius(Pixel *center, int step);
 
 	int get_offset_x(double x);
@@ -92,9 +93,8 @@ public:
 	/* statistics collection*/
 	int count_intersection_nodes(Point &p);
 	int get_num_border_edge();
-	int get_num_pixels(PartitionStatus status);
-
 	size_t get_num_pixels();
+	size_t get_num_pixels(PartitionStatus status);
 	size_t get_num_gridlines();
 	size_t get_num_crosses();
 	void print();
@@ -114,8 +114,12 @@ public:
 	double get_step_y(){
 		return step_y;
 	}
-	double get_step(){
-		return min(step_x, step_y);
+	double get_step(bool geography){
+		if(geography){
+			return min(step_x/degree_per_kilometer_longitude(mbr->low[1]), step_y/degree_per_kilometer_latitude);
+		}else{
+			return min(step_x, step_y);
+		}
 	}
 	int get_dimx(){
 		return dimx;
@@ -164,6 +168,24 @@ public:
 	MyPolygon *clone();
 	MyRaster *get_rastor(){
 		return raster;
+	}
+	size_t get_num_pixels(){
+		if(raster){
+			return raster->get_num_pixels();
+		}
+		return 0;
+	}
+	size_t get_num_pixels(PartitionStatus status){
+		if(raster){
+			return raster->get_num_pixels(status);
+		}
+		return 0;
+	}
+	double get_pixel_portion(PartitionStatus status){
+		if(raster){
+			return 1.0*get_num_pixels(status)/get_num_pixels();
+		}
+		return 0.0;
 	}
 
 	void triangulate();
@@ -243,6 +265,10 @@ public:
 	inline double gety(int index){
 		assert(boundary&&index<boundary->num_vertices);
 		return boundary->p[index].y;
+	}
+	inline Point *get_point(int index){
+		assert(boundary&&index<boundary->num_vertices);
+		return &boundary->p[index];
 	}
 
 	inline int getid(){

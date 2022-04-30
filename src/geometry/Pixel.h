@@ -63,11 +63,11 @@ public:
 	bool contain(box &target);
 	bool contain(Point &p);
 
-	double distance(box &target, bool geography = false);
-	double max_distance(box &target, bool geography = false);
+	double distance(box &target, bool geography);
+	double max_distance(box &target, bool geography);
 
-	double distance(Point &p, bool geography = false);
-	double max_distance(Point &p, bool geography = false);
+	double distance(Point &p, bool geography);
+	double max_distance(Point &p, bool geography);
 
 	void print_vertices();
 	void print();
@@ -120,7 +120,7 @@ public:
 
 public:
 	bool is_boundary(){
-		return status = BORDER;
+		return status == BORDER;
 	}
 	Pixel(){}
 	void enter(double val, Direction d, int vnum);

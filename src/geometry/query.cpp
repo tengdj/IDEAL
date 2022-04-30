@@ -269,11 +269,11 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 		for(int i=0;i<s;i++){
 			RTNode *pix = pixq.front();
 			pixq.pop();
-			double mindist = pix->distance(p);
+			double mindist = pix->distance(p,ctx->geography);
 			if(mindist>ctx->distance){
 				continue;
 			}
-			double maxdist = pix->max_distance(p);
+			double maxdist = pix->max_distance(p,ctx->geography);
 
 			if(maxdist<ctx->distance){
 				ctx->distance = maxdist;
@@ -287,9 +287,7 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 				if(pr.first->children.size()==0){
 					Triangle *triangle = (Triangle *)pr.first->node_element;
 					for(int i=0,j=2;i<=2;j=i++){
-						Point *start = triangle->point(i);
-						Point *end = triangle->point(j);
-						double dist = point_to_segment_distance(p.x, p.y, start->x, start->y, end->x, end->y);
+						double dist = point_to_segment_distance(p, *triangle->point(i), *triangle->point(j),ctx->geography);
 						if(ctx->distance>dist){
 							ctx->distance = dist;
 						}
@@ -312,7 +310,7 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 double MyPolygon::distance(Point &p, query_context *ctx){
 
 	// distance is 0 if contained by the polygon
-	double mindist = getMBB()->max_distance(p);
+	double mindist = getMBB()->max_distance(p, ctx->geography);
 	query_context tmpctx = *ctx;
 	tmpctx.perform_refine = true;
 	struct timeval query_start = get_cur_time();
@@ -326,24 +324,13 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 	ctx->object_checked.counter++;
 
 	if(raster){
-		double mbrdist = mbr->distance(p);
+		double mbrdist = mbr->distance(p,ctx->geography);
 
 		//initialize the starting pixel
 		Pixel *closest = raster->get_closest_pixel(p);
-
 		int step = 0;
-		double step_size = raster->get_step();
-
+		double step_size = raster->get_step(ctx->geography);
 		vector<Pixel *> needprocess;
-//		needprocess = raster->get_pixels(BORDER);
-//		for(Pixel *pix:needprocess){
-//			if(pix->distance_geography(p)<=ctx->distance_buffer_size){
-//				ctx->refine_count++;
-//				break;
-//			}
-//		}
-//		needprocess.clear();
-//		return 0;
 
 		bool there_is_border = false;
 		bool border_checked = false;
@@ -359,20 +346,20 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 			if(needprocess.size()==0){
 				//assert(false&&"should not evaluated all boxes");
 				ctx->refine_count++;
-				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices);
+				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
 			}
 			ctx->pixel_evaluated.counter += needprocess.size();
 			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
 			for(Pixel *cur:needprocess){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
-				if(cur->status==BORDER){
+				if(cur->is_boundary()){
 					there_is_border = true;
 					start = get_cur_time();
 					ctx->border_evaluated.counter++;
 					// no need to check the edges of this pixel
-					bool toofar = ctx->is_within_query() && cur->distance(p, true)>ctx->distance_buffer_size;
-					bool tooclose = cur->distance(p)>=mindist;
+					bool toofar = ctx->is_within_query() && cur->distance(p, ctx->geography)>ctx->distance_buffer_size;
+					bool tooclose = cur->distance(p,ctx->geography)>=mindist;
 					ctx->border_evaluated.execution_time += get_time_elapsed(start);
 					if(toofar||tooclose){
 						continue;
@@ -385,7 +372,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 					int edge_num = 0;
 					for(edge_range &rg:cur->edge_ranges){
 						for (int i = rg.vstart; i <= rg.vend; i++) {
-							double dist = point_to_segment_distance(p.x, p.y, getx(i), gety(i), getx(i+1), gety(i+1));
+							double dist = point_to_segment_distance(p, *get_point(i), *get_point(i+1),ctx->geography);
 							if(dist<mindist){
 								mindist = dist;
 							}
@@ -397,10 +384,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				}
 			}
 			//printf("point to polygon distance - step:%d #pixels:%ld radius:%f mindist:%f\n",step,needprocess.size(),mbrdist+step*step_size,mindist);
-
 			needprocess.clear();
-
-
 			// for within query, if all firstly processed boundary pixels
 			// are not within the distance, it is for sure no edge will
 			// be in the specified distance
@@ -408,7 +392,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return mindist;
 			}
 
-			if(mindist<mbrdist+step*step_size){
+			if(mindist<=mbrdist+step*step_size){
 				break;
 			}
 
@@ -427,7 +411,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		ctx->refine_count++;
 		if(ctx->perform_refine){
 			ctx->edge_checked.counter += this->get_num_vertices();
-			return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices);
+			return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
 		}
 		return DBL_MAX;
 	}else{
@@ -435,7 +419,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 		if(ctx->is_within_query()&&convex_hull){
 			double min_dist = DBL_MAX;
 			for(int i=0;i<convex_hull->num_vertices-1;i++){
-				double dist = point_to_segment_distance(p.x, p.y, convex_hull->p[i].x, convex_hull->p[i].y, convex_hull->p[i+1].x, convex_hull->p[i+1].y, true);
+				double dist = point_to_segment_distance(p, convex_hull->p[i], convex_hull->p[i+1], ctx->geography);
 				if(dist<min_dist){
 					min_dist = dist;
 				}
@@ -452,7 +436,7 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 				return distance_rtree(p,ctx);
 			}else{
 				ctx->edge_checked.counter += get_num_vertices();
-				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices);
+				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
 			}
 		}else{
 			return DBL_MAX;
@@ -464,18 +448,31 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 
 	if(raster){
-		Pixel *closest = raster->get_closest_pixel(target->getMBB());
-		double mindist = getMBB()->max_distance(*target->getMBB());
+		double mindist = getMBB()->max_distance(*target->getMBB(), ctx->geography);
+		double mbrdist = getMBB()->distance(*target->getMBB(),ctx->geography);
+		double min_mbrdist = mbrdist;
 		int step = 0;
-		vector<Pixel *> needprocess;
+		double step_size = raster->get_step(ctx->geography);
+
+		vector<Pixel *> needprocess = raster->get_closest_pixels(target->getMBB());
+		assert(needprocess.size()>0);
+		unsigned short lowx = needprocess[0]->id[0];
+		unsigned short highx = needprocess[0]->id[0];
+		unsigned short lowy = needprocess[0]->id[1];
+		unsigned short highy = needprocess[0]->id[1];
+		for(Pixel *p:needprocess){
+			lowx = min(lowx, p->id[0]);
+			highx = max(highx, p->id[0]);
+			lowy = min(lowy, p->id[1]);
+			highy = max(highy, p->id[1]);
+		}
+
 		while(true){
 			struct timeval start = get_cur_time();
 
 			// first of all, expand the circle to involve more pixels
-			if(step==0){
-				needprocess.push_back(closest);
-			}else{
-				needprocess = raster->expand_radius(closest, step);
+			if(step>0){
+				needprocess = raster->expand_radius(lowx,highx,lowy,highy,step);
 			}
 			ctx->pixel_evaluated.counter += needprocess.size();
 			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
@@ -485,18 +482,14 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 				return mindist;
 			}
 
-			double pix_mindist = DBL_MAX;
 			for(Pixel *cur:needprocess){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				start = get_cur_time();
-				double pix_dist = cur->distance(*target->getMBB());
-				pix_mindist = min(pix_dist, pix_mindist);
 				ctx->border_evaluated.execution_time += get_time_elapsed(start);
 				// note that there is no need to check the edges of
 				// this pixel if it is too far from the target
-				if(cur->is_boundary() && pix_dist<mindist){
+				if(cur->is_boundary() && cur->distance(*target->getMBB(),ctx->geography) < mindist){
 					ctx->border_evaluated.counter++;
-
 					// the vector model need be checked.
 					start = get_cur_time();
 					ctx->border_checked.counter++;
@@ -512,19 +505,10 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 					ctx->edge_checked.execution_time += get_time_elapsed(start);
 				}
 			}
-			log("step:%d #pixels:%ld radius:%f mindist:%f",step, needprocess.size(), pix_mindist, mindist);
-			//print_boxes(needprocess);
-
-			if(mindist<pix_mindist){
-
-			}
-
-
+			//log("step:%d #pixels:%ld radius:%f mindist:%f",step, needprocess.size(), mbrdist+step*step_size, mindist);
 			needprocess.clear();
-
-
 			// the minimum distance for now is good enough
-			if(mindist<pix_mindist){
+			if(mindist<=mbrdist+step*step_size){
 				return mindist;
 			}
 			step++;
@@ -535,10 +519,9 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 		return DBL_MAX;
 	}
 
-	log("ever been here?");
 	// brute-forcely calculate the distance
 	return segment_to_segment_distance_batch(boundary->p, target->boundary->p,
-							boundary->num_vertices, target->boundary->num_vertices, true);
+							boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
 	return 0;
 }
 

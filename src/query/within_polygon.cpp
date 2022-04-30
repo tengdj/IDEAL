@@ -24,7 +24,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		poly->rasterization(ctx->vpr);
 	}
 	Point *p = (Point *)ctx->target;
-	if(poly->getMBB()->distance(*p, true)>(double)ctx->distance_buffer_size){
+	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->distance_buffer_size){
         return true;
 	}
 

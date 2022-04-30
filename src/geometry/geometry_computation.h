@@ -16,17 +16,12 @@
  *
  * */
 
-/*
- *
- * calculating distance between point and polygon
- *
- * */
-inline double point_to_segment_distance(const double x, const double y, const double x1, double y1, const double x2, const double y2, bool geography = false) {
+inline double point_to_segment_distance(const Point &p, const Point &p1, const Point &p2, bool geography) {
 
-  double A = x - x1;
-  double B = y - y1;
-  double C = x2 - x1;
-  double D = y2 - y1;
+  double A = p.x - p1.x;
+  double B = p.y - p1.y;
+  double C = p2.x - p1.x;
+  double D = p2.y - p1.y;
 
   double dot = A * C + B * D;
   double len_sq = C * C + D * D;
@@ -37,29 +32,29 @@ inline double point_to_segment_distance(const double x, const double y, const do
   double xx, yy;
 
   if (param < 0) {
-    xx = x1;
-    yy = y1;
+    xx = p1.x;
+    yy = p1.y;
   } else if (param > 1) {
-    xx = x2;
-    yy = y2;
+    xx = p2.x;
+    yy = p2.y;
   } else {
-    xx = x1 + param * C;
-    yy = y1 + param * D;
+    xx = p1.x + param * C;
+    yy = p1.y + param * D;
   }
 
-  double dx = x - xx;
-  double dy = y - yy;
+  double dx = p.x - xx;
+  double dy = p.y - yy;
   if(geography){
+      dx = dx/degree_per_kilometer_longitude(p.y);
       dy = dy/degree_per_kilometer_latitude;
-      dx = dx/degree_per_kilometer_longitude(y);
   }
   return sqrt(dx * dx + dy * dy);
 }
 
-inline double point_to_segment_distance_batch(Point &p, Point *vs, size_t seq_len, bool geography = false){
+inline double point_to_segment_distance_batch(Point &p, Point *vs, size_t seq_len, bool geography){
     double mindist = DBL_MAX;
     for (int i = 0; i < seq_len-1; i++) {
-        double dist = point_to_segment_distance(p.x, p.y, vs[i].x, vs[i].y, vs[i+1].x, vs[i+1].y, geography);
+        double dist = point_to_segment_distance(p, vs[i], vs[i+1], geography);
         if(dist<mindist){
             mindist = dist;
         }
@@ -67,11 +62,7 @@ inline double point_to_segment_distance_batch(Point &p, Point *vs, size_t seq_le
     return mindist;
 }
 
-/*
- * calculating distance between segments, for distance calculation between polygons
- * */
-
-inline double segment_to_segment_distance_batch(Point *vs1, Point *vs2, size_t s1, size_t s2, bool geography = false){
+inline double segment_to_segment_distance_batch(Point *vs1, Point *vs2, size_t s1, size_t s2, bool geography){
     double mindist = DBL_MAX;
 	for(int i=0;i<s1;i++){
 		double dist = point_to_segment_distance_batch(vs1[i], vs2, s2, geography);

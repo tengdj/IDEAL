@@ -41,7 +41,7 @@ class QTNode{
 		}
 	}
 
-	void internal_distance(Point &p, double &dist, bool geography = false){
+	void internal_distance(Point &p, double &dist, bool geography){
 		if(interior || exterior){
 			return;
 		}
@@ -140,7 +140,7 @@ public:
 		}
 	}
 
-	double distance(Point &p,bool geography = false){
+	double distance(Point &p,bool geography){
 		double dist = DBL_MAX;
 		internal_distance(p,dist,geography);
 		return dist;

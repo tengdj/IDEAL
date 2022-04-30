@@ -60,9 +60,8 @@ void *query(void *args){
 }
 
 int main(int argc, char** argv) {
-
 	query_context global_ctx;
-	global_ctx.max_num_polygons = 100;
+	global_ctx.max_num_polygons = 50;
 	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/data/source.dat",global_ctx, false);
 
 	timeval start = get_cur_time();
@@ -72,20 +71,74 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %ld nodes", start, source_polygons.size());
 	query_context ctx(global_ctx);
+	//ctx.geography = true;
 	int p1 = 28;
-	int p2 = 4;
-	for(MyPolygon *p:source_polygons)
+	int p2 = 40;
+//	source_polygons[0]->get_rastor()->print();
+//	source_polygons[0]->print();
+//	log("%d %d %d",source_polygons[0]->get_num_pixels(BORDER),source_polygons[0]->get_num_pixels(IN),source_polygons[0]->get_num_pixels(OUT));
+//	return 0;
+	int ts = 0;
+	int tp = 0;
+	int tv = 0;
+	int tm = 0;
+	int count = 0;
+	double right_tm = 0;
+	double right_rt = 0;
+	double wrong_tm = 0;
+	double wrong_rt = 0;
+	for(p1=0;p1<source_polygons.size();p1++)
+	for(p2=0;p2<source_polygons.size();p2++)
 	{
-//		if(p->getid()!=p2){
+		MyPolygon *target = source_polygons[p1];
+		MyPolygon *p = source_polygons[p2];
+
+		if(p->getid()<=target->getid()){
+			continue;
+		}
+		if(p->getid()!=p2){
+			//continue;
+		}
+
+//		if(p->getMBB()->distance(*target->getMBB(), ctx.geography)>1000){
 //			continue;
 //		}
-		//double dist = source_polygons[p1]->distance(p, &ctx);
-		double dist = p->distance(source_polygons[p1], &ctx);
 
+		start = get_cur_time();
+		double dist = target->distance(p, &ctx);
+		double t1 = get_time_elapsed(start, true);
+		dist = p->distance(target, &ctx);
+		double t2 = get_time_elapsed(start, true);
+//		log("%ld %ld %ld %ld",target->get_num_pixels(),target->get_num_pixels(BORDER),
+//				p->get_num_pixels(),p->get_num_pixels(BORDER));
+		log("id: %d-%d:\ttime: %.2f\t%.2f\tportion: %.3f\t%.3f\t#vertices: %ld\t%ld\tcompare: %d %d %d %d %d",
+											target->getid(),p->getid(),
+											t1,t2,
+											target->get_pixel_portion(IN), p->get_pixel_portion(IN),
+											target->get_num_vertices(),p->get_num_vertices(),
+											t1>t2,
+											target->get_pixel_portion(IN) >p->get_pixel_portion(IN),
+											target->get_num_vertices()>p->get_num_vertices(),
+											target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false),
+											target->getMBB()->area()>p->getMBB()->area()
+											);
+		count++;
+		tp += (t1>t2 == target->get_pixel_portion(IN) >p->get_pixel_portion(IN));
+		tv += (t1>t2 == target->get_num_vertices()>p->get_num_vertices());
+		ts += (t1>t2 == target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false));
+		tm += (t1>t2 == target->getMBB()->area()>p->getMBB()->area());
+		if(t1>t2 == target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false)){
+			right_tm += max(t1,t2);
+			right_rt += max(t1,t2)/min(t1,t2);
+		}else{
+			wrong_tm += max(t1,t2);
+			wrong_rt += max(t1,t2)/min(t1,t2);
+		}
 		//source_polygons[p1]->print(false);
 		//source_polygons[p2]->print(false);
-		logt("%d-%d:\t%f %ld %ld",start,source_polygons[p1]->getid(),p->getid(),dist,source_polygons[p1]->get_num_vertices(),p->get_num_vertices());
 	}
+	log("%d %d %d %d %d",count,tp,tv,ts,tm);
+	log("%f %f %f %f", right_tm/count,right_rt/count,wrong_tm/count,wrong_rt/count);
 
 
 //	for(MyPolygon *p:source_polygons){

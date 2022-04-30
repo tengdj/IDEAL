@@ -75,6 +75,7 @@ public:
 class query_context{
 public:
 	//configuration
+	bool geography = false;
 	int thread_id = 0;
 	int num_threads = 0;
 	int vpr = 10;

@@ -329,40 +329,48 @@ Pixel *MyRaster::get_pixel(Point &p){
 	return pixels[xoff][yoff];
 }
 
-
 vector<Pixel *> MyRaster::expand_radius(Pixel *center, int step){
 
+	int lowx = center->id[0];
+	int highx = center->id[0];
+	int lowy = center->id[1];
+	int highy = center->id[1];
+	return expand_radius(lowx,highx,lowy,highy,step);
+}
+
+vector<Pixel *> MyRaster::expand_radius(int core_x_low, int core_x_high, int core_y_low, int core_y_high, int step){
+
 	vector<Pixel *> needprocess;
-	int ymin = max(0,center->id[1]-step);
-	int ymax = min(get_dimy(),center->id[1]+step);
+	int ymin = max(0,core_y_low-step);
+	int ymax = min(get_dimy(),core_y_high+step);
 
 	//left scan
-	if(center->id[0]-step>=0){
+	if(core_x_low-step>=0){
 		for(int y=ymin;y<=ymax;y++){
-			needprocess.push_back(get(center->id[0]-step,y));
+			needprocess.push_back(get(core_x_low-step,y));
 		}
 	}
 	//right scan
-	if(center->id[0]+step<=get_dimx()){
+	if(core_x_high+step<=get_dimx()){
 		for(int y=ymin;y<=ymax;y++){
-			needprocess.push_back(get(center->id[0]+step,y));
+			needprocess.push_back(get(core_x_high+step,y));
 		}
 	}
 
 	// skip the first if there is left scan
-	int xmin = max(0,center->id[0]-step+(center->id[0]-step>=0));
+	int xmin = max(0,core_x_low-step+(core_x_low-step>=0));
 	// skip the last if there is right scan
-	int xmax = min(get_dimx(),center->id[0]+step-(center->id[0]+step<=get_dimx()));
+	int xmax = min(get_dimx(),core_x_high+step-(core_x_high+step<=get_dimx()));
 	//bottom scan
-	if(center->id[1]-step>=0){
+	if(core_y_low-step>=0){
 		for(int x=xmin;x<=xmax;x++){
-			needprocess.push_back(get(x,center->id[1]-step));
+			needprocess.push_back(get(x,core_y_low-step));
 		}
 	}
 	//top scan
-	if(center->id[1]+step<=get_dimy()){
+	if(core_y_high+step<=get_dimy()){
 		for(int x=xmin;x<=xmax;x++){
-			needprocess.push_back(get(x,center->id[1]+step));
+			needprocess.push_back(get(x,core_y_high+step));
 		}
 	}
 
@@ -640,8 +648,8 @@ bool MyRaster::contain(Pixel *b, bool &contained){
 	return false;
 }
 
-int MyRaster::get_num_pixels(PartitionStatus status){
-	int num = 0;
+size_t MyRaster::get_num_pixels(PartitionStatus status){
+	size_t num = 0;
 	for(vector<Pixel *> &rows:pixels){
 		for(Pixel *p:rows){
 			if(p->status==status){
@@ -653,7 +661,7 @@ int MyRaster::get_num_pixels(PartitionStatus status){
 }
 
 size_t MyRaster::get_num_pixels(){
-	return dimx*dimy;
+	return (dimx+1)*(dimy+1);
 }
 
 size_t MyRaster::get_num_gridlines(){
