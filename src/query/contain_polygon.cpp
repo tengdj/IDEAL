@@ -96,8 +96,8 @@ int main(int argc, char** argv) {
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	logt("loaded %d polygons",start,global_ctx.target_polygons.size());
 
-	MyPolygon *s = global_ctx.source_polygons[4648];
-	MyPolygon *t = global_ctx.target_polygons[315];
+//	MyPolygon *s = global_ctx.source_polygons[4648];
+//	MyPolygon *t = global_ctx.target_polygons[315];
 //	s->rasterization(10);
 //	t->rasterization(10);
 //	s->print(false, false);
@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
 		global_ctx.vpr = vpr;
 
 		preprocess(&global_ctx);
-		logt("preprocess with epp $d",start, vpr);
+		logt("preprocess with epp %d",start, vpr);
 
 		pthread_t threads[global_ctx.num_threads];
 		query_context ctx[global_ctx.num_threads];

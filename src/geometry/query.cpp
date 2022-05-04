@@ -191,7 +191,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		return false;
 	}
 
-	if(raster){
+	if(ctx->use_grid && raster){
 		vector<Pixel *> pxs = raster->retrieve_pixels(target->getMBB());
 		int etn = 0;
 		int itn = 0;

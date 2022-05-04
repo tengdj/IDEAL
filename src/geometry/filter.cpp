@@ -512,9 +512,9 @@ void *partition_unit(void *args){
 			double latency = get_time_elapsed(start);
 			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
 			//ctx->report_latency(num_vertices, latency);
-			if(latency>10000||num_vertices>200000){
-				logt("partition %d vertices (source)",start,num_vertices);
-			}
+//			if(latency>10000||num_vertices>200000){
+//				logt("partition %d vertices (source)",start,num_vertices);
+//			}
 			ctx->report_progress();
 		}
 	}
@@ -569,7 +569,6 @@ void process_rasterization(query_context *gctx){
 		ctx[i].global_ctx = gctx;
 	}
 
-
 	for(int i=0;i<gctx->num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
 	}
@@ -602,7 +601,7 @@ void process_rasterization(query_context *gctx){
 			1.0*num_crosses/num_border_partitions,
 			1.0*num_edges/num_border_partitions);
 
-	if(gctx->target_polygons.size()>0){
+	if(gctx->target_polygons.size()>0 && gctx->use_grid){
 
 		gctx->index = 0;
 		gctx->target_num = gctx->target_polygons.size();
