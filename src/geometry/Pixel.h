@@ -55,6 +55,12 @@ public:
 		low[1] = b->low[1];
 		high[1] = b->high[1];
 	}
+	box (double lowx, double lowy, double highx, double highy){
+		low[0] = lowx;
+		low[1] = lowy;
+		high[0] = highx;
+		high[1] = highy;
+	}
 
 	void update(Point &p);
 
@@ -69,8 +75,11 @@ public:
 	double distance(Point &p, bool geography);
 	double max_distance(Point &p, bool geography);
 
+	box expand(double expand_buffer, bool geography);
+
 	void print_vertices();
 	void print();
+	void to_array(Point *p);
 };
 
 class RTNode:public box{

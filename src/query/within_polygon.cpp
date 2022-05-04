@@ -19,18 +19,23 @@ RTree<MyPolygon *, double, 2, double> tree;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
-	// query with parition
+
+	MyPolygon *target= (MyPolygon *)ctx->target;
+	// query with rasterization
 	if(ctx->use_grid){
 		poly->rasterization(ctx->vpr);
-	}
-	Point *p = (Point *)ctx->target;
-	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->distance_buffer_size){
-        return true;
+		target->rasterization(ctx->vpr);
 	}
 
+	if(poly->getid()==target->getid()){
+		return true;
+	}
+	if(poly->getMBB()->distance(*target->getMBB(), ctx->geography)>ctx->distance_buffer_size){
+        return true;
+	}
 	timeval start = get_cur_time();
-	ctx->distance = poly->distance(*p,ctx);
-	ctx->found += ctx->distance<10000000.0;
+	ctx->distance = poly->distance(target,ctx);
+	ctx->found += ctx->distance<ctx->distance_buffer_size;
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
@@ -51,21 +56,15 @@ void *query(void *args){
 	double buffer_low[2];
 	double buffer_high[2];
 
-	while(ctx->next_batch(100)){
+	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(gctx->sample_rate)){
 				continue;
 			}
 			struct timeval query_start = get_cur_time();
-			Point p(gctx->points[2*i],gctx->points[2*i+1]);
-			ctx->target = (void *)&p;
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
-			double shifty = degree_per_kilometer_latitude*gctx->distance_buffer_size;
-			buffer_low[0] = gctx->points[2*i]-shiftx;
-			buffer_low[1] = gctx->points[2*i+1]-shifty;
-			buffer_high[0] = gctx->points[2*i]+shiftx;
-			buffer_high[1] = gctx->points[2*i+1]+shifty;
-			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+			ctx->target = (void *)(gctx->source_polygons[i]);
+			box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->distance_buffer_size, true);
+			tree.Search(qb.low, qb.high, MySearchCallback, (void *)ctx);
 			ctx->object_checked.execution_time += get_time_elapsed(query_start);
 			ctx->report_progress();
 		}
@@ -80,27 +79,29 @@ int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::within;
-
-
-    global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
-
-	preprocess(&global_ctx);
+    global_ctx.use_grid = true;
+    global_ctx.vpr = 20;
+    global_ctx.distance_buffer_size = 10;
+    global_ctx.geography = true;
 
 	timeval start = get_cur_time();
+    global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+	logt("loaded %d objects", start,global_ctx.source_polygons.size());
+//
+	preprocess(&global_ctx);
+	logt("preprocess the source data", start);
+
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
 
 	// read all the points
-	global_ctx.load_points();
-
-	start = get_cur_time();
-
+	global_ctx.target_num = 100;
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
-		ctx[i] = query_context(global_ctx);
+		ctx[i] = global_ctx;//query_context(global_ctx);
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 	}

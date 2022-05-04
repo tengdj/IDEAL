@@ -205,7 +205,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				bpxs.push_back(p);
 			}
 		}
-		pxs.clear();
+		//log("%d %d %d",etn,itn,pxs.size());
 
 		if(etn == pxs.size()){
 			return false;
@@ -241,8 +241,21 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			}
 		}
 		bpxs.clear();
-	} else if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices)){
-		return false;
+	} else {
+		// checking the bounding box of the target first
+		Point mbb_vertices[5];
+		target->mbr->to_array(mbb_vertices);
+		// no intersection between this polygon and the mbr of the target polygon
+		if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5)){
+			// the target must be contained as its mbr is contained
+			if(contain(mbb_vertices[0], ctx)){
+				return true;
+			}
+		}
+		// otherwise, checking all the edges to make sure no intersection
+		if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices)){
+			return false;
+		}
 	}
 	//log("do not intersect");
 	Point p(target->getx(0),target->gety(0));
@@ -448,6 +461,13 @@ double MyPolygon::distance(Point &p, query_context *ctx){
 double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 
 	if(raster){
+
+		// both polygons are rasterized and the pixel of the target is bigger
+		// then use the target polygon as the host one
+		if(target->raster && target->get_rastor()->get_step(false) < get_rastor()->get_step(false)){
+			return target->distance(this, ctx);
+		}
+
 		double mindist = getMBB()->max_distance(*target->getMBB(), ctx->geography);
 		double mbrdist = getMBB()->distance(*target->getMBB(),ctx->geography);
 		double min_mbrdist = mbrdist;

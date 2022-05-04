@@ -19,7 +19,6 @@ unordered_set<int> has_children;
 unordered_set<int> has_parent;
 bool contained = false;
 
-
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	MyPolygon *target = (MyPolygon *)ctx->target;
@@ -28,12 +27,9 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		return true;
 	}
 
-	struct timeval start = get_cur_time();
-	contained = false;
 	if(poly->contain(target, ctx)){
 		has_children.insert(poly->getid());
 		has_parent.insert(target->getid());
-		contained = true;
 	}
 	//logt("checked one %d",start,contained);
 
@@ -61,93 +57,125 @@ void *query(void *args){
 
 int main(int argc, char** argv) {
 	query_context global_ctx;
-	global_ctx.max_num_polygons = 50;
-	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/data/source.dat",global_ctx, false);
-
+	//global_ctx.max_num_polygons = 200;
+	global_ctx.use_grid = true;
+	global_ctx.vpr = 20;
 	timeval start = get_cur_time();
+	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/data/source.dat",global_ctx, false);
+	global_ctx.source_polygons = source_polygons;
+	logt("loading data",start);
+
+	preprocess(&global_ctx);
+	logt("preprocess data",start);
+
 	for(MyPolygon *p:source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
-		p->rasterization(10);
 	}
 	logt("building R-Tree with %ld nodes", start, source_polygons.size());
 	query_context ctx(global_ctx);
-	//ctx.geography = true;
-	int p1 = 28;
-	int p2 = 40;
-//	source_polygons[0]->get_rastor()->print();
-//	source_polygons[0]->print();
-//	log("%d %d %d",source_polygons[0]->get_num_pixels(BORDER),source_polygons[0]->get_num_pixels(IN),source_polygons[0]->get_num_pixels(OUT));
-//	return 0;
-	int ts = 0;
-	int tp = 0;
-	int tv = 0;
-	int tm = 0;
-	int count = 0;
-	double right_tm = 0;
-	double right_rt = 0;
-	double wrong_tm = 0;
-	double wrong_rt = 0;
-	for(p1=0;p1<source_polygons.size();p1++)
-	for(p2=0;p2<source_polygons.size();p2++)
-	{
-		MyPolygon *target = source_polygons[p1];
-		MyPolygon *p = source_polygons[p2];
 
-		if(p->getid()<=target->getid()){
-			continue;
-		}
-		if(p->getid()!=p2){
-			//continue;
-		}
-
-//		if(p->getMBB()->distance(*target->getMBB(), ctx.geography)>1000){
+//	//ctx.geography = true;
+//	int p1 = 28;
+//	int p2 = 40;
+////	source_polygons[0]->get_rastor()->print();
+////	source_polygons[0]->print();
+////	log("%d %d %d",source_polygons[0]->get_num_pixels(BORDER),source_polygons[0]->get_num_pixels(IN),source_polygons[0]->get_num_pixels(OUT));
+////	return 0;
+//	int ts = 0;
+//	int tp = 0;
+//	int tv = 0;
+//	int tm = 0;
+//	int count = 0;
+//	double right_tm = 0;
+//	double right_rt = 0;
+//	double wrong_tm = 0;
+//	double wrong_rt = 0;
+//	int right_ct = 0;
+//	int wrong_ct = 0;
+//
+//	double min_tm = 0;
+//	double max_tm = 0;
+//
+//	double choose_big_tm = 0;
+//	double choose_small_tm = 0;
+//
+//	for(p1=0;p1<source_polygons.size();p1++)
+//	for(p2=0;p2<source_polygons.size();p2++)
+//	{
+//		MyPolygon *target = source_polygons[p1];
+//		MyPolygon *p = source_polygons[p2];
+//
+//		if(p->getid()<=target->getid()){
 //			continue;
 //		}
-
-		start = get_cur_time();
-		double dist = target->distance(p, &ctx);
-		double t1 = get_time_elapsed(start, true);
-		dist = p->distance(target, &ctx);
-		double t2 = get_time_elapsed(start, true);
-//		log("%ld %ld %ld %ld",target->get_num_pixels(),target->get_num_pixels(BORDER),
-//				p->get_num_pixels(),p->get_num_pixels(BORDER));
-		log("id: %d-%d:\ttime: %.2f\t%.2f\tportion: %.3f\t%.3f\t#vertices: %ld\t%ld\tcompare: %d %d %d %d %d",
-											target->getid(),p->getid(),
-											t1,t2,
-											target->get_pixel_portion(IN), p->get_pixel_portion(IN),
-											target->get_num_vertices(),p->get_num_vertices(),
-											t1>t2,
-											target->get_pixel_portion(IN) >p->get_pixel_portion(IN),
-											target->get_num_vertices()>p->get_num_vertices(),
-											target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false),
-											target->getMBB()->area()>p->getMBB()->area()
-											);
-		count++;
-		tp += (t1>t2 == target->get_pixel_portion(IN) >p->get_pixel_portion(IN));
-		tv += (t1>t2 == target->get_num_vertices()>p->get_num_vertices());
-		ts += (t1>t2 == target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false));
-		tm += (t1>t2 == target->getMBB()->area()>p->getMBB()->area());
-		if(t1>t2 == target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false)){
-			right_tm += max(t1,t2);
-			right_rt += max(t1,t2)/min(t1,t2);
-		}else{
-			wrong_tm += max(t1,t2);
-			wrong_rt += max(t1,t2)/min(t1,t2);
-		}
-		//source_polygons[p1]->print(false);
-		//source_polygons[p2]->print(false);
-	}
-	log("%d %d %d %d %d",count,tp,tv,ts,tm);
-	log("%f %f %f %f", right_tm/count,right_rt/count,wrong_tm/count,wrong_rt/count);
-
-
-//	for(MyPolygon *p:source_polygons){
-//		log("%d %d", p->getid(), p->get_num_vertices());
+//		if(p->getid()!=p2){
+//			//continue;
+//		}
+//
+////		if(p->getMBB()->distance(*target->getMBB(), ctx.geography)>1000){
+////			continue;
+////		}
+//
+//		start = get_cur_time();
+//		double dist = target->distance(p, &ctx);
+//		double t1 = get_time_elapsed(start, true);
+//		dist = p->distance(target, &ctx);
+//		double t2 = get_time_elapsed(start, true);
+////		log("%ld %ld %ld %ld",target->get_num_pixels(),target->get_num_pixels(BORDER),
+////				p->get_num_pixels(),p->get_num_pixels(BORDER));
+//		if(t1>t2 == target->get_rastor()->get_step(false)<p->get_rastor()->get_step(false))
+//		log("id: %d-%d:\ttime: %.2f\t%.2f\tportion: %.3f\t%.3f\t#vertices: %ld\t%ld\tcompare: %d %d %d %d %d",
+//											target->getid(),p->getid(),
+//											t1,t2,
+//											target->get_pixel_portion(IN), p->get_pixel_portion(IN),
+//											target->get_num_vertices(),p->get_num_vertices(),
+//											t1>t2,
+//											target->get_pixel_portion(IN) >p->get_pixel_portion(IN),
+//											target->get_num_vertices()>p->get_num_vertices(),
+//											target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false),
+//											target->getMBB()->area()>p->getMBB()->area()
+//											);
+//		count++;
+////		tp += (t1>t2 == target->get_pixel_portion(IN) >p->get_pixel_portion(IN));
+////		tv += (t1>t2 == target->get_num_vertices()>p->get_num_vertices());
+////		tm += (t1>t2 == target->getMBB()->area()>p->getMBB()->area());
+//
+//		if(target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false)){
+//			choose_big_tm += t1;
+//			choose_small_tm += t2;
+//		}else{
+//			choose_big_tm += t2;
+//			choose_small_tm += t1;
+//		}
+//
+//		bool guess_right = ((t1>t2) == (target->get_rastor()->get_step(false)>p->get_rastor()->get_step(false)));
+//		if(guess_right){
+//			right_tm += max(t1,t2);
+//			right_rt += max(t1,t2)/min(t1,t2);
+//			right_ct++;
+//		}else{
+//			wrong_tm += max(t1,t2);
+//			wrong_rt += max(t1,t2)/min(t1,t2);
+//			wrong_ct++;
+//		}
+//		min_tm += min(t1, t2);
+//		max_tm += max(t1, t2);
+//		//source_polygons[p1]->print(false);
+//		//source_polygons[p2]->print(false);
 //	}
-	return 0;
+//	//log("%d %d %d %d %d",count,tp,tv,ts,tm);
+//	log("%d = %d + %d",count,right_ct, wrong_ct);
+//	log("%f %f %f %f",right_tm/right_ct,right_rt/right_ct,wrong_tm/wrong_ct,wrong_rt/wrong_ct);
+//
+//	log("%f %f (%f - %f)", choose_big_tm/count, choose_small_tm/count,min_tm/count,max_tm/count);
+//
+////	for(MyPolygon *p:source_polygons){
+////		log("%d %d", p->getid(), p->get_num_vertices());
+////	}
+//	return 0;
 	int i=0;
+	start = get_cur_time();
 	for(MyPolygon *p:source_polygons){
-		struct timeval start = get_cur_time();
 		ctx.target = (void *)p;
 		Pixel *px = p->getMBB();
 		tree.Search(px->low, px->high, MySearchCallback, (void *)&ctx);
@@ -161,6 +189,7 @@ int main(int argc, char** argv) {
 	vector<int> only_children;
 	vector<int> only_parent;
 	vector<int> both;
+	vector<int> neither;
 	for(MyPolygon *p:source_polygons){
 		int id = p->getid();
 		bool hasc = has_children.find(id)!=has_children.end();
@@ -168,27 +197,31 @@ int main(int argc, char** argv) {
 		if(hasc&&!hasp){
 			only_parent.push_back(id);
 		}
-		if(hasp&&!hasc){
-			only_children.push_back(id);
-		}
-		if(hasp&&hasc){
+		if(hasc&&hasp){
 			both.push_back(id);
 		}
-
+		if(!hasc&&hasp){
+			only_children.push_back(id);
+		}
+		if(!hasc&&!hasp){
+			neither.push_back(id);
+		}
 	}
 
-//	for(int id:only_children){
-//		source_polygons[id]->print(false);
-//	}
-//
-//	for(int id:only_parent){
-//		source_polygons[id]->print(false);
-//	}
-//	for(int id:both){
-//		source_polygons[id]->print(false);
-//	}
+	for(int id:only_children){
+		source_polygons[id]->print(false);
+	}
+	for(int id:only_parent){
+		source_polygons[id]->print(false);
+	}
+	for(int id:both){
+		source_polygons[id]->print(false);
+	}
+	for(int id:neither){
+		source_polygons[id]->print(false);
+	}
 
-	log("%ld only has children %ld only has parent %ld have both",only_parent.size(),only_children.size(),both.size());
+	log("%ld only are children %ld only are parent %ld are both %ld are neither",only_children.size(),only_parent.size(),both.size(),neither.size());
 	return 0;
 }
 

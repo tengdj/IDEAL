@@ -139,7 +139,6 @@ public:
 	double *points = NULL;
 	size_t target_num = 0;
 
-
 	map<int, int> vertex_number;
 	map<int, double> latency;
 

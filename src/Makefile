@@ -40,6 +40,9 @@ all:	polygon_in_polygon point_polygon_distance point_in_polygon resque_polygon_i
 contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
+within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
 within:	query/within.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	

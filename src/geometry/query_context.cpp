@@ -54,10 +54,14 @@ query_context::query_context(query_context &t){
 	valid_path = t.valid_path;
 	query_type = t.query_type;
 	collect_latency = t.collect_latency;
+
+	geography = t.geography;
 	pthread_mutex_init(&lock, NULL);
 }
 
 query_context& query_context::operator=(query_context const &t){
+    geography = t.geography;
+
 	thread_id = t.thread_id;
 	num_threads = t.num_threads;
 	vpr = t.vpr;
@@ -283,6 +287,9 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.use_convex_hull = vm.count("convex_hull");
 	global_ctx.use_mer = vm.count("mer");
 	global_ctx.use_triangulate = vm.count("triangulate");
+	if(global_ctx.vpr_end<global_ctx.vpr){
+		global_ctx.vpr_end = global_ctx.vpr;
+	}
 
 
 	return global_ctx;

@@ -262,8 +262,6 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
 	num_polygons = min(num_polygons, ctx.max_num_polygons);
 
-	log("loaded %ld",num_polygons);
-
 	size_t num_edges = 0;
 	size_t data_size = 0;
 	int next = 10;
@@ -563,7 +561,9 @@ void MyPolygon::print_partition(query_context qt){
 
 void MyPolygon::rasterization(int vpr){
 	assert(vpr>0);
-
+	if(raster){
+		return;
+	}
 	pthread_mutex_lock(&ideal_partition_lock);
 	if(raster==NULL){
 		raster = new MyRaster(boundary,vpr);

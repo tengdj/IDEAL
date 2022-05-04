@@ -121,6 +121,35 @@ double box::max_distance(Point &p, bool geography){
 	return sqrt(dx*dx+dy*dy);
 }
 
+box box::expand(double expand_buffer, bool geography){
+	box b = *this;
+	double shiftx = expand_buffer;
+	double shifty = expand_buffer;
+	if(geography){
+		shiftx *= degree_per_kilometer_longitude(b.low[1]);
+		shifty *= degree_per_kilometer_latitude;
+	}
+
+	b.low[0] -= shiftx;
+	b.high[0] += shiftx;
+	b.low[1] -= shifty;
+	b.high[1] += shifty;
+	return b;
+}
+
+void box::to_array(Point *p){
+	p[0].x = low[0];
+	p[0].y = low[1];
+	p[1].x = high[0];
+	p[1].y = low[1];
+	p[2].x = high[0];
+	p[2].y = high[1];
+	p[3].x = low[0];
+	p[3].y = high[1];
+	p[4].x = low[0];
+	p[4].y = low[1];
+}
+
 /*
  * print functions
  * */

@@ -464,7 +464,7 @@ void process_internal_rtree(query_context *gctx){
 
 void preprocess(query_context *gctx){
 	if(gctx->use_grid||gctx->use_qtree){
-		process_partition(gctx);
+		process_rasterization(gctx);
 	}
 
 	if(gctx->use_convex_hull){
@@ -474,7 +474,6 @@ void preprocess(query_context *gctx){
 	if(gctx->use_mer){
 		process_mer(gctx);
 	}
-
 
 	int idx = 0;
 	if(gctx->use_triangulate){
@@ -514,7 +513,7 @@ void *partition_unit(void *args){
 			int num_vertices = gctx->source_polygons[i]->get_num_vertices();
 			//ctx->report_latency(num_vertices, latency);
 			if(latency>10000||num_vertices>200000){
-				logt("partition %d vertices",start,num_vertices);
+				logt("partition %d vertices (source)",start,num_vertices);
 			}
 			ctx->report_progress();
 		}
@@ -523,8 +522,37 @@ void *partition_unit(void *args){
 	return NULL;
 }
 
-void process_partition(query_context *gctx){
+void *partition_target_unit(void *args){
+	query_context *ctx = (query_context *)args;
+	query_context *gctx = ctx->global_ctx;
+	//log("thread %d is started",ctx->thread_id);
+	int local_count = 0;
+	while(ctx->next_batch(1)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			struct timeval start = get_cur_time();
 
+			if(ctx->use_grid){
+				gctx->target_polygons[i]->rasterization(ctx->vpr);
+			}
+			if(ctx->use_qtree){
+				gctx->target_polygons[i]->partition_qtree(ctx->vpr);
+			}
+			double latency = get_time_elapsed(start);
+			int num_vertices = gctx->target_polygons[i]->get_num_vertices();
+			//ctx->report_latency(num_vertices, latency);
+//			if(latency>10000||num_vertices>200000){
+//				logt("partition %d vertices (target)",start,num_vertices);
+//			}
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void process_rasterization(query_context *gctx){
+
+	log("start rasterizing the referred polygons");
 	// must be non-empty
 	assert(gctx->source_polygons.size()>0);
 
@@ -573,6 +601,52 @@ void process_partition(query_context *gctx){
 			num_partitions/gctx->source_polygons.size(),
 			1.0*num_crosses/num_border_partitions,
 			1.0*num_edges/num_border_partitions);
+
+	if(gctx->target_polygons.size()>0){
+
+		gctx->index = 0;
+		gctx->target_num = gctx->target_polygons.size();
+		gctx->query_count = 0;
+
+		struct timeval start = get_cur_time();
+		pthread_t threads[gctx->num_threads];
+		query_context ctx[gctx->num_threads];
+		for(int i=0;i<gctx->num_threads;i++){
+			ctx[i] = *gctx;
+			ctx[i].thread_id = i;
+			ctx[i].global_ctx = gctx;
+		}
+		for(int i=0;i<gctx->num_threads;i++){
+			pthread_create(&threads[i], NULL, partition_target_unit, (void *)&ctx[i]);
+		}
+
+		for(int i = 0; i < gctx->num_threads; i++ ){
+			void *status;
+			pthread_join(threads[i], &status);
+		}
+
+		size_t num_partitions = 0;
+		size_t num_crosses = 0;
+		size_t num_border_partitions = 0;
+		size_t num_edges = 0;
+		for(MyPolygon *poly:gctx->target_polygons){
+			if(gctx->use_grid){
+				num_partitions += poly->get_rastor()->get_num_pixels();
+				num_crosses += poly->get_rastor()->get_num_crosses();
+				num_border_partitions += poly->get_rastor()->get_num_pixels(BORDER);
+				num_edges += poly->get_rastor()->get_num_border_edge();
+			}else if(gctx->use_qtree){
+				num_partitions += poly->get_qtree()->leaf_count();
+				num_border_partitions += poly->get_qtree()->border_leaf_count();
+			}
+		}
+		logt("partitioned %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel (target)", start,
+				gctx->target_polygons.size(),
+				num_border_partitions/gctx->target_polygons.size(),
+				num_partitions/gctx->target_polygons.size(),
+				1.0*num_crosses/num_border_partitions,
+				1.0*num_edges/num_border_partitions);
+	}
 
 
 	gctx->index = 0;

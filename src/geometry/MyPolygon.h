@@ -345,7 +345,7 @@ public:
 
 //utility functions
 void print_boxes(vector<Pixel *> boxes);
-void process_partition(query_context *ctx);
+void process_rasterization(query_context *ctx);
 void process_convex_hull(query_context *ctx);
 void process_mer(query_context *ctx);
 void process_triangulate(query_context *gctx);

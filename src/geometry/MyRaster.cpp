@@ -42,7 +42,6 @@ MyRaster::MyRaster(VertexSequence *vst, int epp){
 		step_y = 0.00001;
 		dimy = (mbr->high[1]-mbr->low[1])/step_y+1;
 	}
-
 }
 
 
@@ -312,12 +311,14 @@ void MyRaster::rasterization(){
 // the range must be [0, dimx]
 int MyRaster::get_offset_x(double xval){
 	assert(mbr);
+	assert(step_x>0.000000000001 && "the width per pixel must not be 0");
 	int x = double_to_int((xval-mbr->low[0])/step_x);
 	return min(max(x, 0), dimx);
 }
 // the range must be [0, dimy]
 int MyRaster::get_offset_y(double yval){
 	assert(mbr);
+	assert(step_y>0.000000000001 && "the hight per pixel must not be 0");
 	int y = double_to_int((yval-mbr->low[1])/step_y);
 	return min(max(y, 0), dimy);
 }

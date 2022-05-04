@@ -11,6 +11,7 @@
 #include <queue>
 
 RTree<MyPolygon *, double, 2, double> tree;
+int ct = 0;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
@@ -19,19 +20,12 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	if(ctx->use_grid){
 		poly->rasterization(ctx->vpr);
 		timeval start = get_cur_time();
-
-		bool contained = false;
-		if(poly->get_rastor()->contain(target->getMBB(), contained)){
-			ctx->found += contained;
-		}else{
-			ctx->refine_count++;
-			ctx->found += poly->contain(target, ctx);
-			int nv = poly->get_num_vertices();
-			if(nv<5000){
-				nv = 100*(nv/100);
-				ctx->report_latency(nv, get_time_elapsed(start));
-			}
-		}
+		bool contained = poly->contain(target, ctx);
+		ctx->found += contained;
+//		if(target->getid()==315 && contained){
+//			log("%d (%d vertices) contains %d (%d vertices)", poly->getid(), poly->get_num_vertices(), target->getid(), target->get_num_vertices());
+//			poly->print(false, false);
+//		}
 	}else if(ctx->use_qtree){
 		poly->partition_qtree(ctx->vpr);
 		if(!poly->get_qtree()->determine_contain(*(target->getMBB()))){
@@ -39,7 +33,9 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 			ctx->refine_count++;
 		}
 	}else{
+		//struct timeval start = get_cur_time();
 		ctx->found += poly->contain(target,ctx);
+		//logt("completed %d", start, ct++);
 	}
 	// keep going until all hit objects are found
 	return true;
@@ -49,18 +45,25 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	//log("thread %d is started",ctx->thread_id);
-	while(ctx->next_batch(100)){
+	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(ctx->sample_rate)){
 				continue;
 			}
 			MyPolygon *poly = gctx->target_polygons[i];
-			if(poly->get_num_vertices()>100){
-				continue;
-			}
+//			if(poly->get_num_vertices()>100){
+//				continue;
+//			}
 			ctx->target = (void *)poly;
 			Pixel *px = poly->getMBB();
+			struct timeval start = get_cur_time();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
+			//logt("completed %d", start, ct++);
+
+//			if(poly->getid()==315){
+//				poly->print(false, false);
+//				exit(0);
+//			}
 			ctx->report_progress();
 		}
 	}
@@ -93,14 +96,22 @@ int main(int argc, char** argv) {
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	logt("loaded %d polygons",start,global_ctx.target_polygons.size());
 
+	MyPolygon *s = global_ctx.source_polygons[4648];
+	MyPolygon *t = global_ctx.target_polygons[315];
+//	s->rasterization(10);
+//	t->rasterization(10);
+//	s->print(false, false);
+//	t->print(false, false);
+//	log("%d",s->contain(t, &global_ctx));
+//	return 0;
+
 	int vpr = global_ctx.vpr;
 	for(;vpr<=global_ctx.vpr_end;vpr+=10){
 		global_ctx.reset_stats();
 		global_ctx.vpr = vpr;
 
-		if(global_ctx.use_grid||global_ctx.use_qtree){
-			process_partition(&global_ctx);
-		}
+		preprocess(&global_ctx);
+		logt("preprocess with epp $d",start, vpr);
 
 		pthread_t threads[global_ctx.num_threads];
 		query_context ctx[global_ctx.num_threads];
@@ -119,7 +130,7 @@ int main(int argc, char** argv) {
 //		logt("vpr %d: queried %d polygons %ld rastor %ld vector %ld found",start,vpr,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
 //				,global_ctx.found);
 		global_ctx.print_stats();
-		logt("query time",start);
+		logt("query",start);
 
 	}
 //	for(MyPolygon *p:source){

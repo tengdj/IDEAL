@@ -20,7 +20,7 @@ int main(int argc, char **argv){
 
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 	if(global_ctx.use_grid||global_ctx.use_qtree){
-		process_partition(&global_ctx);
+		process_rasterization(&global_ctx);
 	}
 	if(global_ctx.use_convex_hull){
 		process_convex_hull(&global_ctx);
