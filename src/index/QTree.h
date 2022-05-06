@@ -180,6 +180,41 @@ public:
 		}
 	}
 
+	// the segment is within the distance
+	bool within(Point &start, Point &end, double within_dist){
+		if(isleaf&&(interior||exterior)){
+			return false;
+		}
+		if(mbr.distance(start, end, true)<=within_dist){
+			if(isleaf){
+				// boundary pixel
+				return true;
+			}else{
+				// go over children
+				for(int i=0;i<4;i++){
+					if(children[i]->within(start, end, within_dist)){
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	void retrieve_within(Point &start, Point &end, vector<QTNode *> &candidates, double within_dist){
+		if(this->mbr.distance(start, end, true)<=within_dist){
+			if(isleaf){
+				if(!interior&&!exterior){
+					candidates.push_back(this);
+				}
+			}else{
+				for(int i=0;i<4;i++){
+					children[i]->retrieve_within(start, end, candidates, within_dist);
+				}
+			}
+		}
+	}
+
 
 	bool determine_contain(Point &p){
 		assert(mbr.contain(p));
@@ -187,7 +222,8 @@ public:
 		return n->interior||n->exterior;
 	}
 
-	bool determine_contain(Pixel &p, bool &has_in, bool &has_ex){
+	// checking the features of the nodes covered by pixel p
+	bool evaluate_nodes(Pixel &p, bool &has_in, bool &has_ex){
 		if(!mbr.intersect(p)){
 			return true;
 		}
@@ -198,13 +234,13 @@ public:
 			}
 			has_ex |= exterior;
 			has_in |= interior;
-			//cross box
+			//p intersects both internal and external nodes
 			if(has_in&&has_ex){
 				return false;
 			}
 		}else{
 			for(int i=0;i<4;i++){
-				if(!children[i]->determine_contain(p, has_in, has_ex)){
+				if(!children[i]->evaluate_nodes(p, has_in, has_ex)){
 					return false;
 				}
 			}
@@ -212,11 +248,16 @@ public:
 		return true;
 	}
 
-	bool determine_contain(Pixel &p){
+	bool determine_contain(Pixel &p, bool isin){
 		assert(this->level==0);
 		bool has_in = false;
 		bool has_out = false;
-		return determine_contain(p, has_in, has_out);
+		if(evaluate_nodes(p, has_in, has_out)){
+			assert(has_in!=has_out);
+			isin = has_in;
+			return true;
+		}
+		return false;
 	}
 
 

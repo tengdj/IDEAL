@@ -10,10 +10,16 @@ query_context::query_context(){
 	num_threads = get_num_threads();
 	pthread_mutex_init(&lock, NULL);
 }
+query_context::query_context(query_context &t){
+	*this = t;
+	this->global_ctx = &t;
+	pthread_mutex_init(&lock, NULL);
+}
 query_context::~query_context(){
 
 	vertex_number.clear();
 	latency.clear();
+	// this is the host context
 	if(this->global_ctx == NULL){
 		for(MyPolygon *p:source_polygons){
 			delete p;
@@ -28,69 +34,39 @@ query_context::~query_context(){
 
 }
 
-query_context::query_context(query_context &t){
-	thread_id = t.thread_id;
-	num_threads = t.num_threads;
-	vpr = t.vpr;
-	vpr_end = t.vpr_end;
-	use_grid = t.use_grid;
-	use_qtree = t.use_qtree;
-	use_mer = t.use_mer;
-	use_triangulate = t.use_triangulate;
-	mer_sample_round = t.mer_sample_round;
-	use_convex_hull = t.use_convex_hull;
-	perform_refine = t.perform_refine;
-	gpu = t.gpu;
-	sample_rate = t.sample_rate;
-	small_threshold = t.small_threshold;
-	big_threshold = t.big_threshold;
-	sort_polygons = t.sort_polygons;
-	report_gap = t.report_gap;
-	distance_buffer_size = t.distance_buffer_size;
-	source_path = t.source_path;
-	target_path = t.target_path;
-	target_num = t.target_num;
 
-	valid_path = t.valid_path;
-	query_type = t.query_type;
-	collect_latency = t.collect_latency;
 
-	geography = t.geography;
-	pthread_mutex_init(&lock, NULL);
-}
-
-query_context& query_context::operator=(query_context const &t){
-    geography = t.geography;
-
-	thread_id = t.thread_id;
-	num_threads = t.num_threads;
-	vpr = t.vpr;
-	vpr_end = t.vpr_end;
-	use_grid = t.use_grid;
-	use_qtree = t.use_qtree;
-	use_mer = t.use_mer;
-	use_triangulate = t.use_triangulate;
-	mer_sample_round = t.mer_sample_round;
-	use_convex_hull = t.use_convex_hull;
-	perform_refine = t.perform_refine;
-	gpu = t.gpu;
-	sample_rate = t.sample_rate;
-	small_threshold = t.small_threshold;
-	big_threshold = t.big_threshold;
-	sort_polygons = t.sort_polygons;
-	report_gap = t.report_gap;
-	distance_buffer_size = t.distance_buffer_size;
-	source_path = t.source_path;
-	target_path = t.target_path;
-	valid_path = t.valid_path;
-	target_num = t.target_num;
-
-    query_type = t.query_type;
-    collect_latency = t.collect_latency;
-    pthread_mutex_init(&lock, NULL);
-	return *this;
-
-}
+//query_context& query_context::operator=(query_context const &t){
+//    geography = t.geography;
+//
+//	thread_id = t.thread_id;
+//	num_threads = t.num_threads;
+//	vpr = t.vpr;
+//	vpr_end = t.vpr_end;
+//	use_grid = t.use_grid;
+//	use_qtree = t.use_qtree;
+//	use_mer = t.use_mer;
+//	use_triangulate = t.use_triangulate;
+//	mer_sample_round = t.mer_sample_round;
+//	use_convex_hull = t.use_convex_hull;
+//	perform_refine = t.perform_refine;
+//	gpu = t.gpu;
+//	sample_rate = t.sample_rate;
+//	small_threshold = t.small_threshold;
+//	big_threshold = t.big_threshold;
+//	sort_polygons = t.sort_polygons;
+//	report_gap = t.report_gap;
+//	distance_buffer_size = t.distance_buffer_size;
+//	source_path = t.source_path;
+//	target_path = t.target_path;
+//	target_num = t.target_num;
+//
+//    query_type = t.query_type;
+//    collect_latency = t.collect_latency;
+//    pthread_mutex_init(&lock, NULL);
+//	return *this;
+//
+//}
 
 void query_context::report_latency(int num_v, double lt){
 	if(vertex_number.find(num_v)==vertex_number.end()){
@@ -126,7 +102,7 @@ void query_context::report_progress(){
 		global_ctx->query_count += query_count;
 		double time_passed = get_time_elapsed(global_ctx->previous);
 		if(time_passed/1000>global_ctx->report_gap){
-			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num*global_ctx->sample_rate));
+			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
 			global_ctx->previous = get_cur_time();
 		}
 		query_count = 0;
@@ -256,14 +232,11 @@ query_context get_parameters(int argc, char **argv){
 		("rasterize,r", "partition with rasterization")
 		("qtree,q", "partition with qtree")
 		("raster_only", "query with raster only")
-		("convex_hull", "use convex hall for filtering")
-		("mer", "use maximum enclosed rectangle")
+		("vector", "use techniques like MER convex hull and internal RTree")
 		("mer_sample_round", "how many rounds of sampling needed for MER generating")
-		("triangulate", "use triangulate")
 
 		("source,s", po::value<string>(&global_ctx.source_path)->required(), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
-		("valid_path", po::value<string>(&global_ctx.valid_path), "path to the file with valid polygons")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
 		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")
 		("vpr_end", po::value<int>(&global_ctx.vpr_end), "number of vertices per raster")
@@ -282,15 +255,13 @@ query_context get_parameters(int argc, char **argv){
 
 	global_ctx.use_grid = vm.count("rasterize");
 	global_ctx.use_qtree = vm.count("qtree");
+	global_ctx.use_vector = vm.count("vector");
+
 	global_ctx.perform_refine = !vm.count("raster_only");
 	global_ctx.collect_latency = vm.count("latency");
-	global_ctx.use_convex_hull = vm.count("convex_hull");
-	global_ctx.use_mer = vm.count("mer");
-	global_ctx.use_triangulate = vm.count("triangulate");
 	if(global_ctx.vpr_end<global_ctx.vpr){
 		global_ctx.vpr_end = global_ctx.vpr;
 	}
-
 
 	return global_ctx;
 }

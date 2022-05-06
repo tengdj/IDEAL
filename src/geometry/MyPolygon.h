@@ -54,7 +54,7 @@ public:
 	void reverse();
 	double area();
 	bool contain(Point &p);
-	//fix the ring
+	//fix the collinear problem
 	void fix();
 };
 
@@ -146,7 +146,11 @@ class MyPolygon{
 	MyRaster *raster = NULL;
 
 	QTNode *qtree = NULL;
-	vector<Triangle *> triangles;
+	// for triangulation
+	Point *triangles = NULL;
+	size_t triangle_num = 0;
+
+
 	RTNode *rtree = NULL;
 
 	pthread_mutex_t ideal_partition_lock;
@@ -157,9 +161,7 @@ public:
 	size_t offset = 0;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
-	bool valid_for_triangulate = false;
 	vector<VertexSequence *> internal_polygons;
-
 	MyPolygon(){
 	    pthread_mutex_init(&ideal_partition_lock, NULL);
 	    pthread_mutex_init(&qtree_partition_lock, NULL);
@@ -197,7 +199,7 @@ public:
 			num_bits++;
 			numv/=2;
 		}
-		sz += triangles.size()*3*(num_bits+7)/8;
+		sz += triangle_num*3*(num_bits+7)/8;
 		return sz;
 	}
 	void build_rtree();
@@ -232,6 +234,9 @@ public:
 	double distance(Point &p, query_context *ctx);
 	double distance(MyPolygon *target, query_context *ctx);
 	double distance_rtree(Point &p, query_context *ctx);
+	double distance_rtree(Point &start, Point &end, query_context *ctx);
+	bool intersect_rtree(Point &start, Point &end, query_context *ctx);
+
 
 	void print_without_head(bool print_hole = false);
 	void print(bool print_id=true, bool print_hole=false);
@@ -344,11 +349,12 @@ public:
 
 
 //utility functions
-void print_boxes(vector<Pixel *> boxes);
 void process_rasterization(query_context *ctx);
 void process_convex_hull(query_context *ctx);
 void process_mer(query_context *ctx);
-void process_triangulate(query_context *gctx);
 void process_internal_rtree(query_context *gctx);
 void preprocess(query_context *gctx);
+
+void print_boxes(vector<Pixel *> boxes);
+void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
 #endif /* SRC_MYPOLYGON_H_ */

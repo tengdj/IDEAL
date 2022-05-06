@@ -33,9 +33,9 @@
 
 namespace p2t {
 
-Triangle::Triangle(Vertex& a, Vertex& b, Vertex& c)
+Triangle::Triangle(Vertex *a, Vertex *b, Vertex *c)
 {
-  points_[0] = &a; points_[1] = &b; points_[2] = &c;
+  points_[0] = a; points_[1] = b; points_[2] = c;
   neighbors_[0] = NULL; neighbors_[1] = NULL; neighbors_[2] = NULL;
   constrained_edge[0] = constrained_edge[1] = constrained_edge[2] = false;
   delaunay_edge[0] = delaunay_edge[1] = delaunay_edge[2] = false;
@@ -249,6 +249,7 @@ Triangle* Triangle::NeighborCW(Vertex& point)
   } else if (&point == points_[1]) {
     return neighbors_[2];
   }
+  assert(&point == points_[2]);
   return neighbors_[0];
 }
 
@@ -260,6 +261,7 @@ Triangle* Triangle::NeighborCCW(Vertex& point)
   } else if (&point == points_[1]) {
     return neighbors_[0];
   }
+  assert(&point == points_[2]);
   return neighbors_[1];
 }
 
@@ -270,6 +272,7 @@ bool Triangle::GetConstrainedEdgeCCW(Vertex& p)
   } else if (&p == points_[1]) {
     return constrained_edge[0];
   }
+  assert(&p == points_[2]);
   return constrained_edge[1];
 }
 
@@ -280,6 +283,7 @@ bool Triangle::GetConstrainedEdgeCW(Vertex& p)
   } else if (&p == points_[1]) {
     return constrained_edge[2];
   }
+  assert(&p == points_[2]);
   return constrained_edge[0];
 }
 
@@ -312,6 +316,7 @@ bool Triangle::GetDelunayEdgeCCW(Vertex& p)
   } else if (&p == points_[1]) {
     return delaunay_edge[0];
   }
+  assert(&p == points_[2]);
   return delaunay_edge[1];
 }
 
@@ -322,6 +327,7 @@ bool Triangle::GetDelunayEdgeCW(Vertex& p)
   } else if (&p == points_[1]) {
     return delaunay_edge[2];
   }
+  assert(&p == points_[2]);
   return delaunay_edge[0];
 }
 
@@ -355,6 +361,7 @@ Triangle& Triangle::NeighborAcross(Vertex& opoint)
   } else if (&opoint == points_[1]) {
     return *neighbors_[1];
   }
+  assert(&opoint == points_[2]);
   return *neighbors_[2];
 }
 

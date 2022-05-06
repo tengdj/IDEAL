@@ -105,7 +105,7 @@ void SweepContext::InitEdges(std::vector<Vertex*> polyline)
   int num_points = polyline.size();
   for (int i = 0; i < num_points; i++) {
     int j = i < num_points - 1 ? i + 1 : 0;
-    edge_list.push_back(new Edge(*polyline[i], *polyline[j]));
+    edge_list.push_back(new Edge(polyline[i], polyline[j]));
   }
 }
 
@@ -130,7 +130,7 @@ void SweepContext::CreateAdvancingFront(std::vector<Node*> nodes)
 
   (void) nodes;
   // Initial triangle
-  Triangle* triangle = new Triangle(*points_[0], *tail_, *head_);
+  Triangle* triangle = new Triangle(points_[0], tail_, head_);
 
   map_.push_back(triangle);
 

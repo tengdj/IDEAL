@@ -74,30 +74,32 @@ public:
 
 class query_context{
 public:
-	//configuration
-	bool geography = false;
 	int thread_id = 0;
+
+	//configuration
+	bool geography = true;
 	int num_threads = 0;
+
 	int vpr = 10;
 	int vpr_end = 10;
 	bool use_grid = false;
 	bool use_qtree = false;
-	bool use_convex_hull = false;
-	bool use_mer = false;
-	bool use_triangulate = false;
+	bool use_vector = false;
+
 	int mer_sample_round = 20;
 	bool perform_refine = true;
 	bool gpu = false;
 	bool collect_latency = false;
 	float sample_rate = 1.0;
+
 	int small_threshold = 500;
 	int big_threshold = 400000;
-	bool sort_polygons = false;
-	int distance_buffer_size = 10;
+
 	QueryType query_type = QueryType::contain;
+	int within_distance = 10;
+
 	string source_path;
 	string target_path;
-	string valid_path;
 
 	size_t max_num_polygons = INT_MAX;
 
@@ -105,14 +107,14 @@ public:
 	void *target = NULL;
 	void *target2 = NULL;
 	query_context *global_ctx = NULL;
+	size_t target_num = 0;
 
-	//shared staff
+	//shared staff, for multiple thread task assignment
 	size_t index = 0;
 	size_t index_end = 0;
 	struct timeval previous = get_cur_time();
 	int report_gap = 5;
 	pthread_mutex_t lock;
-
 
 	//result
 	double distance = 0;
@@ -132,22 +134,20 @@ public:
 	execute_step edge_checked;
 	execute_step intersection_checked;
 
-
 	// temporary storage for query processing
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
 	double *points = NULL;
-	size_t target_num = 0;
 
 	map<int, int> vertex_number;
 	map<int, double> latency;
 
+public:
 
 	// functions
 	query_context();
 	~query_context();
 	query_context(query_context &t);
-	query_context& operator=(query_context const &obj);
 
 	void report_latency(int num_v, double latency);
 	void load_points();

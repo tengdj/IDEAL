@@ -26,6 +26,21 @@ void box::update(Point &p){
 	}
 }
 
+bool box::intersect(Point &start, Point &end){
+	if(segment_intersect(start, end, Point(low[0], low[1]), Point(high[0], low[1]))){
+		return true;
+	}
+	if(segment_intersect(start, end, Point(high[0], low[1]), Point(high[0], high[1]))){
+		return true;
+	}
+	if(segment_intersect(start, end, Point(high[0], high[1]), Point(low[0], high[1]))){
+		return true;
+	}
+	if(segment_intersect(start, end, Point(low[0], high[1]), Point(low[0], low[1]))){
+		return true;
+	}
+	return false;
+}
 bool box::intersect(box &target){
 	return !(target.low[0]>high[0]||
 			 target.high[0]<low[0]||
@@ -52,6 +67,8 @@ double box::area(){
 /*
  * distance related functions
  * */
+
+// box to box
 double box::distance(box &t, bool geography){
 	if(this->intersect(t)){
 		return 0;
@@ -96,6 +113,7 @@ double box::max_distance(box &target, bool geography){
 	return sqrt(dx * dx + dy * dy);
 }
 
+// point to box
 double box::distance(Point &p, bool geography){
 	if(this->contain(p)){
 		return 0;
@@ -120,6 +138,29 @@ double box::max_distance(Point &p, bool geography){
 	}
 	return sqrt(dx*dx+dy*dy);
 }
+
+// segment to box
+double box::distance(Point &start, Point &end, bool geography){
+	Point vertex_array[5];
+	to_array(vertex_array);
+	double dist1 = segment_to_segment_distance(start, end, vertex_array[0], vertex_array[1], geography);
+	double dist2 = segment_to_segment_distance(start, end, vertex_array[1], vertex_array[2], geography);
+	double dist3 = segment_to_segment_distance(start, end, vertex_array[2], vertex_array[3], geography);
+	double dist4 = segment_to_segment_distance(start, end, vertex_array[3], vertex_array[4], geography);
+
+	return min(dist1, min(dist2, min(dist3, dist4)));
+}
+double box::max_distance(Point &start, Point &end, bool geography){
+	Point vertex_array[5];
+	to_array(vertex_array);
+	double dist1 = segment_to_segment_distance(start, end, vertex_array[0], vertex_array[1], geography);
+	double dist2 = segment_to_segment_distance(start, end, vertex_array[1], vertex_array[2], geography);
+	double dist3 = segment_to_segment_distance(start, end, vertex_array[2], vertex_array[3], geography);
+	double dist4 = segment_to_segment_distance(start, end, vertex_array[3], vertex_array[4], geography);
+
+	return max(dist1, max(dist2, max(dist3, dist4)));
+}
+
 
 box box::expand(double expand_buffer, bool geography){
 	box b = *this;

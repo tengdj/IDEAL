@@ -47,7 +47,6 @@ void Sweep::Triangulate(SweepContext& tcx)
   // Clean up
   FinalizationPolygon(tcx);
 }
-
 void Sweep::SweepPoints(SweepContext& tcx)
 {
   for (int i = 1; i < tcx.point_count(); i++) {
@@ -107,6 +106,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, Edge* edge, Node* node)
 
 void Sweep::EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* triangle, Vertex& point)
 {
+
   if (IsEdgeSideOfTriangle(*triangle, ep, eq)) {
     return;
   }
@@ -114,6 +114,11 @@ void Sweep::EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* trian
   Vertex* p1 = triangle->PointCCW(point);
   Orientation o1 = Orient2d(eq, *p1, ep);
   if (o1 == COLLINEAR) {
+//	  log("o1 collinear");
+//	eq.print();
+//	p1->print();
+//	ep.print();
+	//assert(0&&"o1 collinear");
     if( triangle->Contains(&eq, p1)) {
       triangle->MarkConstrainedEdge(&eq, p1 );
       // We are modifying the constraint maybe it would be better to 
@@ -131,6 +136,11 @@ void Sweep::EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* trian
   Vertex* p2 = triangle->PointCW(point);
   Orientation o2 = Orient2d(eq, *p2, ep);
   if (o2 == COLLINEAR) {
+//	  log("o2 collinear");
+//		eq.print();
+//		p2->print();
+//		ep.print();
+		//assert(0&&"o2 collinear");
     if( triangle->Contains(&eq, p2)) {
       triangle->MarkConstrainedEdge(&eq, p2 );
       // We are modifying the constraint maybe it would be better to 
@@ -150,7 +160,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* trian
     // that will cross edge
     if (o1 == CW) {
       triangle = triangle->NeighborCCW(point);
-    }       else{
+    }else{
       triangle = triangle->NeighborCW(point);
     }
     EdgeEvent(tcx, ep, eq, triangle, point);
@@ -162,6 +172,7 @@ void Sweep::EdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* trian
 
 bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, Vertex& ep, Vertex& eq)
 {
+
   int index = triangle.EdgeIndex(&ep, &eq);
 
   if (index != -1) {
@@ -177,7 +188,7 @@ bool Sweep::IsEdgeSideOfTriangle(Triangle& triangle, Vertex& ep, Vertex& eq)
 
 Node& Sweep::NewFrontTriangle(SweepContext& tcx, Vertex& point, Node& node)
 {
-  Triangle* triangle = new Triangle(point, *node.point, *node.next->point);
+  Triangle* triangle = new Triangle(&point, node.point, node.next->point);
 
   triangle->MarkNeighbor(*node.triangle);
   tcx.AddToMap(triangle);
@@ -199,7 +210,7 @@ Node& Sweep::NewFrontTriangle(SweepContext& tcx, Vertex& point, Node& node)
 
 void Sweep::Fill(SweepContext& tcx, Node& node)
 {
-  Triangle* triangle = new Triangle(*node.prev->point, *node.point, *node.next->point);
+  Triangle* triangle = new Triangle(node.prev->point, node.point, node.next->point);
 
   // TODO: should copy the constrained_edge value from neighbor triangles
   //       for now constrained_edge values are copied during the legalize
@@ -700,7 +711,9 @@ void Sweep::FillLeftConcaveEdgeEvent(SweepContext& tcx, Edge* edge, Node& node)
 
 void Sweep::FlipEdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle* t, Vertex& p)
 {
+  assert(t);
   Triangle& ot = t->NeighborAcross(p);
+
   Vertex& op = *ot.OppositePoint(*t, p);
 
   if (&ot == NULL) {
@@ -767,6 +780,9 @@ Vertex& Sweep::NextFlipPoint(Vertex& ep, Vertex& eq, Triangle& ot, Vertex& op)
     // Left
     return *ot.PointCW(op);
   } else{
+	eq.print();
+	op.print();
+	ep.print();
     //throw new RuntimeException("[Unsupported] Opposing point on constrained edge");
     assert(0);
     return op;
@@ -776,7 +792,11 @@ Vertex& Sweep::NextFlipPoint(Vertex& ep, Vertex& eq, Triangle& ot, Vertex& op)
 void Sweep::FlipScanEdgeEvent(SweepContext& tcx, Vertex& ep, Vertex& eq, Triangle& flip_triangle,
                               Triangle& t, Vertex& p)
 {
+//	p.print();
+//	t.print(true);
+
   Triangle& ot = t.NeighborAcross(p);
+  assert((&ot) && "must not be null");
   Vertex& op = *ot.OppositePoint(t, p);
 
   if (&t.NeighborAcross(p) == NULL) {

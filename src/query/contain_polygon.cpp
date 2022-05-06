@@ -16,27 +16,9 @@ int ct = 0;
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	MyPolygon *target = (MyPolygon *)ctx->target;
-	// query with parition
-	if(ctx->use_grid){
-		poly->rasterization(ctx->vpr);
-		timeval start = get_cur_time();
-		bool contained = poly->contain(target, ctx);
-		ctx->found += contained;
-//		if(target->getid()==315 && contained){
-//			log("%d (%d vertices) contains %d (%d vertices)", poly->getid(), poly->get_num_vertices(), target->getid(), target->get_num_vertices());
-//			poly->print(false, false);
-//		}
-	}else if(ctx->use_qtree){
-		poly->partition_qtree(ctx->vpr);
-		if(!poly->get_qtree()->determine_contain(*(target->getMBB()))){
-			ctx->found += poly->contain(target,ctx);
-			ctx->refine_count++;
-		}
-	}else{
-		//struct timeval start = get_cur_time();
-		ctx->found += poly->contain(target,ctx);
-		//logt("completed %d", start, ct++);
-	}
+
+	ctx->found += poly->contain(target, ctx);
+
 	// keep going until all hit objects are found
 	return true;
 }
@@ -89,10 +71,7 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %d nodes", start,global_ctx.source_polygons.size());
 
-	query_context lc(global_ctx);
-	lc.big_threshold = 100;
-	lc.small_threshold = 0;
-	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),lc,true);
+	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx,true);
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	logt("loaded %d polygons",start,global_ctx.target_polygons.size());
 
@@ -118,7 +97,6 @@ int main(int argc, char** argv) {
 		for(int i=0;i<global_ctx.num_threads;i++){
 			ctx[i] = query_context(global_ctx);
 			ctx[i].thread_id = i;
-			ctx[i].global_ctx = &global_ctx;
 		}
 		for(int i=0;i<global_ctx.num_threads;i++){
 			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);

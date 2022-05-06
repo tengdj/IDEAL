@@ -10,6 +10,13 @@
 
 #include <math.h>
 
+inline bool collinear(Point &p1, Point &p2, Point &p3){
+	double a = p1.x * (p2.y - p3.y) +
+			   p2.x * (p3.y - p1.y) +
+			   p3.x * (p1.y - p2.y);
+	return double_zero(a);
+}
+
 /*
  *
  * some utility functions for geometry computations
@@ -60,6 +67,14 @@ inline double point_to_segment_distance_batch(Point &p, Point *vs, size_t seq_le
         }
     }
     return mindist;
+}
+
+inline double segment_to_segment_distance(Point &s1, Point &e1, Point &s2, Point &e2, bool geography){
+	double dist1 = point_to_segment_distance(s1,s2,e2,geography);
+	double dist2 = point_to_segment_distance(e1,s2,e2,geography);
+	double dist3 = point_to_segment_distance(s2,s1,e1,geography);
+	double dist4 = point_to_segment_distance(e2,s1,e1,geography);
+	return min(dist1, min(dist2, min(dist3, dist4)));
 }
 
 inline double segment_to_segment_distance_batch(Point *vs1, Point *vs2, size_t s1, size_t s2, bool geography){
@@ -118,11 +133,6 @@ inline bool segment_intersect_batch(Point *p1, Point *p2, int s1, int s2){
 	for(int i=0;i<s1;i++){
 		for(int j=0;j<s2;j++){
 			if(segment_intersect(p1[i],p1[(i+1)%s1],p2[j],p2[(j+1)%s2])){
-//				p1[i].print();
-//				p1[(i+1)%s1].print();
-//				p2[j].print();
-//				p2[(j+1)%s2].print();
-//				log("%d %d intersect",i,j);
 				return true;
 			}
 		}

@@ -58,8 +58,9 @@ enum Orientation { CW, CCW, COLLINEAR };
  */
 Orientation Orient2d(Vertex& pa, Vertex& pb, Vertex& pc)
 {
-  double detleft = (pa.x - pc.x) * (pb.y - pc.y);
-  double detright = (pa.y - pc.y) * (pb.x - pc.x);
+  // improve the precision for a better estimation of direction
+  double detleft = (pa.x - pc.x)*10000.0 * (pb.y - pc.y);
+  double detright = (pa.y - pc.y)*10000.0 * (pb.x - pc.x);
   double val = detleft - detright;
   if (val > -EPSILON && val < EPSILON) {
     return COLLINEAR;

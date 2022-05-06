@@ -14,6 +14,7 @@
 #include <sstream>
 #include <vector>
 #include <thread>
+#include <unordered_map>
 
 using namespace std;
 
@@ -71,16 +72,26 @@ void VertexSequence::fix(){
 		return;
 	}
 	int cur = 0;
-	int cur_store = 0;
-	while(cur<num_vertices-1){
-		if(!double_equal(p[cur].x,p[cur+1].x)||!double_equal(p[cur].y,p[cur+1].y)){
-			p[cur_store] = p[cur];
-			cur_store++;
+	int next = 1;
+	unordered_map<double, double> exist;
+	exist[p[cur].x+p[cur].y] = p[cur].x;
+	while(next<num_vertices){
+		// next vertex appeared before, skip this one
+		if(exist.find(p[next].x+p[next].y)!=exist.end() && exist[p[next].x+p[next].y] == p[next].x){
+			next++;
+			continue;
 		}
-		cur++;
+		// not cllinear and shown first time, move cur forward
+		if(!collinear(p[cur],p[next],p[(next+1)%num_vertices])){
+			p[++cur] = p[next];
+			// register the new one
+			exist[p[cur].x+p[cur].y] = p[cur].x;
+		}
+		// the next vertex is valid
+		next++;
 	}
-	p[cur_store] = p[cur];
-	num_vertices = cur_store+1;
+	exist.clear();
+	num_vertices = cur+1;
 }
 
 size_t VertexSequence::encode(char *dest){
@@ -126,8 +137,8 @@ void VertexSequence::print(){
 
 double VertexSequence::area(){
 	double sum = 0;
-	for(int i=0;i<num_vertices-1;i++){
-		sum += (p[i].x-p[i+1].x)*(p[i+1].y+p[i].y);
+	for(int i=0;i<num_vertices;i++){
+		sum += (p[i].x-p[(i+1)%num_vertices].x)*(p[(i+1)%num_vertices].y+p[i].y);
 	}
 	return sum;
 }
@@ -198,7 +209,7 @@ MyPolygon *MyPolygon::read_polygon_binary_file(ifstream &infile){
 		poly->boundary->reverse();
 	}
 //	string str = poly->to_string();
-	poly->boundary->fix();
+//	poly->boundary->fix();
 //	if(poly->boundary->num_vertices<10){
 //		cout<<str<<endl;
 //		poly->print();
@@ -279,9 +290,6 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 		}
 	}
 	infile.close();
-	if(ctx.sort_polygons){
-		std::sort(polygons.begin(),polygons.end(),compareIterator);
-	}
 
 	logt("loaded %ld polygons each with %ld edges %ld MB", start, polygons.size(),num_edges/polygons.size(),data_size/1024/1024);
 	return polygons;
@@ -330,6 +338,36 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 	return polygon;
 }
 
+void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path){
+	ofstream os;
+	os.open(path, ios::out | ios::binary |ios::trunc);
+	assert(os.is_open());
+
+	size_t buffer_size = 100*1024*1024;
+	char *data_buffer = new char[buffer_size];
+	size_t data_size = 0;
+	size_t *offsets = new size_t[polygons.size()];
+	size_t curoffset = 0;
+	for(int i=0;i<polygons.size();i++){
+		MyPolygon *p = polygons[i];
+		if(p->get_data_size()+data_size>buffer_size){
+			os.write(data_buffer, data_size);
+			data_size = 0;
+		}
+		data_size += p->encode_to(data_buffer+data_size);
+		offsets[i] = curoffset;
+		curoffset += p->get_data_size();
+	}
+
+	if(data_size!=0){
+		os.write(data_buffer, data_size);
+	}
+	os.write((char *)offsets, sizeof(size_t)*polygons.size());
+	size_t bs = polygons.size();
+	os.write((char *)&bs, sizeof(size_t));
+	os.close();
+}
+
 MyPolygon::~MyPolygon(){
 	if(this->boundary){
 		delete boundary;
@@ -356,10 +394,9 @@ MyPolygon::~MyPolygon(){
 	if(rtree){
 		delete rtree;
 	}
-	for(Triangle *tri:triangles){
-		delete tri;
+	if(triangles){
+		delete []triangles;
 	}
-	triangles.clear();
 }
 
 
@@ -465,13 +502,14 @@ void MyPolygon::print_without_head(bool print_hole){
 void MyPolygon::print_triangles(){
 	printf("MULTIPOLYGON(");
 	bool first = true;
-	for(Triangle *tri:triangles){
+	for(int i=0;i<triangle_num;i++){
 		if(!first){
 			printf(",");
 		}else{
 			first = false;
 		}
-		tri->print();
+		Point *ps = triangles+3*i;
+		printf("((%f %f, %f %f, %f %f))",ps[0].x,ps[0].y,ps[1].x,ps[1].y,ps[2].x,ps[2].y);
 	}
 	printf(")\n");
 }

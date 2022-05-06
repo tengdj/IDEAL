@@ -58,28 +58,27 @@ geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS
 	
 geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-	
-ms_point_in_polygon:	query/ms_point_in_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
 
-distance:	query/distance.o $(GEOMETRY_OBJS) 
+distance:	test/distance.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-lookup:	query/lookup.o $(GEOMETRY_OBJS) 
+lookup:	test/lookup.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-debug_distance:	query/debug_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+debug_distance:	test/debug_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-debug_contain:	query/debug_contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+triangulate:	test/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-
-triangulate:	query/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+test:	test/test.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 	
+	
 # micro tests
 partition:	stats/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
@@ -105,8 +104,6 @@ geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
 geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-test:	query/test.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

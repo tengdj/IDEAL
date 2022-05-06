@@ -56,7 +56,9 @@ void *process_wkt(void *args){
 
 		vector<MyPolygon *> polygons = mp->get_polygons();
 		for(MyPolygon *p:polygons){
-
+			if(p->get_num_vertices()>=big_threshold || p->get_num_vertices()<=small_threshold){
+				p->boundary->fix();
+			}
 			//log("processed polygon with %d vertices", p->get_num_vertices());
 			if(p->get_num_vertices()>=big_threshold){
 				if(p->get_data_size()+data_size_big>buffer_size){

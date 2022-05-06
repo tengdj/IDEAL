@@ -27,7 +27,6 @@ namespace{
 #define TENG_RANDOM_NUMBER 0315
 #define OSM_SRID 4326
 #define PI 3.14159265
-
 // some utility function
 
 const double degree_per_kilometer_latitude = 360.0/40076.0;
@@ -440,9 +439,13 @@ inline void remove_slash(string &str){
 	}
 }
 
-#define min_equal 0.000001
+#define min_equal 1e-12
 inline bool double_equal(double d1, double d2){
 	return fabs(d1-d2)<min_equal;
+}
+
+inline bool double_zero(double d, double epsilon = min_equal){
+	return fabs(d)<epsilon;
 }
 
 }

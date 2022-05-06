@@ -30,12 +30,26 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	if(poly->getid()==target->getid()){
 		return true;
 	}
-	if(poly->getMBB()->distance(*target->getMBB(), ctx->geography)>ctx->distance_buffer_size){
+	// the minimum possible distance is larger than the threshold
+	if(poly->getMBB()->distance(*target->getMBB(), ctx->geography)>ctx->within_distance){
         return true;
 	}
+	// the maximum possible distance is smaller than the threshold
+	if(poly->getMBB()->max_distance(*target->getMBB(), ctx->geography)<=ctx->within_distance){
+		ctx->found++;
+        return true;
+	}
+
+//	if(target->getid()==8)
+	{
+		//log("%d (%d vertices) within of %d (%d vertices)", target->getid(), target->get_num_vertices(), poly->getid(), poly->get_num_vertices());
+		//poly->print(false, false);
+	}
+
 	timeval start = get_cur_time();
 	ctx->distance = poly->distance(target,ctx);
-	ctx->found += ctx->distance<ctx->distance_buffer_size;
+	ctx->found += ctx->distance <= ctx->within_distance;
+
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
@@ -56,15 +70,18 @@ void *query(void *args){
 	double buffer_low[2];
 	double buffer_high[2];
 
-	while(ctx->next_batch(10)){
+	while(ctx->next_batch(1)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(gctx->sample_rate)){
 				continue;
 			}
 			struct timeval query_start = get_cur_time();
 			ctx->target = (void *)(gctx->source_polygons[i]);
-			box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->distance_buffer_size, true);
+			box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
 			tree.Search(qb.low, qb.high, MySearchCallback, (void *)ctx);
+//			if(gctx->source_polygons[i]->getid()==8){
+//				gctx->source_polygons[i]->print(false, false);
+//			}
 			ctx->object_checked.execution_time += get_time_elapsed(query_start);
 			ctx->report_progress();
 		}
@@ -79,9 +96,6 @@ int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::within;
-    global_ctx.use_grid = true;
-    global_ctx.vpr = 20;
-    global_ctx.distance_buffer_size = 10;
     global_ctx.geography = true;
 
 	timeval start = get_cur_time();
@@ -96,8 +110,9 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
 
-	// read all the points
-	global_ctx.target_num = 100;
+	// the target is also the source
+	global_ctx.target_num = global_ctx.source_polygons.size();
+	//global_ctx.target_num = 1;
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){

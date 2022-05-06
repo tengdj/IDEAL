@@ -24,9 +24,7 @@ bool MySearchCallback(Geometry *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	geos::geom::Geometry *p= (geos::geom::Geometry *)ctx->target;
 
-	ctx->checked_count++;
 	ctx->refine_count++;
-	ctx->edges_checked += poly->getNumPoints();
 	ctx->distance = poly->distance(p);
 	return true;
 }
@@ -43,8 +41,8 @@ void *query(void *args){
 				continue;
 			}
 			ctx->target = (void *)targets[i].get();
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
-			double shifty = degree_per_kilometer_latitude*gctx->distance_buffer_size;
+			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->within_distance;
+			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
 			buffer_low[0] = gctx->points[2*i]-shiftx;
 			buffer_low[1] = gctx->points[2*i+1]-shifty;
 			buffer_high[0] = gctx->points[2*i]+shiftx;

@@ -44,7 +44,7 @@ namespace p2t {
 // See: J. Shewchuk, "Triangle: Engineering a 2D Quality Mesh Generator and Delaunay Triangulator"
 //      "Triangulations in CGAL"
 class Triangle {
-private:
+public:
 
 	/// Triangle points
 	Vertex* points_[3];
@@ -56,7 +56,7 @@ private:
 public:
 
 	/// Constructor
-	Triangle(Vertex& a, Vertex& b, Vertex& c);
+	Triangle(Vertex *a, Vertex *b, Vertex *c);
 
 	/// Flags to determine if an edge is a Constrained edge
 	bool constrained_edge[3];
@@ -114,12 +114,18 @@ public:
 	Vertex *point(int p){
 		return points_[p];
 	}
-	void print(){
+	void print(bool print_head){
+		if(print_head){
+			printf("POLYGON");
+		}
 		printf("((%f %f, %f %f, %f %f, %f %f))",
 				points_[0]->x,points_[0]->y,
 				points_[1]->x,points_[1]->y,
 				points_[2]->x,points_[2]->y,
 				points_[0]->x,points_[0]->y);
+		if(print_head){
+			printf("\n");
+		}
 	}
 
 };

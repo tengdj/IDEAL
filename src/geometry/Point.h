@@ -158,16 +158,16 @@ public:
   Vertex* p, *q;
 
   /// Constructor
-  Edge(Vertex& p1, Vertex& p2) : p(&p1), q(&p2)
+  Edge(Vertex *p1, Vertex *p2) : p(p1), q(p2)
   {
-    if (p1.y > p2.y) {
-      q = &p1;
-      p = &p2;
-    } else if (p1.y == p2.y) {
-      if (p1.x > p2.x) {
-        q = &p1;
-        p = &p2;
-      } else if (p1.x == p2.x) {
+    if (p1->y > p2->y) {
+      q = p1;
+      p = p2;
+    } else if (p1->y == p2->y) {
+      if (p1->x > p2->x) {
+        q = p1;
+        p = p2;
+      } else if (p1->x == p2->x) {
         // Repeat points
         assert(false);
       }

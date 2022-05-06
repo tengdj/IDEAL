@@ -24,7 +24,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		poly->rasterization(ctx->vpr);
 	}
 	Point *p = (Point *)ctx->target;
-	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->distance_buffer_size){
+	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->within_distance){
         return true;
 	}
 
@@ -59,8 +59,8 @@ void *query(void *args){
 			struct timeval query_start = get_cur_time();
 			Point p(gctx->points[2*i],gctx->points[2*i+1]);
 			ctx->target = (void *)&p;
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->distance_buffer_size;
-			double shifty = degree_per_kilometer_latitude*gctx->distance_buffer_size;
+			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->within_distance;
+			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
 			buffer_low[0] = gctx->points[2*i]-shiftx;
 			buffer_low[1] = gctx->points[2*i+1]-shifty;
 			buffer_high[0] = gctx->points[2*i]+shiftx;
@@ -102,7 +102,6 @@ int main(int argc, char** argv) {
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = query_context(global_ctx);
 		ctx[i].thread_id = i;
-		ctx[i].global_ctx = &global_ctx;
 	}
 
 	for(int i=0;i<global_ctx.num_threads;i++){

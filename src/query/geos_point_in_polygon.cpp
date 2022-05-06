@@ -28,9 +28,7 @@ bool MySearchCallback(Geometry *poly, void* arg){
 	assert(poly);
 	assert(p);
 	//exact query
-	ctx->checked_count++;
 	ctx->refine_count++;
-	ctx->edges_checked += poly->getNumPoints();
 	//bool found = (geos::geom::Polygon *)poly->contains((geos::geom::Point *)p)==0;
 	bool found = poly->distance(p)==0;
 

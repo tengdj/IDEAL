@@ -10,6 +10,7 @@
 
 #include "Point.h"
 #include <float.h>
+#include "geometry_computation.h"
 
 const static char *direction_str = "lrtb";
 
@@ -65,15 +66,22 @@ public:
 	void update(Point &p);
 
 	double area();
+	bool intersect(Point &start, Point &end);
 	bool intersect(box &target);
 	bool contain(box &target);
 	bool contain(Point &p);
 
+	// distance to box
 	double distance(box &target, bool geography);
 	double max_distance(box &target, bool geography);
 
+	// distance to point
 	double distance(Point &p, bool geography);
 	double max_distance(Point &p, bool geography);
+
+	// distance to segment
+	double distance(Point &start, Point &end, bool geography);
+	double max_distance(Point &start, Point &end, bool geography);
 
 	box expand(double expand_buffer, bool geography);
 
