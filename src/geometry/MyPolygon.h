@@ -227,12 +227,14 @@ public:
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
 	bool contain(Point &p);// brute-forcely check containment
-	bool contain(Point &p, query_context *ctx);
+	bool contain(Point &p, query_context *ctx, bool profile = true);
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(Pixel *target);
 	bool contain(MyPolygon *target, query_context *ctx);
-	double distance(Point &p, query_context *ctx);
+	double distance(Point &p, query_context *ctx, bool profile = true);
 	double distance(MyPolygon *target, query_context *ctx);
+	double distance(MyPolygon *target, Pixel *pix, query_context *ctx, bool profile = true);
+
 	double distance_rtree(Point &p, query_context *ctx);
 	double distance_rtree(Point &start, Point &end, query_context *ctx);
 	bool intersect_rtree(Point &start, Point &end, query_context *ctx);

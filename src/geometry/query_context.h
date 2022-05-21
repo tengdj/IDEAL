@@ -175,6 +175,10 @@ public:
 		return query_type == QueryType::within;
 	}
 
+	bool within(double dist){
+		return is_within_query() && dist <= within_distance;
+	}
+
 	bool is_contain_query(){
 		return query_type == QueryType::contain;
 	}

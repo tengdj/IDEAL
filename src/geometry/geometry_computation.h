@@ -94,6 +94,45 @@ inline double segment_to_segment_distance_batch(Point *vs1, Point *vs2, size_t s
 	return mindist;
 }
 
+
+inline double point_to_segment_within_batch(Point &p, Point *vs, size_t seq_len, double within_distance, bool geography, size_t &checked){
+    double mindist = DBL_MAX;
+    for (int i = 0; i < seq_len-1; i++) {
+    	checked++;
+        double dist = point_to_segment_distance(p, vs[i], vs[i+1], geography);
+        if(dist<mindist){
+            mindist = dist;
+        }
+		if(mindist <= within_distance){
+			return mindist;
+		}
+    }
+    return mindist;
+}
+
+inline double segment_to_segment_within_batch(Point *vs1, Point *vs2, size_t s1, size_t s2, double within_distance, bool geography, size_t &checked){
+    double mindist = DBL_MAX;
+	for(int i=0;i<s1;i++){
+		double dist = point_to_segment_within_batch(vs1[i], vs2, s2, within_distance, geography, checked);
+		if(dist<mindist){
+			mindist = dist;
+		}
+		if(mindist <= within_distance){
+			return mindist;
+		}
+	}
+	for(int i=0;i<s2;i++){
+		double dist = point_to_segment_within_batch(vs2[i], vs1, s1, within_distance, geography, checked);
+		if(dist<mindist){
+			mindist = dist;
+		}
+		if(mindist <= within_distance){
+			return mindist;
+		}
+	}
+	return mindist;
+}
+
 /*
  *
  * checking whether two polygons intersect
@@ -129,9 +168,10 @@ inline bool segment_intersect(const Point& a, const Point& b, const Point& c, co
 
 
 // checking whether two segments intersect
-inline bool segment_intersect_batch(Point *p1, Point *p2, int s1, int s2){
+inline bool segment_intersect_batch(Point *p1, Point *p2, int s1, int s2, size_t &checked){
 	for(int i=0;i<s1;i++){
 		for(int j=0;j<s2;j++){
+			checked++;
 			if(segment_intersect(p1[i],p1[(i+1)%s1],p2[j],p2[(j+1)%s2])){
 				return true;
 			}

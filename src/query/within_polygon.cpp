@@ -27,7 +27,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		target->rasterization(ctx->vpr);
 	}
 
-	if(poly->getid()==target->getid()){
+	if(poly == target){
 		return true;
 	}
 	// the minimum possible distance is larger than the threshold
