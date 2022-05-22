@@ -229,6 +229,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		if(itn == pxs.size()){
 			return true;
 		}
+		ctx->border_checked.counter++;
 
 		if(target->raster){
 			vector<Pixel *> bpxs2;
