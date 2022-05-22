@@ -221,25 +221,25 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			}
 		}
 		//log("%d %d %d",etn,itn,pxs.size());
-
+		ctx->pixel_evaluated.counter += pxs.size();
+		ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
 		if(etn == pxs.size()){
 			return false;
 		}
 		if(itn == pxs.size()){
 			return true;
 		}
-		ctx->pixel_evaluated.counter += pxs.size();
-		ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
 
 		if(target->raster){
 			vector<Pixel *> bpxs2;
+			start = get_cur_time();
 			for(Pixel *p:bpxs){
 				bpxs2 = target->raster->retrieve_pixels(p);
 				for(Pixel *p2:bpxs2){
 					for(edge_range &r:p->edge_ranges){
 						for(edge_range &r2:p2->edge_ranges){
 							if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size(), ctx->edge_checked.counter)){
-								ctx->edge_checked.execution_time += get_time_elapsed(start,true);
+								//ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 								return false;
 							}
 						}
@@ -247,6 +247,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				}
 				bpxs2.clear();
 			}
+			//ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 		}else{
 			for(Pixel *p:bpxs){
 				for(edge_range &r:p->edge_ranges){
@@ -645,14 +646,16 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 					ctx->pixel_evaluated.counter++;
 				}
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
-				start = get_cur_time();
 				// note that there is no need to check the edges of
 				// this pixel if it is too far from the target
 				if(cur->is_boundary()){
+					start = get_cur_time();
+					bool toofar = (cur->distance(*pix,ctx->geography) >= mindist);
 					if(profile){
 						ctx->border_evaluated.counter++;
+						ctx->border_evaluated.execution_time += get_time_elapsed(start, true);
 					}
-					if(cur->distance(*pix,ctx->geography) >= mindist){
+					if(toofar){
 						continue;
 					}
 					//ctx->border_evaluated.counter++;
@@ -680,6 +683,9 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 								return mindist;
 							}
 						}
+					}
+					if(profile){
+						ctx->edge_checked.execution_time += get_time_elapsed(start, true);
 					}
 				}
 			}
@@ -771,13 +777,10 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 
 			for(Pixel *cur:needprocess){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
-				start = get_cur_time();
 				// note that there is no need to check the edges of
 				// this pixel if it is too far from the target
 				if(cur->is_boundary() && cur->distance(*target->getMBB(),ctx->geography) < mindist){
-					//ctx->border_evaluated.counter++;
 					// the vector model need be checked.
-					start = get_cur_time();
 					// do a polygon--pixel distance calculation
 					double dist = target->distance(this, cur, ctx, true);
 					mindist = min(dist, mindist);
