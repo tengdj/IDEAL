@@ -240,7 +240,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 					for(edge_range &r:p->edge_ranges){
 						for(edge_range &r2:p2->edge_ranges){
 							if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size(), ctx->edge_checked.counter)){
-								//ctx->edge_checked.execution_time += get_time_elapsed(start,true);
+								ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 								return false;
 							}
 						}
@@ -248,7 +248,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				}
 				bpxs2.clear();
 			}
-			//ctx->edge_checked.execution_time += get_time_elapsed(start,true);
+			ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 		}else{
 			for(Pixel *p:bpxs){
 				for(edge_range &r:p->edge_ranges){
