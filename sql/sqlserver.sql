@@ -1,5 +1,7 @@
 create table polygon (id int not null, geog geography, constraint PK_T PRIMARY KEY (ID))
 create table polygon_target (id int not null, geog geography, constraint PK_T_target PRIMARY KEY (ID))
+create table polygon_parent (id int not null, geog geography, constraint PK_T_target PRIMARY KEY (ID))
+create table polygon_child (id int not null, geog geography, constraint PK_T_target PRIMARY KEY (ID))
 
 create table point (id int not null, geog geography, constraint PK_T PRIMARY KEY (ID))
 CREATE SPATIAL INDEX polygon_grid on polygon(geog) USING GEOGRAPHY_AUTO_GRID

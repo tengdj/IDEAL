@@ -98,7 +98,7 @@ load:	datagen/loadwkt.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
+geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)

@@ -24,11 +24,8 @@ int main(int argc, char** argv) {
 		("delimiter,d", po::value<string>(&del), "delimiter")
 		("table_name,t", po::value<string>(&table_name), "table name")
 		("sql","generate insert sql script")
-		("small_threshold,s", po::value<int>(&ctx.small_threshold), "minimum number of vertices for big polygons")
-		("big_threshold,b", po::value<int>(&ctx.big_threshold), "maximum number of vertices for big polygons")
 		("sample_rate,r", po::value<float>(&ctx.sample_rate), "max number of points inserted")
 		("point","the source is point")
-
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -49,14 +46,9 @@ int main(int argc, char** argv) {
 
 	int index = 0;
 	if(!vm.count("point")){
-		ifstream infile;
-		infile.open(ctx.source_path.c_str(), ios::in | ios::binary);
-		while(!infile.eof()){
-			MyPolygon * poly = MyPolygon::read_polygon_binary_file(infile);
-			if(!poly
-					||poly->get_num_vertices()<ctx.small_threshold
-					||poly->get_num_vertices()>ctx.big_threshold
-					||!tryluck(ctx.sample_rate)){
+		vector<MyPolygon *> polygons = MyPolygon::load_binary_file(ctx.source_path.c_str(), ctx, false);
+		for(MyPolygon *poly:polygons){
+			if(!tryluck(ctx.sample_rate)){
 				if(poly){
 					delete poly;
 				}
@@ -74,7 +66,6 @@ int main(int argc, char** argv) {
 			}
 			delete poly;
 		}
-		infile.close();
 	}else{
 		ctx.target_path = ctx.source_path;
 		ctx.load_points();

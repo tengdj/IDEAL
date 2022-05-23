@@ -139,6 +139,12 @@ public:
 	bool is_boundary(){
 		return status == BORDER;
 	}
+	bool is_internal(){
+		return status == IN;
+	}
+	bool is_external(){
+		return status == OUT;
+	}
 	Pixel(){}
 	void enter(double val, Direction d, int vnum);
 	void leave(double val, Direction d, int vnum);

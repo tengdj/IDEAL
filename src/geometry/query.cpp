@@ -221,8 +221,6 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			}
 		}
 		//log("%d %d %d",etn,itn,pxs.size());
-		ctx->pixel_evaluated.counter += pxs.size();
-		ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
 		if(etn == pxs.size()){
 			return false;
 		}
@@ -230,24 +228,44 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			return true;
 		}
 		ctx->border_checked.counter++;
-
+		start = get_cur_time();
 		if(target->raster){
+			vector<pair<Pixel *, Pixel*>> candidates;
 			vector<Pixel *> bpxs2;
 			start = get_cur_time();
 			for(Pixel *p:bpxs){
 				bpxs2 = target->raster->retrieve_pixels(p);
 				for(Pixel *p2:bpxs2){
-					for(edge_range &r:p->edge_ranges){
-						for(edge_range &r2:p2->edge_ranges){
-							if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size(), ctx->edge_checked.counter)){
-								ctx->edge_checked.execution_time += get_time_elapsed(start,true);
-								return false;
-							}
-						}
+					ctx->pixel_evaluated.counter++;
+					// an external pixel of the container intersects an internal
+					// pixel of the containee, which means the containment must be false
+					if(p->is_external() && p2->is_internal()){
+						ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
+						return false;
+					}
+					// evaluate the state
+					if(p->is_boundary() && p->is_boundary()){
+						candidates.push_back(pair<Pixel *, Pixel *>(p, p2));
 					}
 				}
 				bpxs2.clear();
 			}
+			ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
+
+			for(pair<Pixel *, Pixel *> &pa:candidates){
+				Pixel *p = pa.first;
+				Pixel *p2 = pa.second;
+				ctx->border_evaluated.counter++;
+				for(edge_range &r:p->edge_ranges){
+					for(edge_range &r2:p2->edge_ranges){
+						if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size(), ctx->edge_checked.counter)){
+							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
+							return false;
+						}
+					}
+				}
+			}
+
 			ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 		}else{
 			for(Pixel *p:bpxs){
