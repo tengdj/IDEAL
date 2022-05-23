@@ -49,7 +49,7 @@ public:
 	vector<Vertex *> pack_to_polyline();
 	VertexSequence *clone();
 	Pixel *getMBR();
-	void print();
+	void print(bool complete_ring=false);
 	bool clockwise();
 	void reverse();
 	double area();
@@ -240,11 +240,11 @@ public:
 	bool intersect_rtree(Point &start, Point &end, query_context *ctx);
 
 
-	void print_without_head(bool print_hole = false);
+	void print_without_head(bool print_hole = false, bool complete_ring = false);
 	void print(bool print_id=true, bool print_hole=false);
 	void print_triangles();
-	void print_without_return(bool print_hole=false);
-	string to_string(bool clockwise = false);
+	void print_without_return(bool print_hole=false, bool complete_ring=false);
+	string to_string(bool clockwise = false, bool complete_ring=false);
 	Pixel *getMBB();
 	Pixel *getMER(query_context *ctx=NULL);
 

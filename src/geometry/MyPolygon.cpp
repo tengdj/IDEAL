@@ -123,7 +123,7 @@ VertexSequence *VertexSequence::clone(){
 	memcpy((void *)ret->p,(void *)p,sizeof(Point)*num_vertices);
 	return ret;
 }
-void VertexSequence::print(){
+void VertexSequence::print(bool complete_ring){
 	cout<<"(";
 	for(int i=0;i<num_vertices;i++){
 		if(i!=0){
@@ -131,6 +131,14 @@ void VertexSequence::print(){
 		}
 		printf("%f ",p[i].x);
 		printf("%f",p[i].y);
+	}
+	// the last vertex should be the same as the first one for a complete ring
+	if(complete_ring){
+		if(p[0].x!=p[num_vertices-1].x||p[0].y!=p[num_vertices-1].y){
+			cout<<",";
+			printf("%f ",p[0].x);
+			printf("%f",p[0].y);
+		}
 	}
 	cout<<")";
 }
@@ -485,15 +493,15 @@ vector<MyPolygon *> MyPolygon::generate_test_polygons(int num){
 }
 
 
-void MyPolygon::print_without_head(bool print_hole){
+void MyPolygon::print_without_head(bool print_hole, bool complete_ring){
 	assert(boundary);
 	cout<<"(";
 
-	boundary->print();
+	boundary->print(complete_ring);
 	if(print_hole){
 		for(VertexSequence *vs:this->internal_polygons){
 			cout<<", ";
-			vs->print();
+			vs->print(complete_ring);
 		}
 	}
 	cout<<")";
@@ -522,12 +530,12 @@ void MyPolygon::print(bool print_id, bool print_hole){
 	print_without_head(print_hole);
 	cout<<endl;
 }
-void MyPolygon::print_without_return(bool print_hole){
+void MyPolygon::print_without_return(bool print_hole, bool complete_ring){
 	cout<<"POLYGON";
-	print_without_head(print_hole);
+	print_without_head(print_hole, complete_ring);
 }
 
-string MyPolygon::to_string(bool clockwise){
+string MyPolygon::to_string(bool clockwise, bool complete_ring){
 	std::stringstream ss;
 	char double_str[200];
 	ss<<"POLYGON";
@@ -540,6 +548,14 @@ string MyPolygon::to_string(bool clockwise){
 			sprintf(double_str,"%f %f",boundary->p[i].x,boundary->p[i].y);
 			ss<<double_str;
 		}
+		if(complete_ring){
+			if(boundary->p[0].x!=boundary->p[boundary->num_vertices-1].x||
+			   boundary->p[0].y!=boundary->p[boundary->num_vertices-1].y){
+				ss<<",";
+				sprintf(double_str,"%f %f",boundary->p[0].x,boundary->p[0].y);
+				ss<<double_str;
+			}
+		}
 	}else{
 		for(int i=boundary->num_vertices-1;i>=0;i--){
 			if(i!=boundary->num_vertices-1){
@@ -547,6 +563,14 @@ string MyPolygon::to_string(bool clockwise){
 			}
 			sprintf(double_str,"%f %f",boundary->p[i].x,boundary->p[i].y);
 			ss<<double_str;
+		}
+		if(complete_ring){
+			if(boundary->p[0].x!=boundary->p[boundary->num_vertices-1].x||
+			   boundary->p[0].y!=boundary->p[boundary->num_vertices-1].y){
+				ss<<",";
+				sprintf(double_str,"%f %f",boundary->p[boundary->num_vertices-1].x,boundary->p[boundary->num_vertices-1].y);
+				ss<<double_str;
+			}
 		}
 	}
 
