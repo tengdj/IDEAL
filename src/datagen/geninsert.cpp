@@ -60,9 +60,9 @@ int main(int argc, char** argv) {
 				printf("INSERT INTO %s(id, geog) ",table_name.c_str());
 				printf("VALUES (%d, geography::STGeomFromText('%s', 4326).MakeValid());\n",poly->getid(), poly->to_string().c_str());
 			}else{
-				printf("%d%s'",poly->getid(),del.c_str());
+				printf("%d%s",poly->getid(),del.c_str());
 				poly->print_without_return(false);
-				printf("'\n");
+				printf("\n");
 			}
 			delete poly;
 		}
