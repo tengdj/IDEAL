@@ -24,6 +24,15 @@ BULK INSERT polygon_parent FROM '/home/teng/git/IDEAL/src/mssql.parent.csv' WITH
 select t1.id from point t1, polygon t2
 
 
+CREATE SPATIAL INDEX polygon_parent_idx ON polygon_parent(geog);
 
-CREATE SPATIAL INDEX polygon_parent_grid ON polygon_parent(geog) USING GEOGRAPHY_GRID WITH ( BOUNDING_BOX = ( xmin=-180, ymin=-90, xmax=180, ymax=90), GRIDS = (MEDIUM, LOW, MEDIUM, HIGH ), CELLS_PER_OBJECT = 8192, PAD_INDEX  = ON );  
+CREATE SPATIAL INDEX polygon_parent_grid_idx ON polygon_parent(geog) USING GEOGRAPHY_GRID WITH ( GRIDS = (MEDIUM, LOW, MEDIUM, HIGH ), CELLS_PER_OBJECT = 8192, PAD_INDEX  = ON );  
 
+CREATE SPATIAL INDEX polygon_child_idx ON polygon_child(geog);
+
+CREATE SPATIAL INDEX polygon_child_grid_idx ON polygon_child(geog) USING GEOGRAPHY_GRID WITH ( GRIDS = (MEDIUM, LOW, MEDIUM, HIGH ), CELLS_PER_OBJECT = 8192, PAD_INDEX  = ON );  
+
+
+select count(*) from polygon_parent p, polygon_child c where p.geog.STContains(c.geog)=1 and c.id=1;
+
+set statistics time on 

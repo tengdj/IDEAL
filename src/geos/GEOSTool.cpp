@@ -11,17 +11,21 @@
 
 void *load_source(void *args){
 	query_context *ctx = (query_context *)args;
-	log("thread %d started",ctx->thread_id);
+	log("thread %d started to load GEOS object",ctx->thread_id);
 	vector<unique_ptr<Geometry>> *dest = (vector<unique_ptr<Geometry>> *)ctx->target;
 	WKTReader *wkt_reader = new WKTReader();
-	while(ctx->next_batch(100)){
+	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			try{
-				(*dest)[i] = wkt_reader->read(ctx->source_polygons[i]->to_string());
+				//log("processing %d", ctx->source_polygons[i]->getid());
+				(*dest)[i] = wkt_reader->read(ctx->source_polygons[i]->to_string(false, true));
 				(*dest)[i].get()->normalize();
+				//log("%f",(*dest)[i]->getArea());
 			}catch(...){
+				log("failed to parse polygon %d",ctx->source_polygons[i]->getid());
 				(*dest)[i] = NULL;
 			}
+			ctx->report_progress();
 		}
 	}
 	delete wkt_reader;
@@ -36,7 +40,8 @@ void process_geometries(query_context *global_ctx, vector<unique_ptr<Geometry>> 
 	dest.resize(polys.size());
 
 	int num_threads = global_ctx->num_threads;
-
+	global_ctx->index = 0;
+	global_ctx->target_num = polys.size();
 	pthread_t threads[num_threads];
 	query_context ctx[num_threads];
 	for(int i=0;i<num_threads;i++){
@@ -56,7 +61,7 @@ void process_geometries(query_context *global_ctx, vector<unique_ptr<Geometry>> 
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	global_ctx->index = 0;
+	global_ctx->reset_stats();
 
 	logt("%d polygons are processed",start,dest.size());
 }

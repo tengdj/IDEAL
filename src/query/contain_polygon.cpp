@@ -61,10 +61,7 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 
 	timeval start = get_cur_time();
-
 	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
-	logt("loaded %ld polygons", start, global_ctx.source_polygons.size());
-
 	start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
@@ -73,7 +70,7 @@ int main(int argc, char** argv) {
 
 	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx,true);
 	global_ctx.target_num = global_ctx.target_polygons.size();
-	logt("loaded %d polygons",start,global_ctx.target_polygons.size());
+	start = get_cur_time();
 
 //	MyPolygon *s = global_ctx.source_polygons[4648];
 //	MyPolygon *t = global_ctx.target_polygons[315];
@@ -84,33 +81,29 @@ int main(int argc, char** argv) {
 //	log("%d",s->contain(t, &global_ctx));
 //	return 0;
 
-	int vpr = global_ctx.vpr;
-	for(;vpr<=global_ctx.vpr_end;vpr+=10){
-		global_ctx.reset_stats();
-		global_ctx.vpr = vpr;
+	global_ctx.reset_stats();
 
-		preprocess(&global_ctx);
-		logt("preprocess with epp %d",start, vpr);
+	preprocess(&global_ctx);
+	start = get_cur_time();
 
-		pthread_t threads[global_ctx.num_threads];
-		query_context ctx[global_ctx.num_threads];
-		for(int i=0;i<global_ctx.num_threads;i++){
-			ctx[i] = query_context(global_ctx);
-			ctx[i].thread_id = i;
-		}
-		for(int i=0;i<global_ctx.num_threads;i++){
-			pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
-		}
-		for(int i = 0; i < global_ctx.num_threads; i++ ){
-			void *status;
-			pthread_join(threads[i], &status);
-		}
+	pthread_t threads[global_ctx.num_threads];
+	query_context ctx[global_ctx.num_threads];
+	for(int i=0;i<global_ctx.num_threads;i++){
+		ctx[i] = query_context(global_ctx);
+		ctx[i].thread_id = i;
+	}
+	for(int i=0;i<global_ctx.num_threads;i++){
+		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
+	}
+	for(int i = 0; i < global_ctx.num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
 //		logt("vpr %d: queried %d polygons %ld rastor %ld vector %ld found",start,vpr,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
 //				,global_ctx.found);
-		global_ctx.print_stats();
-		logt("query",start);
+	global_ctx.print_stats();
+	logt("query",start);
 
-	}
 //	for(MyPolygon *p:source){
 //		delete p;
 //	}

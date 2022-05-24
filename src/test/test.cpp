@@ -68,9 +68,12 @@ int main(int argc, char** argv) {
 		max_skipped = i;
 	}
 	//global_ctx.max_num_polygons = wrong+1;
-	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/src/has_child.dat",global_ctx, false);
+	vector<MyPolygon *> source_polygons = MyPolygon::load_binary_file("/home/teng/git/IDEAL/src/has_child_valid.dat",global_ctx, false);
 	global_ctx.source_polygons = source_polygons;
 	logt("loading data",start);
+
+	source_polygons[0]->build_rtree();
+	return 0;
 
 	vector<MyPolygon *> valid_polygons;
 	for(MyPolygon *m:source_polygons){

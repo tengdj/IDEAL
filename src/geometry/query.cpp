@@ -37,12 +37,13 @@ bool contain_rtree(RTNode *node, Point &p, query_context *ctx){
 		return false;
 	}
 	if(node->is_leaf()){
+		assert(node->node_element);
 		Point *triangle = (Point *)node->node_element;
 		struct timeval start = get_cur_time();
 		bool ret = false;
-		for(int i=0,j=2;i<=2;j=i++){
+		for(int i=0;i<=2;i++){
 			Point *start = triangle+i;
-			Point *end = triangle+j;
+			Point *end = triangle+(i+1)%3;
 			if((start->y >= p.y ) != (end->y >= p.y)){
 				double xint = (end->x - start->x) * (p.y - start->y)/ (end->y - start->y) + start->x;
 				if(p.x <= xint){
@@ -321,10 +322,10 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 
 		// when reach here, we have no choice but evaluate all edge pairs
 
-		// use rtree if it is created
+		// use the internal rtree if it is created
 		if(rtree){
 			for(int i=0;i<target->get_num_vertices();i++){
-				if(!rtree->contain(*target->get_point(i))){
+				if(!contain_rtree(rtree, *target->get_point(i), ctx)){
 					return false;
 				}
 			}
@@ -380,8 +381,8 @@ double MyPolygon::distance_rtree(Point &p, query_context *ctx){
 			if(pr.second<=ctx->distance){
 				if(pr.first->children.size()==0){
 					Point *triangle = (Point *)pr.first->node_element;
-					for(int i=0,j=2;i<=2;j=i++){
-						double dist = point_to_segment_distance(p, triangle[i], triangle[j],ctx->geography);
+					for(int i=0;i<=2;i++){
+						double dist = point_to_segment_distance(p, triangle[i], triangle[(i+1)%3],ctx->geography);
 						if(ctx->distance>dist){
 							ctx->distance = dist;
 						}
@@ -853,7 +854,6 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 			// so the distance between the convex hulls of two polygon is smaller than
 			// the real distance
 			if(dist>ctx->within_distance){
-				log("%f",dist);
 				return dist;
 			}
 		}

@@ -371,6 +371,8 @@ void preprocess(query_context *gctx){
 	if(gctx->use_vector){
 		process_convex_hull(gctx);
 		process_mer(gctx);
+		target_polygons.clear();
+		target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
 		process_internal_rtree(gctx);
 	}
 	target_polygons.clear();

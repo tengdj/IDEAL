@@ -58,6 +58,9 @@ geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS
 	
 geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+geos_polygon_polygon_within:	query/geos_polygon_polygon_within.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
 

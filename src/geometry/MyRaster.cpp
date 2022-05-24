@@ -530,6 +530,7 @@ Pixel *MyRaster::extractMER(Pixel *starter){
 				shift[0]--;
 			}else{
 				for(int i=cy-shift[1];i<=cy+shift[3];i++){
+					//log("%d %d %d %d", cx-shift[0], dimx, i, dimy);
 					if(pixels[cx-shift[0]][i]->status!=IN){
 						limit[0] = true;
 						shift[0]--;

@@ -97,7 +97,7 @@ void query_context::load_points(){
 }
 
 void query_context::report_progress(){
-	if(++query_count==100){
+	if(++query_count==10){
 		pthread_mutex_lock(&global_ctx->lock);
 		global_ctx->query_count += query_count;
 		double time_passed = get_time_elapsed(global_ctx->previous);
@@ -239,7 +239,6 @@ query_context get_parameters(int argc, char **argv){
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
 		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")
-		("vpr_end", po::value<int>(&global_ctx.vpr_end), "number of vertices per raster")
 		("big_threshold,b", po::value<int>(&global_ctx.big_threshold), "up threshold for complex polygon")
 		("small_threshold", po::value<int>(&global_ctx.small_threshold), "low threshold for complex polygon")
 		("sample_rate", po::value<float>(&global_ctx.sample_rate), "sample rate")
@@ -259,9 +258,6 @@ query_context get_parameters(int argc, char **argv){
 
 	global_ctx.perform_refine = !vm.count("raster_only");
 	global_ctx.collect_latency = vm.count("latency");
-	if(global_ctx.vpr_end<global_ctx.vpr){
-		global_ctx.vpr_end = global_ctx.vpr;
-	}
 
 	return global_ctx;
 }

@@ -533,7 +533,8 @@ void RTREE_QUAL::construct_pixel(Node* a_node, RTNode *p)
 		if(a_node->IsInternalNode()){
 			construct_pixel(a_node->m_branch[index].m_child, np);
 		}else{
-			np->node_element = (void *)a_node->m_branch[index].m_data;
+			assert(a_node->m_branch[index].m_data);
+			np->node_element = (void *)(a_node->m_branch[index].m_data);
 		}
 		p->children.push_back(np);
 	}

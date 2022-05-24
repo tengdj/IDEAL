@@ -111,6 +111,18 @@ public:
 			px->node_count(count);
 		}
 	}
+	bool validate(){
+		if(is_leaf()){
+			return node_element != NULL;
+		}else{
+			for(RTNode *ch:children){
+				if(!ch->validate()){
+					return false;
+				}
+			}
+			return true;
+		}
+	}
 };
 
 class edge_range{

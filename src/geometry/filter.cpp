@@ -29,6 +29,7 @@ void MyPolygon::triangulate(){
 		triangles[i*3+2].x = tri[i]->point(2)->x;
 		triangles[i*3+2].y = tri[i]->point(2)->y;
 	}
+	triangle_num = tri.size();
 	delete cdt;
 	for(Vertex *v:polyline){
 		delete v;
@@ -39,6 +40,7 @@ void MyPolygon::triangulate(){
 void MyPolygon::build_rtree(){
 	triangulate();
 
+	assert(triangles && triangle_num>0);
 	if(rtree){
 		return;
 	}
@@ -61,6 +63,7 @@ void MyPolygon::build_rtree(){
 	rtree->high[1] = mbr->high[1];
 
 	rtree_tmp->construct_pixel(rtree);
+	assert(rtree->validate());
 	delete rtree_tmp;
 }
 
@@ -79,6 +82,7 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	}
 
 	MyRaster *ras = new MyRaster(boundary,ctx->vpr);
+	ras->rasterization();
 	vector<Pixel *> interiors = ras->get_pixels(IN);
 	if(interiors.size()==0){
 		return NULL;
@@ -88,7 +92,7 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	Pixel *max_mer = NULL;
 	while(loops-->0){
 		int sample = get_rand_number(interiors.size())-1;
-		Pixel *curmer = raster->extractMER(interiors[sample]);
+		Pixel *curmer = ras->extractMER(interiors[sample]);
 		if(max_mer){
 			if(max_mer->area()<curmer->area()){
 				delete max_mer;
@@ -102,6 +106,7 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	}
 	interiors.clear();
 	mer = max_mer;
+	delete ras;
 	return mer;
 }
 

@@ -26,7 +26,7 @@ namespace{
 
 #define TENG_RANDOM_NUMBER 0315
 #define OSM_SRID 4326
-#define PI 3.14159265
+const double PI = 3.14159265;
 // some utility function
 
 const double degree_per_kilometer_latitude = 360.0/40076.0;
