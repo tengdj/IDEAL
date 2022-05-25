@@ -30,6 +30,7 @@ vector<size_t> small_offsets;
 
 size_t cur_big_offset = 0;
 size_t cur_small_offset = 0;
+bool fix = false;
 
 void *process_wkt(void *args){
 
@@ -57,7 +58,9 @@ void *process_wkt(void *args){
 		vector<MyPolygon *> polygons = mp->get_polygons();
 		for(MyPolygon *p:polygons){
 			if(p->get_num_vertices()>=big_threshold || p->get_num_vertices()<=small_threshold){
-				p->boundary->fix();
+				if(fix){
+					p->boundary->fix();
+				}
 			}
 			//log("processed polygon with %d vertices", p->get_num_vertices());
 			if(p->get_num_vertices()>=big_threshold){
@@ -135,6 +138,7 @@ int main(int argc, char** argv) {
 		("big_threshold,b", po::value<int>(&big_threshold), "minimum number of vertices for big polygons")
 		("small_threshold,s", po::value<int>(&small_threshold), "maximum number of vertices for small polygons")
 		("num_threads,t", po::value<int>(&num_threads), "number of threads")
+		("fix,f", "fix the boundary while loading")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -143,6 +147,7 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 	po::notify(vm);
+	fix = vm.count("fix");
 
 	big_wf.open(path1.c_str(), ios::out | ios::binary |ios::trunc);
 	small_wf.open(path2.c_str(), ios::out | ios::binary|ios::trunc);
