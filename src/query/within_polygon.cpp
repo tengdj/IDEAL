@@ -51,7 +51,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	ctx->found += ctx->distance <= ctx->within_distance;
 
 	if(ctx->collect_latency){
-		int nv = poly->get_num_vertices();
+		int nv = target->get_num_vertices();
 		if(nv<5000){
 			nv = 100*(nv/100);
 			ctx->report_latency(nv, get_time_elapsed(start));

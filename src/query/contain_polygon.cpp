@@ -17,8 +17,16 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	MyPolygon *target = (MyPolygon *)ctx->target;
 
+	struct timeval start = get_cur_time();
 	ctx->found += poly->contain(target, ctx);
 
+	if(ctx->collect_latency){
+		int nv = target->get_num_vertices();
+		if(nv<5000){
+			nv = 100*(nv/100);
+			ctx->report_latency(nv, get_time_elapsed(start));
+		}
+	}
 	// keep going until all hit objects are found
 	return true;
 }

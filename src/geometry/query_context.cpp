@@ -217,7 +217,7 @@ void query_context::print_stats(){
 
 	if(collect_latency){
 		for(auto it:vertex_number){
-			cout<<it.first<<"\t"<<latency[it.first]/it.second<<endl;
+			cout<<it.first<<"\t"<<it.second<<"\t"<<latency[it.first]/it.second<<endl;
 		}
 	}
 }
