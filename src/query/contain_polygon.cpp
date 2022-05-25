@@ -49,6 +49,7 @@ void *query(void *args){
 			struct timeval start = get_cur_time();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
 			//logt("completed %d", start, ct++);
+			ctx->object_checked.execution_time += get_time_elapsed(start);
 
 //			if(poly->getid()==315){
 //				poly->print(false, false);
