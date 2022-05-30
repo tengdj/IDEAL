@@ -76,8 +76,7 @@ int main(int argc, char** argv) {
 
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
-	//global_ctx.max_num_polygons = 10000000;
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx,true);
 	global_ctx.target_num = global_ctx.source_polygons.size();
 	timeval start = get_cur_time();
 

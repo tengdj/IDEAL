@@ -285,6 +285,13 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	size_t data_size = 0;
 	size_t next = 10;
 	for(size_t i=0;i<num_polygons;i++){
+		if(i*100/num_polygons>=next){
+			log("loaded %d%%",next);
+			next+=10;
+		}
+		if(sample && !tryluck(ctx.sample_rate)){
+			continue;
+		}
 		infile.seekg(offsets[i], infile.beg);
 		MyPolygon *poly = read_polygon_binary_file(infile);
 		assert(poly);
@@ -292,10 +299,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 		data_size += poly->get_data_size();
 		poly->setid(i);
 		polygons.push_back(poly);
-		if(i*100/num_polygons>=next){
-			log("loaded %d%%",next);
-			next+=10;
-		}
+
 	}
 	infile.close();
 
