@@ -83,8 +83,8 @@ test:	test/test.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 	
 	
 # micro tests
-partition:	stats/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+#partition:	stats/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) 
+#	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 flatness:	stats/flatness.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
@@ -92,13 +92,17 @@ flatness:	stats/flatness.o $(GEOMETRY_OBJS)
 pixeldensity:	stats/pixeldensity.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-
+partition:	test/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+partition_data:	test/partition_data.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # for data extraction
 load:	datagen/loadwkt.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS)
+loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)

@@ -12,6 +12,8 @@ query_context::query_context(){
 }
 query_context::query_context(query_context &t){
 	*this = t;
+	this->source_polygons.clear();
+	this->target_polygons.clear();
 	this->global_ctx = &t;
 	pthread_mutex_init(&lock, NULL);
 }
@@ -235,7 +237,7 @@ query_context get_parameters(int argc, char **argv){
 		("vector", "use techniques like MER convex hull and internal RTree")
 		("mer_sample_round", "how many rounds of sampling needed for MER generating")
 
-		("source,s", po::value<string>(&global_ctx.source_path)->required(), "path to the source")
+		("source,s", po::value<string>(&global_ctx.source_path), "path to the source")
 		("target,t", po::value<string>(&global_ctx.target_path), "path to the target")
 		("threads,n", po::value<int>(&global_ctx.num_threads), "number of threads")
 		("vpr,v", po::value<int>(&global_ctx.vpr), "number of vertices per raster")

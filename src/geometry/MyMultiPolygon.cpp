@@ -7,14 +7,21 @@
 
 #include "MyPolygon.h"
 
-MyPolygon *MyMultiPolygon::read_one_polygon(){
-
+MyMultiPolygon *MyMultiPolygon::read_multipolygon(){
 	string input_line;
 	getline(cin, input_line);
 	if(input_line.size()==0){
 		return NULL;
 	}
-	MyMultiPolygon *mp = new MyMultiPolygon(input_line.c_str());
+	return new MyMultiPolygon(input_line.c_str());
+}
+
+MyPolygon *MyMultiPolygon::read_one_polygon(){
+
+	MyMultiPolygon *mp = read_multipolygon();
+	if(mp==NULL){
+		return NULL;
+	}
 	MyPolygon *ret = mp->polygons[0]->clone();
 
 	delete mp;

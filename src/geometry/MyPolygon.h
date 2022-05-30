@@ -315,7 +315,8 @@ public:
 class MyMultiPolygon{
 	vector<MyPolygon *> polygons;
 public:
-	static MyPolygon * read_one_polygon();
+	static MyMultiPolygon *read_multipolygon();
+	static MyPolygon *read_one_polygon();
 	MyMultiPolygon(const char *wkt);
 	MyMultiPolygon(){};
 	~MyMultiPolygon();

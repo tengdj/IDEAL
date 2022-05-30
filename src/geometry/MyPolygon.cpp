@@ -283,8 +283,8 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 
 	size_t num_edges = 0;
 	size_t data_size = 0;
-	int next = 10;
-	for(int i=0;i<num_polygons;i++){
+	size_t next = 10;
+	for(size_t i=0;i<num_polygons;i++){
 		infile.seekg(offsets[i], infile.beg);
 		MyPolygon *poly = read_polygon_binary_file(infile);
 		assert(poly);
