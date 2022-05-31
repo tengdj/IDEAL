@@ -76,7 +76,8 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 	}
 
 	struct timeval start = get_cur_time();
-	if(raster){
+	// todo adjust the lower bound of pixel number when the raster model is usable
+	if(raster && this->get_num_pixels()>5){
 		start = get_cur_time();
 		Pixel *target = raster->get_pixel(p);
 		if(profile){
@@ -130,7 +131,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 		}
 
 		return ret;
-	}else if(qtree){
+	}else if(qtree && this->get_num_pixels()>5){
 		start = get_cur_time();
 		QTNode *tnode = get_qtree()->retrieve(p);
 		assert(tnode->isleaf&&tnode->mbr.contain(p));
