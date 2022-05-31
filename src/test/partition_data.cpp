@@ -44,9 +44,6 @@ void *query(void *args){
 	//log("thread %d is started",ctx->thread_id);
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			if(!tryluck(ctx->sample_rate)){
-				continue;
-			}
 			//gctx->source_polygons[i]->getMBB()->print();
 			ctx->target = (void *)gctx->source_polygons[i];
 			tree.Search(gctx->source_polygons[i]->getMBB()->low, gctx->source_polygons[i]->getMBB()->high, MySearchCallback, (void *)ctx);
@@ -59,6 +56,61 @@ void *query(void *args){
 }
 
 
+vector<MyPolygon *> local_load_binary_file(const char *path, query_context &ctx){
+	vector<MyPolygon *> polygons;
+	if(!file_exist(path)){
+		log("%s does not exist",path);
+		return polygons;
+	}
+	log("loading polygon from %s",path);
+	struct timeval start = get_cur_time();
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t off;
+	size_t num_polygons = 0;
+	infile.seekg(0, infile.end);
+	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
+	infile.read((char *)&num_polygons, sizeof(size_t));
+	assert(num_polygons>0 && "the file should contain at least one polygon");
+	size_t *offsets = new size_t[num_polygons];
+
+	infile.seekg(-sizeof(size_t)*(num_polygons+1), infile.end);
+	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
+	num_polygons = min(num_polygons, ctx.max_num_polygons);
+
+	log("start loading %d polygons",num_polygons);
+
+	size_t num_edges = 0;
+	size_t data_size = 0;
+	size_t next = 10;
+	size_t id = 0;
+	for(size_t i=0;i<num_polygons;i++){
+		if(i*100/num_polygons>=next){
+			log("loaded %d%% %ld",next,id);
+			next+=10;
+		}
+
+		infile.seekg(offsets[i], infile.beg);
+		MyPolygon *poly = MyPolygon::read_polygon_binary_file(infile);
+		assert(poly);
+
+		if(poly->get_num_vertices()<100 && !tryluck(ctx.sample_rate)){
+			delete poly;
+			continue;
+		}
+
+		num_edges += poly->get_num_vertices();
+		data_size += poly->get_data_size();
+		poly->setid(id++);
+		polygons.push_back(poly);
+
+	}
+	infile.close();
+
+	logt("loaded %ld polygons each with %ld edges %ld MB", start, polygons.size(),num_edges/polygons.size(),data_size/1024/1024);
+	return polygons;
+}
 
 int main(int argc, char** argv) {
 
@@ -76,7 +128,7 @@ int main(int argc, char** argv) {
 
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx,true);
+	global_ctx.source_polygons = local_load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 	global_ctx.target_num = global_ctx.source_polygons.size();
 	timeval start = get_cur_time();
 

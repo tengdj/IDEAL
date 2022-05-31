@@ -139,7 +139,7 @@ public:
 
 
 class MyPolygon{
-	int id = 0;
+	size_t id = 0;
 
 	Pixel *mbr = NULL;
 	Pixel *mer = NULL;
@@ -278,10 +278,10 @@ public:
 		return &boundary->p[index];
 	}
 
-	inline int getid(){
+	inline size_t getid(){
 		return id;
 	}
-	inline void setid(int iid){
+	inline void setid(size_t iid){
 		id = iid;
 	}
 

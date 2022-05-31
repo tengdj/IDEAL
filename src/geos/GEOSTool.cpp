@@ -22,7 +22,7 @@ void *load_source(void *args){
 				(*dest)[i].get()->normalize();
 				//log("%f",(*dest)[i]->getArea());
 			}catch(...){
-				log("failed to parse polygon %d",ctx->source_polygons[i]->getid());
+				log("failed to parse polygon %ld",ctx->source_polygons[i]->getid());
 				(*dest)[i] = NULL;
 			}
 			ctx->report_progress();
