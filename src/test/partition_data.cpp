@@ -89,6 +89,8 @@ void *query(void *args){
 			ctx->target = (void *)poly;
 			tree.Search(poly->getMBB()->low, poly->getMBB()->high, MySearchCallback, (void *)ctx);
 			delete poly;
+		}else{
+			usleep(10);
 		}
 	}
 	return NULL;
