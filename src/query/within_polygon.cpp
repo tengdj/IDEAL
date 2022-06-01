@@ -15,6 +15,11 @@ namespace po = boost::program_options;
 using namespace std;
 
 
+double big_host = 0.0;
+double small_host = 0.0;
+double min_host = 0.0;
+pthread_mutex_t host_lk;
+
 RTree<MyPolygon *, double, 2, double> tree;
 
 bool MySearchCallback(MyPolygon *poly, void* arg){
@@ -47,7 +52,32 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	}
 
 	timeval start = get_cur_time();
+	double sh = 0.0;
+	double bh = 0.0;
+//	if(target->get_rastor()->get_step(false) < poly->get_rastor()->get_step(false)){
+//		ctx->distance = target->distance(poly, ctx);
+//		sh = get_time_elapsed(start, true);
+//
+//		ctx->distance = poly->distance(target,ctx);
+//		bh = get_time_elapsed(start, true);
+//	}else{
+//		ctx->distance = poly->distance(target,ctx);
+//		sh = get_time_elapsed(start, true);
+//		ctx->distance = target->distance(poly, ctx);
+//
+//		bh = get_time_elapsed(start, true);
+//	}
+
 	ctx->distance = poly->distance(target,ctx);
+
+//	pthread_mutex_lock(&host_lk);
+//	big_host += bh;
+//	small_host += sh;
+//	min_host += min(bh, sh);
+//	pthread_mutex_unlock(&host_lk);
+
+
+
 	ctx->found += ctx->distance <= ctx->within_distance;
 
 	if(ctx->collect_latency){
@@ -132,6 +162,8 @@ int main(int argc, char** argv) {
 
 	global_ctx.print_stats();
 	logt("total query",start);
+
+	log("%f %f %f", big_host, small_host, min_host);
 
 	return 0;
 }

@@ -757,7 +757,7 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 	if(raster){
 		// both polygons are rasterized and the pixel of the target is larger
 		// then swap the role of source and target, and use the target as the host one
-		if(target->raster && target->get_rastor()->get_step(false) < get_rastor()->get_step(false)){
+		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
 			ctx->object_checked.counter--;
 			return target->distance(this, ctx);
 		}
