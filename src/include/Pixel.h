@@ -165,5 +165,14 @@ public:
 	int num_edges_covered();
 };
 
+inline bool comparePixelX(Pixel *p1, Pixel *p2)
+{
+    return (p1->low[0] < p2->low[0]);
+}
+
+inline bool comparePixelY(Pixel *p1, Pixel *p2)
+{
+    return (p1->low[1] < p2->low[1]);
+}
 
 #endif /* SRC_GEOMETRY_PIXEL_H_ */

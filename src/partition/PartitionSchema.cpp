@@ -32,16 +32,6 @@ Pixel profileSpace(vector<Pixel *> &geometries){
 	return space;
 }
 
-bool compareGeomX(Pixel *p1, Pixel *p2)
-{
-    return (p1->low[0] < p2->low[0]);
-}
-
-bool compareGeomY(Pixel *p1, Pixel *p2)
-{
-    return (p1->low[1] < p2->low[1]);
-}
-
 vector<Pixel *> genschema_fg(vector<Pixel *> &geometries, size_t part_num){
 	size_t dimx = sqrt(part_num);
 	size_t dimy = part_num/dimx;
@@ -68,7 +58,7 @@ vector<Pixel *> genschema_str(vector<Pixel *> &geometries, size_t part_num){
 	size_t dimy = part_num/dimx;
 	vector<Pixel *> schema;
 	struct timeval start = get_cur_time();
-	sort(geometries.begin(), geometries.end(), compareGeomX);
+	sort(geometries.begin(), geometries.end(), comparePixelX);
 	logt("sort %d geometris", start, geometries.size());
 	size_t num = geometries.size();
 
@@ -78,7 +68,7 @@ vector<Pixel *> genschema_str(vector<Pixel *> &geometries, size_t part_num){
 		if(x==dimx-1){
 			end = num;
 		}
-		sort(geometries.begin()+begin, geometries.begin()+end, compareGeomY);
+		sort(geometries.begin()+begin, geometries.begin()+end, comparePixelY);
 		logt("sort %d to %d (%d)", start, begin, end, end-begin);
 	}
 
@@ -105,7 +95,7 @@ vector<Pixel *> genschema_str(vector<Pixel *> &geometries, size_t part_num){
 vector<Pixel *> genschema_slc(vector<Pixel *> &geometries, size_t part_num){
 	vector<Pixel *> schema;
 	struct timeval start = get_cur_time();
-	sort(geometries.begin(), geometries.end(), compareGeomX);
+	sort(geometries.begin(), geometries.end(), comparePixelX);
 	logt("sort %d geometris", start, geometries.size());
 	size_t num = geometries.size();
 
@@ -118,46 +108,6 @@ vector<Pixel *> genschema_slc(vector<Pixel *> &geometries, size_t part_num){
 		Pixel *b = new Pixel();
 
 		end = min(end,num);
-		for(size_t t = begin;t<end;t++){
-			b->update(*geometries[t]);
-		}
-		schema.push_back(b);
-	}
-	return schema;
-}
-
-
-static void get_top_K(vector<Pixel *> &geoms, size_t begin, size_t end, size_t topK, bool sortY){
-	for(size_t i = 0;i<topK;i++){
-		for(size_t j=end;j>begin+i;j--){
-			if((!sortY&&geoms[j]->low[0]<geoms[j-1]->low[0])
-			  ||(sortY&&geoms[j]->low[1]<geoms[j-1]->low[1])){
-				Pixel *tmp = geoms[j];
-				geoms[j] = geoms[j-1];
-				geoms[j-1] = tmp;
-			}
-		}
-	}
-}
-
-
-vector<Pixel *> genschema_bos(vector<Pixel *> &geometries, size_t part_num){
-	vector<Pixel *> schema;
-	struct timeval start = get_cur_time();
-	size_t num = geometries.size();
-
-	for(size_t x=0;x<part_num;x++){
-		size_t begin = x*(num/part_num);
-		size_t end = (x+1)*(num/part_num);
-		if(x==part_num-1){
-			end = num;
-		}
-		end = min(end,num);
-
-		// choose which one has less boundary objects
-
-		Pixel *b = new Pixel();
-
 		for(size_t t = begin;t<end;t++){
 			b->update(*geometries[t]);
 		}
@@ -246,13 +196,30 @@ vector<Pixel *> genschema_qt(vector<Pixel *> &geometries, size_t part_num){
 		Point p(g->low[0], g->low[1]);
 		qtree->touch(p);
 	}
-	qtree->converge(avg_num);
+	qtree->converge(avg_num+avg_num/2);
 
 	qtree->get_leafs(schema);
 
+	delete qtree;
 	return schema;
-
-
 }
+
+
+
+
+vector<Pixel *> genschema_bsp(vector<Pixel *> &geometries, size_t part_num){
+
+	vector<Pixel *> schema;
+	Pixel space = profileSpace(geometries);
+
+	BTNode *btree = new BTNode(space);
+	btree->objects.insert(btree->objects.end(), geometries.begin(), geometries.end());
+	btree->split_to(geometries.size()/part_num);
+	btree->get_leafs(schema);
+	delete btree;
+	return schema;
+}
+
+
 
 

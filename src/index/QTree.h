@@ -109,7 +109,7 @@ public:
 		}
 	}
 	void get_leafs(vector<Pixel *> &leafs){
-		if(!isleaf){
+		if(isleaf){
 			leafs.push_back(new Pixel(mbr));
 		}else{
 			for(int i=0;i<4;i++){
@@ -152,13 +152,7 @@ public:
 
 
 //  for queries
-
-
 	QTNode *retrieve(Point &p){
-		if(!mbr.contain(p)){
-			mbr.print();
-			p.print();
-		}
 		assert(mbr.contain(p));
 		if(this->isleaf){
 			return this;
@@ -169,19 +163,28 @@ public:
 	}
 
 	void touch(Point &p){
-		if(!contain(p)){
+		if(!mbr.contain(p)){
 			return;
 		}
 		objnum++;
-		int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
-		children[offset]->touch(p);
+		if(!isleaf){
+			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
+			assert(offset<4 && offset>=0);
+			children[offset]->touch(p);
+		}
 	}
 
-	void converge(size_t threshold){
-		if(objnum<threshold && !isleaf){
-			isleaf = true;
-			for(int i=0;i<4;i++){
-				delete children[i];
+	void converge(const size_t threshold){
+		if(!isleaf){
+			if(objnum<threshold){
+				isleaf = true;
+				for(int i=0;i<4;i++){
+					delete children[i];
+				}
+			}else{
+				for(int i=0;i<4;i++){
+					children[i]->converge(threshold);
+				}
 			}
 		}
 	}
@@ -308,6 +311,79 @@ public:
 	}
 };
 
+class BTNode{
 
+
+public:
+
+	bool isleaf = true;
+	Pixel mbr;
+	BTNode *children[2];
+	vector<Pixel *> objects;
+
+	BTNode(double low_x, double low_y, double high_x, double high_y){
+		isleaf = true;
+		mbr.low[0] = low_x;
+		mbr.low[1] = low_y;
+		mbr.high[0] = high_x;
+		mbr.high[1] = high_y;
+	}
+	BTNode(Pixel m){
+		isleaf = true;
+		mbr = m;
+	}
+	void split(){
+		isleaf = false;
+		// horizontally split
+		if((mbr.high[0]-mbr.low[0])>(mbr.high[1]-mbr.low[1])){
+			std::sort(objects.begin(),objects.end(),comparePixelX);
+			size_t half_index = objects.size()/2;
+			double mid = objects[half_index]->low[0];
+			children[0] = new BTNode(mbr.low[0], mbr.low[1], mid, mbr.high[1]);
+			children[1] = new BTNode(mid, mbr.low[1], mbr.high[0],mbr.high[1]);
+			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
+			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
+		}else{
+			// vertically split
+			std::sort(objects.begin(),objects.end(),comparePixelY);
+			size_t half_index = objects.size()/2;
+			double mid = objects[half_index]->low[1];
+			children[0] = new BTNode(mbr.low[0], mbr.low[1], mbr.high[0], mid);
+			children[1] = new BTNode(mbr.low[0], mid, mbr.high[0],mbr.high[1]);
+			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
+			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
+		}
+	}
+	void split_to(const size_t threshold){
+
+		if(objects.size()<=threshold){
+			return;
+		}
+		if(isleaf){
+			split();
+		}
+		for(int i=0;i<2;i++){
+			children[i]->split_to(threshold);
+		}
+	}
+
+	void get_leafs(vector<Pixel *> &leafs){
+		if(isleaf){
+			leafs.push_back(new Pixel(mbr));
+		}else{
+			for(int i=0;i<2;i++){
+				children[i]->get_leafs(leafs);
+			}
+		}
+	}
+	~BTNode(){
+		if(!isleaf){
+			for(int i=0;i<2;i++){
+				delete children[i];
+			}
+		}
+		objects.clear();
+	}
+};
 
 #endif /* SRC_INDEX_QTREE_H_ */

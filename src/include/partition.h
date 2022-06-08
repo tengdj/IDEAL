@@ -12,7 +12,8 @@
 
 vector<Pixel *> genschema_str(vector<Pixel *> &geometries, size_t part_num);
 vector<Pixel *> genschema_slc(vector<Pixel *> &geometries, size_t part_num);
-vector<Pixel *> genschema_bos(vector<Pixel *> &geometries, size_t part_num);
+// not supported
+//vector<Pixel *> genschema_bos(vector<Pixel *> &geometries, size_t part_num);
 vector<Pixel *> genschema_hc(vector<Pixel *> &geometries, size_t part_num);
 
 vector<Pixel *> genschema_fg(vector<Pixel *> &geometries, size_t part_num);
