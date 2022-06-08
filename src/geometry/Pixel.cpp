@@ -6,24 +6,22 @@
  */
 
 
-#include "Pixel.h"
+#include "../include/Pixel.h"
 
 bool print_debug = false;
 
 void box::update(Point &p){
-	if(low[0]>p.x){
-		low[0] = p.x;
-	}
-	if(high[0]<p.x){
-		high[0] = p.x;
-	}
+	low[0] = min(low[0], p.x);
+	low[1] = min(low[1], p.y);
+	high[0] = max(high[0], p.x);
+	high[1] = max(high[1], p.y);
+}
 
-	if(low[1]>p.y){
-		low[1] = p.y;
-	}
-	if(high[1]<p.y){
-		high[1] = p.y;
-	}
+void box::update(box &b){
+	low[0] = min(low[0], b.low[0]);
+	low[1] = min(low[1], b.low[1]);
+	high[0] = max(high[0], b.high[0]);
+	high[1] = max(high[1], b.high[1]);
 }
 
 bool box::intersect(Point &start, Point &end){

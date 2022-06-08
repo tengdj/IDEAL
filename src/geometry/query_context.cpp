@@ -4,7 +4,7 @@
  *  Created on: Sep 3, 2020
  *      Author: teng
  */
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 
 query_context::query_context(){
 	num_threads = get_num_threads();
@@ -80,21 +80,27 @@ void query_context::report_latency(int num_v, double lt){
 	}
 }
 
-void query_context::load_points(){
-	struct timeval start = get_cur_time();
-	long fsize = file_size(target_path.c_str());
+size_t load_points_from_path(const char *path, double **points){
+	size_t fsize = file_size(path);
 	if(fsize<=0){
-		log("%s is empty",target_path.c_str());
+		log("%s is empty",path);
 		exit(0);
 	}else{
-		log("size of %s is %ld",target_path.c_str(),fsize);
+		log("size of %s is %ld",path,fsize);
 	}
-	target_num = fsize/(2*sizeof(double));
+	size_t target_num = fsize/(2*sizeof(double));
 
-	points = new double[target_num*2];
-	ifstream infile(target_path.c_str(), ios::in | ios::binary);
+	*points = new double[target_num*2];
+	ifstream infile(path, ios::in | ios::binary);
 	infile.read((char *)points, fsize);
 	infile.close();
+
+	return target_num;
+}
+
+void query_context::load_points(){
+	struct timeval start = get_cur_time();
+	target_num = load_points_from_path(target_path.c_str(), &points);
 	logt("loaded %ld points", start,target_num);
 }
 

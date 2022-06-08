@@ -5,7 +5,7 @@ NVCC = nvcc
 SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
-INCLUDES	= -I /usr/include -I ./src
+INCLUDES	= -I /usr/include -I include
 LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos
 CPPFLAGS	= -g -std=c++14 -Wno-cpp
 
@@ -13,6 +13,9 @@ CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
+
+PARTITION_SRCS := $(wildcard partition/*.cpp)
+PARTITION_OBJS := $(patsubst %.cpp,%.o,$(PARTITION_SRCS))
 
 GEOS_SRCS := $(wildcard geos/*.cpp)
 GEOS_OBJS := $(patsubst %.cpp,%.o,$(GEOS_SRCS))
@@ -79,7 +82,7 @@ debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 triangulate:	test/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-test:	test/test.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+test:	test/within_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 	
 	
 # micro tests
@@ -92,11 +95,6 @@ flatness:	stats/flatness.o $(GEOMETRY_OBJS)
 pixeldensity:	stats/pixeldensity.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-partition:	test/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-partition_data:	test/partition_data.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # for data extraction
 load:	datagen/loadwkt.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
@@ -111,6 +109,13 @@ geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
 geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-	
+# for data partitioning
+
+partition:	test/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+
+partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+		
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

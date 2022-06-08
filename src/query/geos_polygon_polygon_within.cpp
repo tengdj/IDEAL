@@ -5,12 +5,12 @@
  *      Author: teng
  */
 
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <fstream>
 #include "../index/RTree.h"
 #include <queue>
 #include <boost/program_options.hpp>
-#include "../geos/GEOSTool.h"
+#include "../include/GEOSTool.h"
 
 namespace po = boost::program_options;
 using namespace std;

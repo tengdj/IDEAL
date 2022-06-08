@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <string.h>
 #include <assert.h>
 #include <iostream>
@@ -258,13 +258,12 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 
 }
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample){
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample, int report_gap){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
 		return polygons;
 	}
-	log("loading polygon from %s",path);
 	struct timeval start = get_cur_time();
 	ifstream infile;
 	infile.open(path, ios::in | ios::binary);
@@ -281,13 +280,15 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
 	num_polygons = min(num_polygons, ctx.max_num_polygons);
 
+	log("loading %ld polygon from %s",num_polygons,path);
+
 	size_t num_edges = 0;
 	size_t data_size = 0;
-	size_t next = 10;
+	size_t next = report_gap;
 	for(size_t i=0;i<num_polygons;i++){
 		if(i*100/num_polygons>=next){
 			log("loaded %d%%",next);
-			next+=10;
+			next += report_gap;
 		}
 		if(sample && !tryluck(ctx.sample_rate)){
 			continue;

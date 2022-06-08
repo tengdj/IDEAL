@@ -6,7 +6,7 @@
  */
 
 
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 
 /*
  *

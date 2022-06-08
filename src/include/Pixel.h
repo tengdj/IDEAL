@@ -64,6 +64,7 @@ public:
 	}
 
 	void update(Point &p);
+	void update(box &b);
 
 	double area();
 	bool intersect(Point &start, Point &end);

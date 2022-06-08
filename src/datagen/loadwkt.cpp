@@ -1,4 +1,4 @@
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>

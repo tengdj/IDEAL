@@ -40,7 +40,7 @@
 #define SWEEP_H
 
 #include <vector>
-#include "../geometry/Point.h"
+#include "../include/Point.h"
 
 namespace p2t {
 

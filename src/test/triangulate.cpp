@@ -41,7 +41,7 @@
 using namespace std;
 
 #include "../triangulate/poly2tri.h"
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <map>
 using namespace p2t;
 

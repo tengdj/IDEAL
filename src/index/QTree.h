@@ -8,7 +8,7 @@
 #ifndef SRC_INDEX_QTREE_H_
 #define SRC_INDEX_QTREE_H_
 
-#include "../geometry/Pixel.h"
+#include "../include/Pixel.h"
 
 enum QT_Direction{
 	bottom_left = 0,
@@ -65,6 +65,7 @@ public:
 	bool interior = false;
 	bool exterior = false;
 	int level = 0;
+	size_t objnum = 0;
 
 	QTNode(double low_x, double low_y, double high_x, double high_y){
 		mbr.low[0] = low_x;
@@ -87,10 +88,32 @@ public:
 			children[i]->level = level+1;
 		}
 	}
+	void split_to(const size_t target_level){
+
+		if(level==target_level){
+			return;
+		}
+
+		if(isleaf){
+			split();
+		}
+		for(int i=0;i<4;i++){
+			children[i]->split_to(target_level);
+		}
+	}
 	void push(std::stack<QTNode *> &ws){
 		if(!isleaf){
 			for(int i=0;i<4;i++){
 				ws.push(children[i]);
+			}
+		}
+	}
+	void get_leafs(vector<Pixel *> &leafs){
+		if(!isleaf){
+			leafs.push_back(new Pixel(mbr));
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->get_leafs(leafs);
 			}
 		}
 	}
@@ -126,6 +149,11 @@ public:
 		return count;
 	}
 
+
+
+//  for queries
+
+
 	QTNode *retrieve(Point &p){
 		if(!mbr.contain(p)){
 			mbr.print();
@@ -139,6 +167,25 @@ public:
 			return children[offset]->retrieve(p);
 		}
 	}
+
+	void touch(Point &p){
+		if(!contain(p)){
+			return;
+		}
+		objnum++;
+		int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
+		children[offset]->touch(p);
+	}
+
+	void converge(size_t threshold){
+		if(objnum<threshold && !isleaf){
+			isleaf = true;
+			for(int i=0;i<4;i++){
+				delete children[i];
+			}
+		}
+	}
+
 
 	double distance(Point &p,bool geography){
 		double dist = DBL_MAX;
@@ -259,8 +306,6 @@ public:
 		}
 		return false;
 	}
-
-
 };
 
 

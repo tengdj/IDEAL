@@ -1,5 +1,5 @@
 #include <cuda.h>
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include "mygpu.h"
 #include "cuda_util.h"
 

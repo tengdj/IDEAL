@@ -8,7 +8,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
-#include "../geometry/Pixel.h"
+#include "../include/Pixel.h"
 using namespace std;
 
 #define ASSERT assert // RTree uses ASSERT( condition )

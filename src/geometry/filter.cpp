@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include "../triangulate/poly2tri.h"
 using namespace p2t;
 

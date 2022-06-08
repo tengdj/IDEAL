@@ -18,7 +18,7 @@
 #include <boost/program_options.hpp>
 
 #include "../triangulate/poly2tri.h"
-#include "../util/util.h"
+#include "util.h"
 #include "../index/RTree.h"
 #include "../index/QTree.h"
 #include "Pixel.h"
@@ -222,7 +222,7 @@ public:
 	static MyPolygon *gen_box(Pixel &pix);
 	static MyPolygon *read_one_polygon();
 
-	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
+	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false, int report_gap = 10);
 	static MyPolygon * load_binary_file_single(const char *path, query_context ctx, int idx);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
@@ -360,4 +360,5 @@ void preprocess(query_context *gctx);
 
 void print_boxes(vector<Pixel *> boxes);
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
+
 #endif /* SRC_MYPOLYGON_H_ */

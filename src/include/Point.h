@@ -9,7 +9,7 @@
 #define SRC_GEOMETRY_POINT_H_
 #include <stdio.h>
 #include <string>
-#include "../util/util.h"
+#include "util.h"
 using namespace std;
 
 const static char *point_char = "POINT";

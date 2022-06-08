@@ -185,6 +185,7 @@ public:
 };
 
 
+size_t load_points_from_path(const char *path, double **points);
 query_context get_parameters(int argc, char **argv);
 
 

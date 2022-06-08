@@ -10,7 +10,7 @@
 #include "../index/RTree.h"
 #include <queue>
 #include <fstream>
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 
 
 

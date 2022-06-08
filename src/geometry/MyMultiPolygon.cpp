@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 
 MyMultiPolygon *MyMultiPolygon::read_multipolygon(){
 	string input_line;

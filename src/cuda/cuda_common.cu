@@ -6,7 +6,7 @@
 #include <cuda.h>
 #include "mygpu.h"
 #include "cuda_util.h"
-#include "../util/util.h"
+#include "../include/util.h"
 
 using namespace std;
 

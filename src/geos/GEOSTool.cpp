@@ -6,7 +6,7 @@
  */
 
 
-#include "GEOSTool.h"
+#include "../include/GEOSTool.h"
 
 
 void *load_source(void *args){

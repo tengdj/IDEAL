@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "../geometry/MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
 #include <queue>

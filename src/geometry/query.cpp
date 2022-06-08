@@ -6,10 +6,10 @@
  */
 
 
-#include "MyPolygon.h"
+#include "../include/MyPolygon.h"
 #include <float.h>
 #include <math.h>
-#include "geometry_computation.h"
+#include "../include/geometry_computation.h"
 
 /*
  *
@@ -230,6 +230,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			return true;
 		}
 		ctx->border_checked.counter++;
+
 		start = get_cur_time();
 		if(target->raster){
 			vector<pair<Pixel *, Pixel*>> candidates;
@@ -286,6 +287,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		if(get_qtree()->determine_contain(*(target->getMBB()), isin)){
 			return isin;
 		}
+		ctx->border_checked.counter++;
 		// otherwise, checking all the edges to make sure no intersection
 		if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
 			return false;
@@ -322,6 +324,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		}
 
 		// when reach here, we have no choice but evaluate all edge pairs
+		ctx->border_checked.counter++;
 
 		// use the internal rtree if it is created
 		if(rtree){
@@ -757,10 +760,11 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 	if(raster){
 		// both polygons are rasterized and the pixel of the target is larger
 		// then swap the role of source and target, and use the target as the host one
-		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
-			ctx->object_checked.counter--;
-			return target->distance(this, ctx);
-		}
+		// currently we put this optimization in the caller
+//		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
+//			ctx->object_checked.counter--;
+//			return target->distance(this, ctx);
+//		}
 
 		double mindist = getMBB()->max_distance(*target->getMBB(), ctx->geography);
 		const double mbrdist = getMBB()->distance(*target->getMBB(),ctx->geography);
@@ -843,6 +847,7 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 				}
 			}
 		}
+
 		// qtree do not support general distance calculation, do computation when failed filtering
 		return segment_to_segment_distance_batch(boundary->p, target->boundary->p,
 								boundary->num_vertices, target->boundary->num_vertices,ctx->geography);

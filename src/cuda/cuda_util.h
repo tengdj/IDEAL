@@ -9,7 +9,7 @@
 #define CUDA_UTIL_H_
 
 #include <cuda.h>
-#include "../util/util.h"
+#include "../include/util.h"
 
 
 

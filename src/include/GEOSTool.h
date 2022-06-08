@@ -16,7 +16,7 @@
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
 #include <geos/opBuffer.h>
-#include "../geometry/MyPolygon.h"
+#include "MyPolygon.h"
 
 
 using namespace geos;
