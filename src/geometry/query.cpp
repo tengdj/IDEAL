@@ -896,8 +896,8 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 
 bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 
-	Pixel *a = getMBB();
-	Pixel *b = target->getMBB();
+	box *a = getMBB();
+	box *b = target->getMBB();
 	if(!a->intersect(*b)){
 		return false;
 	}
@@ -934,7 +934,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	return false;
 }
 
-bool MyPolygon::intersect_segment(Pixel *target){
+bool MyPolygon::intersect_segment(box *target){
 	for (int i = 0; i < get_num_vertices()-1; i++) {
 		// segment i->j intersect with segment
 		double x1 = target->low[0];

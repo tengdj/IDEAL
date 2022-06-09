@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
 		if(sources[i]){
 			assert(sources[i].get()->isPolygonal());
 
-			Pixel *mbr = global_ctx.source_polygons[i]->getMBB();
+			box *mbr = global_ctx.source_polygons[i]->getMBB();
 			tree.Insert(mbr->low, mbr->high, sources[i].get());
 			idx++;
 		}

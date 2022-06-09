@@ -61,7 +61,7 @@ public:
 
 	bool isleaf = true;
 	QTNode *children[4];
-	Pixel mbr;
+	box mbr;
 	bool interior = false;
 	bool exterior = false;
 	int level = 0;
@@ -73,7 +73,7 @@ public:
 		mbr.high[0] = high_x;
 		mbr.high[1] = high_y;
 	}
-	QTNode(Pixel m){
+	QTNode(box m){
 		mbr = m;
 	}
 	void split(){
@@ -108,9 +108,9 @@ public:
 			}
 		}
 	}
-	void get_leafs(vector<Pixel *> &leafs){
+	void get_leafs(vector<box *> &leafs){
 		if(isleaf){
-			leafs.push_back(new Pixel(mbr));
+			leafs.push_back(new box(mbr));
 		}else{
 			for(int i=0;i<4;i++){
 				children[i]->get_leafs(leafs);
@@ -273,7 +273,7 @@ public:
 	}
 
 	// checking the features of the nodes covered by pixel p
-	bool evaluate_nodes(Pixel &p, bool &has_in, bool &has_ex){
+	bool evaluate_nodes(box &p, bool &has_in, bool &has_ex){
 		if(!mbr.intersect(p)){
 			return true;
 		}
@@ -298,7 +298,7 @@ public:
 		return true;
 	}
 
-	bool determine_contain(Pixel &p, bool isin){
+	bool determine_contain(box &p, bool isin){
 		assert(this->level==0);
 		bool has_in = false;
 		bool has_out = false;
@@ -317,9 +317,9 @@ class BTNode{
 public:
 
 	bool isleaf = true;
-	Pixel mbr;
+	box mbr;
 	BTNode *children[2];
-	vector<Pixel *> objects;
+	vector<box *> objects;
 
 	BTNode(double low_x, double low_y, double high_x, double high_y){
 		isleaf = true;
@@ -328,7 +328,7 @@ public:
 		mbr.high[0] = high_x;
 		mbr.high[1] = high_y;
 	}
-	BTNode(Pixel m){
+	BTNode(box m){
 		isleaf = true;
 		mbr = m;
 	}
@@ -367,9 +367,9 @@ public:
 		}
 	}
 
-	void get_leafs(vector<Pixel *> &leafs){
+	void get_leafs(vector<box *> &leafs){
 		if(isleaf){
-			leafs.push_back(new Pixel(mbr));
+			leafs.push_back(new box(mbr));
 		}else{
 			for(int i=0;i<2;i++){
 				children[i]->get_leafs(leafs);

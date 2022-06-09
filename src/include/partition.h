@@ -10,16 +10,26 @@
 
 #include "MyPolygon.h"
 
-vector<Pixel *> genschema_str(vector<Pixel *> &geometries, size_t part_num);
-vector<Pixel *> genschema_slc(vector<Pixel *> &geometries, size_t part_num);
-// not supported
-//vector<Pixel *> genschema_bos(vector<Pixel *> &geometries, size_t part_num);
-vector<Pixel *> genschema_hc(vector<Pixel *> &geometries, size_t part_num);
+typedef enum {
+	STR = 0,
+	SLC,
+	BOS,
+	HC,
+	FG,
+	QT,
+	BSP
+}PARTITION_TYPE;
 
-vector<Pixel *> genschema_fg(vector<Pixel *> &geometries, size_t part_num);
-vector<Pixel *> genschema_qt(vector<Pixel *> &geometries, size_t part_num);
-vector<Pixel *> genschema_bsp(vector<Pixel *> &geometries, size_t part_num);
+vector<box *> genschema_str(vector<box *> &geometries, size_t part_num);
+vector<box *> genschema_slc(vector<box *> &geometries, size_t part_num);
+vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num);
+vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num);
 
+vector<box *> genschema_fg(vector<box *> &geometries, size_t part_num);
+vector<box *> genschema_qt(vector<box *> &geometries, size_t part_num);
+vector<box *> genschema_bsp(vector<box *> &geometries, size_t part_num);
 
+vector<box *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type);
 
+PARTITION_TYPE parse_partition_type(const char *type);
 #endif /* SRC_PARTITION_PARTITION_HPP_ */

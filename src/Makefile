@@ -12,16 +12,11 @@ CPPFLAGS	= -g -std=c++14 -Wno-cpp
 CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
+GEOMETRY_SRCS += $(wildcard triangulate/*.cpp)
 GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
 
 PARTITION_SRCS := $(wildcard partition/*.cpp)
 PARTITION_OBJS := $(patsubst %.cpp,%.o,$(PARTITION_SRCS))
-
-GEOS_SRCS := $(wildcard geos/*.cpp)
-GEOS_OBJS := $(patsubst %.cpp,%.o,$(GEOS_SRCS))
-
-TRIANGULATE_SRCS := $(wildcard triangulate/*.cpp)
-TRIANGULATE_OBJS := $(patsubst %.cpp,%.o,$(TRIANGULATE_SRCS))
 
 #compile all the cu files
 CU_SRCS := $(wildcard cuda/*.cu)
@@ -40,29 +35,29 @@ all:	polygon_in_polygon point_polygon_distance point_in_polygon resque_polygon_i
 
 # for macro queries
 
-contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-within:	query/within.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+within:	query/within.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-contain:	query/contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+contain:	query/contain.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 
-geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
+geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
+geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
+geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geos_polygon_polygon_within:	query/geos_polygon_polygon_within.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) geos/GEOSTool.o
+geos_polygon_polygon_within:	query/geos_polygon_polygon_within.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
@@ -73,16 +68,16 @@ distance:	test/distance.o $(GEOMETRY_OBJS)
 lookup:	test/lookup.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-debug_distance:	test/debug_distance.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+debug_distance:	test/debug_distance.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-triangulate:	test/triangulate.o $(TRIANGULATE_OBJS) $(GEOMETRY_OBJS) 
+triangulate:	test/triangulate.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-test:	test/within_polygon.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+test:	test/within_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 	
 	
 # micro tests
@@ -97,13 +92,16 @@ pixeldensity:	stats/pixeldensity.o $(GEOMETRY_OBJS)
 	
 
 # for data extraction
-load:	datagen/loadwkt.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+load:	datagen/loadwkt.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS)
+loadmbr:	datagen/load_mbr.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
@@ -111,10 +109,10 @@ geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
 
 # for data partitioning
 
-partition:	test/partition.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) $(PARTITION_OBJS)
+partition:	test/partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(TRIANGULATE_OBJS) $(PARTITION_OBJS)
+partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 		
 clean:

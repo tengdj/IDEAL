@@ -48,7 +48,7 @@ public:
 	~VertexSequence();
 	vector<Vertex *> pack_to_polyline();
 	VertexSequence *clone();
-	Pixel *getMBR();
+	box *getMBR();
 	void print(bool complete_ring=false);
 	bool clockwise();
 	void reverse();
@@ -60,7 +60,7 @@ public:
 
 
 class MyRaster{
-	Pixel *mbr = NULL;
+	box *mbr = NULL;
 	VertexSequence *vs = NULL;
 	vector<vector<Pixel *>> pixels;
 	double step_x = 0.0;
@@ -78,12 +78,12 @@ public:
 	void rasterization();
 	~MyRaster();
 
-	bool contain(Pixel *,bool &contained);
-	vector<Pixel *> get_intersect_pixels(Pixel *pix);
-	vector<Pixel *> get_closest_pixels(Pixel *target);
+	bool contain(box *,bool &contained);
+	vector<Pixel *> get_intersect_pixels(box *pix);
+	vector<Pixel *> get_closest_pixels(box *target);
 	Pixel *get_pixel(Point &p);
 	Pixel *get_closest_pixel(Point &p);
-	Pixel *get_closest_pixel(Pixel *target);
+	Pixel *get_closest_pixel(box *target);
 	vector<Pixel *> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<Pixel *> expand_radius(Pixel *center, int step);
 
@@ -100,9 +100,9 @@ public:
 	void print();
 
 	vector<Pixel *> get_pixels(PartitionStatus status);
-	Pixel *extractMER(Pixel *starter);
+	box *extractMER(Pixel *starter);
 
-	vector<Pixel *> retrieve_pixels(Pixel *);
+	vector<Pixel *> retrieve_pixels(box *);
 
 	/*
 	 * the gets functions
@@ -141,8 +141,8 @@ public:
 class MyPolygon{
 	size_t id = 0;
 
-	Pixel *mbr = NULL;
-	Pixel *mer = NULL;
+	box *mbr = NULL;
+	box *mer = NULL;
 	MyRaster *raster = NULL;
 
 	QTNode *qtree = NULL;
@@ -219,7 +219,7 @@ public:
 	static VertexSequence *read_vertices(const char *wkt, size_t &offset, bool clockwise=true);
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
-	static MyPolygon *gen_box(Pixel &pix);
+	static MyPolygon *gen_box(box &pix);
 	static MyPolygon *read_one_polygon();
 
 	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false, int report_gap = 10);
@@ -229,7 +229,7 @@ public:
 	bool contain(Point &p);// brute-forcely check containment
 	bool contain(Point &p, query_context *ctx, bool profile = true);
 	bool intersect(MyPolygon *target, query_context *ctx);
-	bool intersect_segment(Pixel *target);
+	bool intersect_segment(box *target);
 	bool contain(MyPolygon *target, query_context *ctx);
 	double distance(Point &p, query_context *ctx, bool profile = true);
 	double distance(MyPolygon *target, query_context *ctx);
@@ -245,8 +245,8 @@ public:
 	void print_triangles();
 	void print_without_return(bool print_hole=false, bool complete_ring=false);
 	string to_string(bool clockwise = false, bool complete_ring=false);
-	Pixel *getMBB();
-	Pixel *getMER(query_context *ctx=NULL);
+	box *getMBB();
+	box *getMER(query_context *ctx=NULL);
 
 	VertexSequence *get_convex_hull();
 
@@ -288,9 +288,9 @@ public:
 	size_t get_data_size();
 	size_t encode_to(char *target);
 	size_t decode_from(char *source);
+	static char *encode_raster(vector<vector<Pixel>> raster);
+	static vector<vector<Pixel>> decode_raster(char *);
 
-	static char *encode_partition(vector<vector<Pixel>> partitions);
-	static vector<vector<Pixel>> decode_partition(char *);
 	vector<Point> generate_test_points(int num);
 	vector<MyPolygon *> generate_test_polygons(int num);
 
@@ -358,7 +358,7 @@ void process_mer(query_context *ctx);
 void process_internal_rtree(query_context *gctx);
 void preprocess(query_context *gctx);
 
-void print_boxes(vector<Pixel *> boxes);
+void print_boxes(vector<box *> boxes);
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
 
 #endif /* SRC_MYPOLYGON_H_ */

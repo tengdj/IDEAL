@@ -45,7 +45,7 @@ void *query(void *args){
 //				continue;
 //			}
 			ctx->target = (void *)poly;
-			Pixel *px = poly->getMBB();
+			box *px = poly->getMBB();
 			struct timeval start = get_cur_time();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
 			//logt("completed %d", start, ct++);

@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
+#include "MyPolygon.h"
 
 /**
  *

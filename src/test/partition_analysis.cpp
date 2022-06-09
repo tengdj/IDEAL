@@ -12,18 +12,20 @@
 
 int main(int argc, char** argv) {
 	query_context global_ctx;
-	vector<Pixel *> mbrs;
 
-	vector<MyPolygon *> polygons = MyPolygon::load_binary_file(argv[1], global_ctx);
-	for(MyPolygon *p:polygons){
-		mbrs.push_back(p->getMBB());
+	box *boxes;
+	size_t box_num = load_boxes_from_file(argv[1], &boxes);
+	vector<box *> mbrs;
+	for(size_t i=0;i<box_num;i++){
+		mbrs.push_back(boxes+i);
 	}
 	//double *points;
 	//size_t points_num = load_points_from_path(argv[2], &points);
 
+	vector<box *> parts = genschema(mbrs, atoi(argv[3]), parse_partition_type(argv[4]));
 
-	vector<Pixel *> parts = genschema_bsp(mbrs, atoi(argv[3]));
 	print_boxes(parts);
-
+	mbrs.clear();
+	delete []boxes;
 	return 0;
 }

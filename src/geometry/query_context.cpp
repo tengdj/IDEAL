@@ -94,7 +94,6 @@ size_t load_points_from_path(const char *path, double **points){
 	ifstream infile(path, ios::in | ios::binary);
 	infile.read((char *)points, fsize);
 	infile.close();
-
 	return target_num;
 }
 

@@ -48,7 +48,7 @@ void MyPolygon::build_rtree(){
 	RTree<Point *, double, 2, double> *rtree_tmp = new RTree<Point *, double, 2, double>();
 
 	for(int i=0;i<triangle_num;i++){
-		Pixel pix;
+		box pix;
 		Point *ps = triangles+3*i;
 		for(int i=0;i<3;i++){
 			pix.update(ps[i]);
@@ -67,7 +67,7 @@ void MyPolygon::build_rtree(){
 	delete rtree_tmp;
 }
 
-Pixel *MyPolygon::getMBB(){
+box *MyPolygon::getMBB(){
 	if(this->mbr){
 		return mbr;
 	}
@@ -75,7 +75,7 @@ Pixel *MyPolygon::getMBB(){
 	return mbr;
 }
 
-Pixel *MyPolygon::getMER(query_context *ctx){
+box *MyPolygon::getMER(query_context *ctx){
 
 	if(mer){
 		return mer;
@@ -89,10 +89,10 @@ Pixel *MyPolygon::getMER(query_context *ctx){
 	}
 	int loops = ctx->mer_sample_round;
 	int maxcount = 0;
-	Pixel *max_mer = NULL;
+	box *max_mer = NULL;
 	while(loops-->0){
 		int sample = get_rand_number(interiors.size())-1;
-		Pixel *curmer = ras->extractMER(interiors[sample]);
+		box *curmer = ras->extractMER(interiors[sample]);
 		if(max_mer){
 			if(max_mer->area()<curmer->area()){
 				delete max_mer;

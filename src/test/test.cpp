@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
 		start = get_cur_time();
 		for(MyPolygon *p:source_polygons){
 			ctx.target = (void *)p;
-			Pixel *px = p->getMBB();
+			box *px = p->getMBB();
 			tree.Search(px->low, px->high, MySearchCallback, (void *)&ctx);
 
 			//p->print(false);

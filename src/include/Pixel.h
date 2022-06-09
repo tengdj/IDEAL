@@ -14,35 +14,6 @@
 
 const static char *direction_str = "lrtb";
 
-enum PartitionStatus{
-	OUT = 0,
-	BORDER = 1,
-	IN = 2
-};
-
-enum Direction{
-	LEFT = 0,
-	RIGHT = 1,
-	TOP = 2,
-	BOTTOM
-};
-
-enum cross_type{
-	ENTER = 0,
-	LEAVE = 1
-};
-
-class cross_info{
-public:
-	cross_type type;
-	int edge_id;
-	cross_info(cross_type t, int e){
-		type = t;
-		edge_id = e;
-	}
-};
-
-
 class box{
 public:
 	double low[2] = {100000.0,100000.0};
@@ -91,38 +62,39 @@ public:
 	void to_array(Point *p);
 };
 
-class RTNode:public box{
-public:
-	vector<RTNode *> children;
-	void *node_element = NULL;
+size_t load_boxes_from_file(const char *path, box **);
 
-	RTNode(){};
-	bool is_leaf(){
-		return children.size()==0;
-	}
-	int node_count(){
-		int count = 0;
-		node_count(count);
-		return count;
-	}
-	void node_count(int &count){
-		count++;
-		for(RTNode *px:children){
-			assert(px!=this);
-			px->node_count(count);
-		}
-	}
-	bool validate(){
-		if(is_leaf()){
-			return node_element != NULL;
-		}else{
-			for(RTNode *ch:children){
-				if(!ch->validate()){
-					return false;
-				}
-			}
-			return true;
-		}
+/*
+ *
+ *	for pixel class
+ *
+ * */
+
+enum PartitionStatus{
+	OUT = 0,
+	BORDER = 1,
+	IN = 2
+};
+
+enum Direction{
+	LEFT = 0,
+	RIGHT = 1,
+	TOP = 2,
+	BOTTOM
+};
+
+enum cross_type{
+	ENTER = 0,
+	LEAVE = 1
+};
+
+class cross_info{
+public:
+	cross_type type;
+	int edge_id;
+	cross_info(cross_type t, int e){
+		type = t;
+		edge_id = e;
 	}
 };
 
@@ -165,14 +137,54 @@ public:
 	int num_edges_covered();
 };
 
-inline bool comparePixelX(Pixel *p1, Pixel *p2)
+inline bool comparePixelX(box *p1, box *p2)
 {
     return (p1->low[0] < p2->low[0]);
 }
 
-inline bool comparePixelY(Pixel *p1, Pixel *p2)
+inline bool comparePixelY(box *p1, box *p2)
 {
     return (p1->low[1] < p2->low[1]);
 }
+
+/*
+ * the node for RTree
+ *
+ * */
+
+class RTNode:public box{
+public:
+	vector<RTNode *> children;
+	void *node_element = NULL;
+
+	RTNode(){};
+	bool is_leaf(){
+		return children.size()==0;
+	}
+	int node_count(){
+		int count = 0;
+		node_count(count);
+		return count;
+	}
+	void node_count(int &count){
+		count++;
+		for(RTNode *px:children){
+			assert(px!=this);
+			px->node_count(count);
+		}
+	}
+	bool validate(){
+		if(is_leaf()){
+			return node_element != NULL;
+		}else{
+			for(RTNode *ch:children){
+				if(!ch->validate()){
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+};
 
 #endif /* SRC_GEOMETRY_PIXEL_H_ */

@@ -43,8 +43,8 @@ vector<Vertex *> VertexSequence::pack_to_polyline(){
 	return polyline;
 }
 
-Pixel *VertexSequence::getMBR(){
-	Pixel *mbr = new Pixel();
+box *VertexSequence::getMBR(){
+	box *mbr = new box();
 	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
 	for(int i=0;i<num_vertices;i++){
 		if(min_x>p[i].x){
@@ -303,7 +303,7 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 
 	}
 	infile.close();
-
+	delete []offsets;
 	logt("loaded %ld polygons each with %ld edges %ld MB", start, polygons.size(),num_edges/polygons.size(),data_size/1024/1024);
 	return polygons;
 }
@@ -464,7 +464,7 @@ MyPolygon *MyPolygon::gen_box(double min_x,double min_y,double max_x,double max_
 	return mbr;
 }
 
-MyPolygon *MyPolygon::gen_box(Pixel &pix){
+MyPolygon *MyPolygon::gen_box(box &pix){
 	return gen_box(pix.low[0],pix.low[1],pix.high[0],pix.high[1]);
 }
 
@@ -714,7 +714,7 @@ QTNode *MyPolygon::partition_qtree(const int vpr){
 	return qtree;
 }
 
-vector<vector<Pixel>> MyPolygon::decode_partition(char *data){
+vector<vector<Pixel>> MyPolygon::decode_raster(char *data){
 	assert(data);
 	vector<vector<Pixel>> partitions;
 
@@ -754,7 +754,7 @@ vector<vector<Pixel>> MyPolygon::decode_partition(char *data){
 	return partitions;
 }
 
-char *MyPolygon::encode_partition(vector<vector<Pixel>> partitions){
+char *MyPolygon::encode_raster(vector<vector<Pixel>> partitions){
 	int dimx = partitions.size();
 	if(dimx==0){
 		return NULL;

@@ -399,7 +399,7 @@ Pixel *MyRaster::get_closest_pixel(Point &p){
 }
 
 // retrieve the pixels in the raster which is closest to the target pixels
-vector<Pixel *> MyRaster::get_closest_pixels(Pixel *target){
+vector<Pixel *> MyRaster::get_closest_pixels(box *target){
 
 	// note that at 0 or dimx/dimy will be returned if
 	// the range of target is beyound this, as expected
@@ -418,7 +418,7 @@ vector<Pixel *> MyRaster::get_closest_pixels(Pixel *target){
 
 // retrieve the pixel in the raster which is closest to the target pixels
 // pick the one in the middle if there is multiple pixels
-Pixel * MyRaster::get_closest_pixel(Pixel *target){
+Pixel * MyRaster::get_closest_pixel(box *target){
 
 	// note that at 0 or dimx/dimy will be returned if
 	// the range of target is beyound this, as expected
@@ -431,7 +431,7 @@ Pixel * MyRaster::get_closest_pixel(Pixel *target){
 }
 
 
-vector<Pixel *> MyRaster::get_intersect_pixels(Pixel *b){
+vector<Pixel *> MyRaster::get_intersect_pixels(box *b){
 
 	// test all the pixels
 	int txstart = get_offset_x(b->low[0]);
@@ -513,11 +513,11 @@ void MyRaster::print(){
  * with the given center, expand to get the Maximum Enclosed Rectangle
  *
  * */
-Pixel *MyRaster::extractMER(Pixel *starter){
+box *MyRaster::extractMER(Pixel *starter){
 	assert(starter->status==IN);
 	int cx = starter->id[0];
 	int cy = starter->id[1];
-	Pixel *curmer = new Pixel();
+	box *curmer = new box();
 	int shift[4] = {0,0,0,0};
 	bool limit[4] = {false,false,false,false};
 	int index = 0;
@@ -598,7 +598,7 @@ Pixel *MyRaster::extractMER(Pixel *starter){
 }
 
 
-vector<Pixel *> MyRaster::retrieve_pixels(Pixel *target){
+vector<Pixel *> MyRaster::retrieve_pixels(box *target){
 
 	vector<Pixel *> ret;
 	int start_x = get_offset_x(target->low[0]);
@@ -616,7 +616,7 @@ vector<Pixel *> MyRaster::retrieve_pixels(Pixel *target){
 	return ret;
 }
 
-bool MyRaster::contain(Pixel *b, bool &contained){
+bool MyRaster::contain(box *b, bool &contained){
 
 	if(!mbr->contain(*b)){
 		contained = false;

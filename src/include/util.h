@@ -18,6 +18,8 @@
 #include <sys/syscall.h>
 #include <time.h>
 #include <sstream>
+#include <iostream>
+#include <fstream>
 #include <math.h>
 
 using namespace std;
@@ -313,6 +315,15 @@ inline void list_files(const char *path, std::vector<string> &f_list){
 		}
 		closedir (dir);
 	}
+}
+
+inline bool write_file(const char *path, char *content, size_t data_size){
+	ofstream os;
+	os.open(path, ios::out | ios::binary |ios::trunc);
+	assert(os.is_open());
+	os.write(content, data_size);
+	os.close();
+	return true;
 }
 
 inline long file_size(const char *file){
