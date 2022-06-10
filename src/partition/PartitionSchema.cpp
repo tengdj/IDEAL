@@ -35,34 +35,33 @@ inline box profileSpace(vector<box *> &geometries){
 	return space;
 }
 
-vector<box *> genschema_fg(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_fg(vector<box *> &geometries, size_t part_num){
 	size_t dimx = sqrt(part_num);
 	size_t dimy = part_num/dimx;
-	vector<box *> schema;
+	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 	double sx = (space.high[0]-space.low[0])/dimx;
 	double sy = (space.high[1]-space.low[1])/dimx;
 
 	for(size_t x=0;x<dimx;x++){
 		for(size_t y=0;y<dimy;y++){
-			box *p = new box();
-			p->low[0] = space.low[0]+x*sx;
-			p->high[0] = space.low[0]+(x+1)*sx;
-			p->low[1] = space.low[1]+y*sy;
-			p->high[1] = space.low[1]+(y+1)*sy;
-			schema.push_back(p);
+			Tile *t = new Tile();
+			t->low[0] = space.low[0]+x*sx;
+			t->high[0] = space.low[0]+(x+1)*sx;
+			t->low[1] = space.low[1]+y*sy;
+			t->high[1] = space.low[1]+(y+1)*sy;
+			schema.push_back(t);
 		}
 	}
 	return schema;
 }
 
-vector<box *> genschema_str(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_str(vector<box *> &geometries, size_t part_num){
 	size_t dimx = sqrt(part_num);
 	size_t dimy = part_num/dimx;
-	vector<box *> schema;
+	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	sort(geometries.begin(), geometries.end(), comparePixelX);
-	logt("sort %d geometris", start, geometries.size());
 	size_t num = geometries.size();
 
 	for(size_t x=0;x<dimx;x++){
@@ -72,7 +71,6 @@ vector<box *> genschema_str(vector<box *> &geometries, size_t part_num){
 			end = num;
 		}
 		sort(geometries.begin()+begin, geometries.begin()+end, comparePixelY);
-		logt("sort %d to %d (%d)", start, begin, end, end-begin);
 	}
 
 
@@ -82,7 +80,7 @@ vector<box *> genschema_str(vector<box *> &geometries, size_t part_num){
 			size = num - x*(num/dimx);
 		}
 		for(size_t y=0;y<dimy;y++){
-			box *b = new box();
+			Tile *b = new Tile();
 			size_t begin = x*(num/dimx)+y*(size/dimy);
 			size_t end = x*(num/dimx)+(y+1)*(size/dimy);
 			end = min(end,num);
@@ -95,11 +93,10 @@ vector<box *> genschema_str(vector<box *> &geometries, size_t part_num){
 	return schema;
 }
 
-vector<box *> genschema_slc(vector<box *> &geometries, size_t part_num){
-	vector<box *> schema;
+vector<Tile *> genschema_slc(vector<box *> &geometries, size_t part_num){
+	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	sort(geometries.begin(), geometries.end(), comparePixelX);
-	logt("sort %d geometris", start, geometries.size());
 	size_t num = geometries.size();
 
 	for(size_t x=0;x<part_num;x++){
@@ -108,7 +105,7 @@ vector<box *> genschema_slc(vector<box *> &geometries, size_t part_num){
 		if(x==part_num-1){
 			end = num;
 		}
-		box *b = new box();
+		Tile *b = new Tile();
 
 		end = min(end,num);
 		for(size_t t = begin;t<end;t++){
@@ -132,10 +129,10 @@ bool CountIntersectNumber(box *poly, void* arg){
 	return true;
 }
 
-vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_bos(vector<box *> &geometries, size_t part_num){
 	const size_t objnum = geometries.size();
 	const size_t cardinality = objnum/part_num;
-	vector<box *> schema;
+	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 
 	vector<box *> xordered;
@@ -144,13 +141,11 @@ vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num){
 	yordered.insert(yordered.begin(), geometries.begin(), geometries.end());
 	sort(xordered.begin(), xordered.end(), comparePixelX);
 	sort(yordered.begin(), yordered.end(), comparePixelY);
-	log("sorting");
 
 	RTree<box *, double, 2, double> tree;
 	for(box *g:geometries){
 		tree.Insert(g->low, g->high, g);
 	}
-	log("creating index");
 	size_t x_iter = 0;
 	size_t y_iter = 0;
 
@@ -201,15 +196,15 @@ vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num){
 
 
 		if(xcost<=ycost && x_iter<xordered.size()){
-			schema.push_back(new box(xbuffer));
+			schema.push_back(new Tile(xbuffer));
 			cur_x = tmp_cur_x;
 			x_iter = tmp_x_iter;
 		}else{
-			schema.push_back(new box(ybuffer));
+			schema.push_back(new Tile(ybuffer));
 			cur_y = tmp_cur_y;
 			y_iter = tmp_y_iter;
 		}
-		log("%ld:\t xcost %ld\t ycost %ld\t x_iter %ld\t y_iter %ld\t cur_x %.2f\t cur_y %.2f",schema.size(),xcost, ycost, x_iter, y_iter,cur_x,cur_y);
+		//log("%ld:\t xcost %ld\t ycost %ld\t x_iter %ld\t y_iter %ld\t cur_x %.2f\t cur_y %.2f",schema.size(),xcost, ycost, x_iter, y_iter,cur_x,cur_y);
 
 	}
 	xordered.clear();
@@ -219,9 +214,9 @@ vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num){
 }
 
 
-vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_hc(vector<box *> &geometries, size_t part_num){
 	assert(geometries.size()>0);
-	vector<box *> schema;
+	vector<Tile *> schema;
 
 	size_t hcnum = part_num*1000;
 	size_t hindex = log2(hcnum);
@@ -257,7 +252,7 @@ vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num){
 
 	size_t avg_num = geometries.size()/part_num+1;
 
-	box *pix = new box();
+	Tile *pix = new Tile();
 	size_t cur_num = 0;
 	for(size_t i=0;i<hcnum;i++){
 		if(cell_count[i]>0){
@@ -266,7 +261,7 @@ vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num){
 		}
 		if(cur_num>=avg_num){
 			schema.push_back(pix);
-			pix = new box();
+			pix = new Tile();
 			cur_num = 0;
 		}
 	}
@@ -282,9 +277,9 @@ vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num){
 }
 
 
-vector<box *> genschema_qt(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_qt(vector<box *> &geometries, size_t part_num){
 
-	vector<box *> schema;
+	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 	QTNode *qtree = new QTNode(space);
 
@@ -298,28 +293,44 @@ vector<box *> genschema_qt(vector<box *> &geometries, size_t part_num){
 		Point p(g->low[0], g->low[1]);
 		qtree->touch(p);
 	}
-	qtree->converge(avg_num+avg_num/2);
+	qtree->converge(3*avg_num);
 
-	qtree->get_leafs(schema);
+	vector<box *> leafs;
+	qtree->get_leafs(leafs);
+
+	for(box *b:leafs){
+		schema.push_back(new Tile(*b));
+		delete b;
+	}
+	leafs.clear();
 
 	delete qtree;
 	return schema;
 }
 
-vector<box *> genschema_bsp(vector<box *> &geometries, size_t part_num){
+vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t part_num){
 
-	vector<box *> schema;
+	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 
 	BTNode *btree = new BTNode(space);
 	btree->objects.insert(btree->objects.end(), geometries.begin(), geometries.end());
 	btree->split_to(geometries.size()/part_num);
-	btree->get_leafs(schema);
+
+	vector<box *> leafs;
+	btree->get_leafs(leafs);
+
+	for(box *b:leafs){
+		schema.push_back(new Tile(*b));
+		delete b;
+	}
+	leafs.clear();
+
 	delete btree;
 	return schema;
 }
 
-vector<box *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type){
+vector<Tile *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type){
 	switch(type){
 	case BSP:
 		return genschema_bsp(geometries, part_num);
@@ -353,3 +364,72 @@ PARTITION_TYPE parse_partition_type(const char *type){
 }
 
 
+Tile::Tile(){
+	pthread_mutex_init(&lk, NULL);
+	id = 0;
+}
+
+Tile::Tile(box b){
+	pthread_mutex_init(&lk, NULL);
+	id = 0;
+	low[0] = b.low[0];
+	low[1] = b.low[1];
+	high[0] = b.high[0];
+	high[1] = b.high[1];
+
+}
+
+Tile::~Tile(){
+}
+
+void Tile::lock(){
+	pthread_mutex_lock(&lk);
+}
+
+void Tile::unlock(){
+	pthread_mutex_unlock(&lk);
+}
+
+bool Tile::insert(box *b, void *obj){
+	lock();
+	objnum++;
+	tree.Insert(b->low, b->high, obj);
+	unlock();
+	return true;
+}
+
+bool Tile::lookup_tree(void *obj, void *arg){
+	vector<void *> *results = (vector<void *> *)arg;
+	results->push_back(obj);
+	return true;
+}
+
+vector<void *> Tile::lookup(box *b){
+	vector<void *> results;
+	lock();
+	tree.Search(b->low, b->high, lookup_tree, (void *)&results);
+	unlock();
+	return results;
+}
+
+vector<void *> Tile::lookup(Point *p){
+	vector<void *> results;
+	lock();
+	tree.Search((double *)p, (double *)p, lookup_tree, (void *)&results);
+	unlock();
+	return results;
+}
+
+size_t Tile::lookup_count(box *b){
+	lock();
+	size_t count = tree.Search(b->low, b->high, NULL, NULL);
+	unlock();
+	return count;
+}
+
+size_t Tile::lookup_count(Point *p){
+	lock();
+	size_t count = tree.Search((double *)p, (double *)p , NULL, NULL);
+	unlock();
+	return count;
+}

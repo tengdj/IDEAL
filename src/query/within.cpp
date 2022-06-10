@@ -57,14 +57,13 @@ void *query(void *args){
 				continue;
 			}
 			struct timeval query_start = get_cur_time();
-			Point p(gctx->points[2*i],gctx->points[2*i+1]);
-			ctx->target = (void *)&p;
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->within_distance;
+			ctx->target = (void *)&gctx->points[i];
+			double shiftx = degree_per_kilometer_longitude(gctx->points[i].y)*gctx->within_distance;
 			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
-			buffer_low[0] = gctx->points[2*i]-shiftx;
-			buffer_low[1] = gctx->points[2*i+1]-shifty;
-			buffer_high[0] = gctx->points[2*i]+shiftx;
-			buffer_high[1] = gctx->points[2*i+1]+shifty;
+			buffer_low[0] = gctx->points[i].x-shiftx;
+			buffer_low[1] = gctx->points[i].y-shifty;
+			buffer_high[0] = gctx->points[i].x+shiftx;
+			buffer_high[1] = gctx->points[i].y+shifty;
 			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
 			ctx->object_checked.execution_time += get_time_elapsed(query_start);
 			ctx->report_progress();

@@ -80,19 +80,16 @@ void query_context::report_latency(int num_v, double lt){
 	}
 }
 
-size_t load_points_from_path(const char *path, double **points){
+size_t load_points_from_path(const char *path, Point **points){
 	size_t fsize = file_size(path);
 	if(fsize<=0){
 		log("%s is empty",path);
 		exit(0);
-	}else{
-		log("size of %s is %ld",path,fsize);
 	}
-	size_t target_num = fsize/(2*sizeof(double));
-
-	*points = new double[target_num*2];
+	size_t target_num = fsize/sizeof(Point);
+	*points = new Point[target_num];
 	ifstream infile(path, ios::in | ios::binary);
-	infile.read((char *)points, fsize);
+	infile.read((char *)*points, fsize);
 	infile.close();
 	return target_num;
 }

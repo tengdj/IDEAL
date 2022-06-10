@@ -1,4 +1,4 @@
-#include "../include/MyPolygon.h"
+#include "MyPolygon.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -76,14 +76,13 @@ int main(int argc, char** argv) {
 			if(!tryluck(ctx.sample_rate)){
 				continue;
 			}
-			Point p(ctx.points[2*i],ctx.points[2*i+1]);
 			index++;
 			if(vm.count("sql")){
 				printf("INSERT INTO %s(id, geog) ",table_name.c_str());
-				printf("VALUES (%d, geography::STGeomFromText('%s', 4326));\n",index, p.to_string().c_str());
+				printf("VALUES (%d, geography::STGeomFromText('%s', 4326));\n",index, ctx.points[i].to_string().c_str());
 			}else{
 				printf("%d'%s",index,del.c_str());
-				p.print_without_return();
+				ctx.points[i].print_without_return();
 				printf("'\n");
 			}
 		}

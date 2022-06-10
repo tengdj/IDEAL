@@ -41,12 +41,12 @@ void *query(void *args){
 				continue;
 			}
 			ctx->target = (void *)targets[i].get();
-			double shiftx = degree_per_kilometer_longitude(gctx->points[2*i+1])*gctx->within_distance;
+			double shiftx = degree_per_kilometer_longitude(gctx->points[i].y)*gctx->within_distance;
 			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
-			buffer_low[0] = gctx->points[2*i]-shiftx;
-			buffer_low[1] = gctx->points[2*i+1]-shifty;
-			buffer_high[0] = gctx->points[2*i]+shiftx;
-			buffer_high[1] = gctx->points[2*i+1]+shifty;
+			buffer_low[0] = gctx->points[i].x-shiftx;
+			buffer_low[1] = gctx->points[i].y-shifty;
+			buffer_high[0] = gctx->points[i].x+shiftx;
+			buffer_high[1] = gctx->points[i].y+shifty;
 			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}

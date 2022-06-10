@@ -136,7 +136,7 @@ public:
 	// temporary storage for query processing
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
-	double *points = NULL;
+	Point *points = NULL;
 
 	map<int, int> vertex_number;
 	map<int, double> latency;
@@ -185,7 +185,7 @@ public:
 };
 
 
-size_t load_points_from_path(const char *path, double **points);
+size_t load_points_from_path(const char *path, Point **points);
 query_context get_parameters(int argc, char **argv);
 
 

@@ -60,7 +60,7 @@ void *query(void *args){
 				continue;
 			}
 			ctx->target = (void *)(targets[i].get());
-			tree.Search(gctx->points+2*i, gctx->points+2*i, MySearchCallback, (void *)ctx);
+			tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}
 	}

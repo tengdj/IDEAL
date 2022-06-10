@@ -9,6 +9,7 @@
 #define SRC_PARTITION_PARTITION_HPP_
 
 #include "MyPolygon.h"
+#include "../index/RTree.h"
 
 typedef enum {
 	STR = 0,
@@ -20,16 +21,40 @@ typedef enum {
 	BSP
 }PARTITION_TYPE;
 
-vector<box *> genschema_str(vector<box *> &geometries, size_t part_num);
-vector<box *> genschema_slc(vector<box *> &geometries, size_t part_num);
-vector<box *> genschema_bos(vector<box *> &geometries, size_t part_num);
-vector<box *> genschema_hc(vector<box *> &geometries, size_t part_num);
 
-vector<box *> genschema_fg(vector<box *> &geometries, size_t part_num);
-vector<box *> genschema_qt(vector<box *> &geometries, size_t part_num);
-vector<box *> genschema_bsp(vector<box *> &geometries, size_t part_num);
+class Tile: public box{
+	pthread_mutex_t lk;
+	size_t objnum = 0;
+	void lock();
+	void unlock();
+	static bool lookup_tree(void *, void *arg);
+public:
+	size_t id;
+	RTree<void *, double, 2, double> tree;
 
-vector<box *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type);
+	Tile();
+	Tile(box b);
+	~Tile();
+	bool insert(box *b, void *obj);
+	size_t lookup_count(box *p);
+	size_t lookup_count(Point *p);
+	vector<void *> lookup(box *b);
+	vector<void *> lookup(Point *p);
+	size_t get_objnum(){
+		return objnum;
+	}
+};
+
+vector<Tile *> genschema_str(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_slc(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_bos(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_hc(vector<box *> &geometries, size_t part_num);
+
+vector<Tile *> genschema_fg(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_qt(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t part_num);
+
+vector<Tile *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type);
 
 PARTITION_TYPE parse_partition_type(const char *type);
 #endif /* SRC_PARTITION_PARTITION_HPP_ */

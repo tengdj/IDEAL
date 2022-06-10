@@ -216,7 +216,6 @@ size_t load_boxes_from_file(const char *path, box **mbrs){
 		exit(0);
 	}
 	size_t target_num = fsize/sizeof(box);
-	log("%ld MBRs will be loaded",target_num);
 
 	*mbrs = new box[target_num];
 

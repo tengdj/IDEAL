@@ -44,9 +44,8 @@ void *query(void *args){
 				continue;
 			}
 			struct timeval start = get_cur_time();
-			Point p(gctx->points[2*i],gctx->points[2*i+1]);
-			ctx->target = (void *)&p;
-			tree.Search(gctx->points+2*i, gctx->points+2*i, MySearchCallback, (void *)ctx);
+			ctx->target = (void *)&gctx->points[i];
+			tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
 			ctx->object_checked.execution_time += ::get_time_elapsed(start);
 			ctx->report_progress();
 		}

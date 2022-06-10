@@ -86,7 +86,7 @@ public:
   /// \param a_resultCallback Callback function to return result.  Callback should return 'true' to continue searching
   /// \param a_context User context to pass as parameter to a_resultCallback
   /// \return Returns the number of entries found
-  int Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
+  size_t Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   
   void construct_pixel(RTNode *n);
 
@@ -345,7 +345,7 @@ protected:
   void FreeListNode(ListNode* a_listNode);
   bool Overlap(Rect* a_rectA, Rect* a_rectB);
   void ReInsert(Node* a_node, ListNode** a_listNode);
-  bool Search(Node* a_node, Rect* a_rect, int& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
+  bool Search(Node* a_node, Rect* a_rect, size_t& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   void construct_pixel(Node* a_node, RTNode *);
   void RemoveAllRec(Node* a_node);
   void Reset();
@@ -541,7 +541,7 @@ void RTREE_QUAL::construct_pixel(Node* a_node, RTNode *p)
 }
 
 RTREE_TEMPLATE
-int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
+size_t RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
 {
 #ifdef _DEBUG
   for(int index=0; index<NUMDIMS; ++index)
@@ -560,7 +560,7 @@ int RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDI
 
   // NOTE: May want to return search result another way, perhaps returning the number of found elements here.
 
-  int foundCount = 0;
+  size_t foundCount = 0;
   Search(m_root, &rect, foundCount, a_resultCallback, a_context);
 
   return foundCount;
@@ -1562,9 +1562,10 @@ void RTREE_QUAL::ReInsert(Node* a_node, ListNode** a_listNode)
 
 // Search in an index tree or subtree for all data retangles that overlap the argument rectangle.
 RTREE_TEMPLATE
-bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
+bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, size_t & a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
 {
   ASSERT(a_node);
+  //log("%ld %ld", a_node->m_count, a_node->m_level);
   ASSERT(a_node->m_level >= 0);
   ASSERT(a_rect);
 
@@ -1590,13 +1591,15 @@ bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, int& a_foundCount, bool  a_r
         DATATYPE& id = a_node->m_branch[index].m_data;
         
         // NOTE: There are different ways to return results.  Here's where to modify
-        if(&a_resultCallback)
+        if(a_resultCallback && &a_resultCallback)
         {
           ++a_foundCount;
           if(!a_resultCallback(id, a_context))
           {
             return false; // Don't continue searching
           }
+        }else{
+            ++a_foundCount;
         }
       }
     }

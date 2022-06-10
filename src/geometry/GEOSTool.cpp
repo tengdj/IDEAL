@@ -75,7 +75,7 @@ void *load_points(void *args){
 	char point_buffer[200];
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			sprintf(point_buffer,"POINT(%f %f)",ctx->points[2*i],ctx->points[2*i+1]);
+			sprintf(point_buffer,"POINT(%f %f)",ctx->points[i].x,ctx->points[i].y);
 			(*dest)[i] = wkt_reader->read(point_buffer);
 		}
 	}
