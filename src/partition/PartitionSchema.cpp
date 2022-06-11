@@ -14,12 +14,12 @@
 #include <cmath>
 #include <vector>
 
+#include "../index/hilbert_curve.h"
 #include "MyPolygon.h"
 #include "query_context.h"
 #include "util.h"
 #include "../index/QTree.h"
 #include "../index/RTree.h"
-#include "../index/hilbert_curve.hpp"
 #include "partition.h"
 
 using namespace std;

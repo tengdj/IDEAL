@@ -5,8 +5,8 @@
  *      Author: teng
  */
 
-#ifndef SRC_INDEX_HILBERT_CURVE_HPP_
-#define SRC_INDEX_HILBERT_CURVE_HPP_
+#ifndef SRC_INDEX_HILBERT_CURVE_H_
+#define SRC_INDEX_HILBERT_CURVE_H_
 
 # include <cstdlib>
 # include <ctime>
@@ -236,4 +236,4 @@ size_t xy2d ( size_t m, size_t x, size_t y )
 }
 
 
-#endif /* SRC_INDEX_HILBERT_CURVE_HPP_ */
+#endif /* SRC_INDEX_HILBERT_CURVE_H_ */
