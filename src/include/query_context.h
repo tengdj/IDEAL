@@ -102,18 +102,12 @@ public:
 
 	size_t max_num_polygons = INT_MAX;
 
-	//query target, for temporary use
-	void *target = NULL;
-	void *target2 = NULL;
-	query_context *global_ctx = NULL;
-	size_t target_num = 0;
-
 	//shared staff, for multiple thread task assignment
 	size_t index = 0;
 	size_t index_end = 0;
 	struct timeval previous = get_cur_time();
 	int report_gap = 5;
-	pthread_mutex_t lock;
+	pthread_mutex_t lk;
 
 	//result
 	double distance = 0;
@@ -137,6 +131,10 @@ public:
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
 	Point *points = NULL;
+	void *target = NULL;
+	void *target2 = NULL;
+	query_context *global_ctx = NULL;
+	size_t target_num = 0;
 
 	map<int, int> vertex_number;
 	map<int, double> latency;
@@ -147,12 +145,18 @@ public:
 	query_context();
 	~query_context();
 	query_context(query_context &t);
+	void lock();
+	void unlock();
 
+	// for multiple thread
+	void report_progress();
+	bool next_batch(int batch_num=1);
+
+	// for query statistics
 	void report_latency(int num_v, double latency);
 	void load_points();
-	void report_progress();
 	void merge_global();
-	bool next_batch(int batch_num=1);
+
 	void reset_stats(){
 		//query statistic
 		found = 0;
@@ -169,7 +173,9 @@ public:
 		node_check.reset();
 		contain_check.reset();
 	}
+	void print_stats();
 
+	// utility functions for query types
 	bool is_within_query(){
 		return query_type == QueryType::within;
 	}
@@ -181,7 +187,6 @@ public:
 	bool is_contain_query(){
 		return query_type == QueryType::contain;
 	}
-	void print_stats();
 };
 
 

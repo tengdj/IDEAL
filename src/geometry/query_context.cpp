@@ -8,14 +8,14 @@
 
 query_context::query_context(){
 	num_threads = get_num_threads();
-	pthread_mutex_init(&lock, NULL);
+	pthread_mutex_init(&lk, NULL);
 }
 query_context::query_context(query_context &t){
 	*this = t;
 	this->source_polygons.clear();
 	this->target_polygons.clear();
 	this->global_ctx = &t;
-	pthread_mutex_init(&lock, NULL);
+	pthread_mutex_init(&lk, NULL);
 }
 query_context::~query_context(){
 
@@ -36,7 +36,13 @@ query_context::~query_context(){
 
 }
 
+void query_context::lock(){
+	pthread_mutex_lock(&lk);
+}
 
+void query_context::unlock(){
+	pthread_mutex_unlock(&lk);
+}
 
 //query_context& query_context::operator=(query_context const &t){
 //    geography = t.geography;
@@ -102,20 +108,20 @@ void query_context::load_points(){
 
 void query_context::report_progress(){
 	if(++query_count==10){
-		pthread_mutex_lock(&global_ctx->lock);
 		global_ctx->query_count += query_count;
+		global_ctx->lock();
 		double time_passed = get_time_elapsed(global_ctx->previous);
 		if(time_passed/1000>global_ctx->report_gap){
 			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
 			global_ctx->previous = get_cur_time();
 		}
+		global_ctx->unlock();
 		query_count = 0;
-		pthread_mutex_unlock(&global_ctx->lock);
 	}
 }
 
 void query_context::merge_global(){
-	pthread_mutex_lock(&global_ctx->lock);
+	lock();
 	global_ctx->found += found;
 	global_ctx->query_count += query_count;
 	global_ctx->refine_count += refine_count;
@@ -139,13 +145,13 @@ void query_context::merge_global(){
 			global_ctx->latency[it.first] = lt;
 		}
 	}
-	pthread_mutex_unlock(&global_ctx->lock);
+	unlock();
 }
 
 bool query_context::next_batch(int batch_num){
-	pthread_mutex_lock(&global_ctx->lock);
+	lock();
 	if(global_ctx->index==global_ctx->target_num){
-		pthread_mutex_unlock(&global_ctx->lock);
+		unlock();
 		return false;
 	}
 	index = global_ctx->index;
@@ -155,7 +161,7 @@ bool query_context::next_batch(int batch_num){
 		index_end = index+batch_num;
 	}
 	global_ctx->index = index_end;
-	pthread_mutex_unlock(&global_ctx->lock);
+	unlock();
 	return true;
 }
 
