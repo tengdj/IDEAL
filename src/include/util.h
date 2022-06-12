@@ -21,6 +21,10 @@
 #include <iostream>
 #include <fstream>
 #include <math.h>
+#include <algorithm>
+#include <cmath>
+#include <thread>
+#include <future>
 
 using namespace std;
 
@@ -220,7 +224,7 @@ inline void logt(const char *format, struct timeval &start, ...){
 	char sprint_buf[200];
 	int n = vsprintf(sprint_buf, format, args);
 	va_end(args);
-	fprintf(stderr,"%s thread %ld:\t%s", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+	fprintf(stderr,"\r%s thread %ld:\t%s", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
 
 	double mstime = get_time_elapsed(start, true);
 	if(mstime>1000){
@@ -240,7 +244,19 @@ inline void log(const char *format, ...){
 	char sprint_buf[200];
 	int n = vsprintf(sprint_buf, format, args);
 	va_end(args);
-	fprintf(stderr,"%s thread %ld:\t%s\n", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+	fprintf(stderr,"\r%s thread %ld:\t%s\n", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+	fflush(stderr);
+	pthread_mutex_unlock(&print_lock);
+}
+
+inline void log_refresh(const char *format, ...){
+	pthread_mutex_lock(&print_lock);
+	va_list args;
+	va_start(args, format);
+	char sprint_buf[200];
+	int n = vsprintf(sprint_buf, format, args);
+	va_end(args);
+	fprintf(stderr,"\r%s thread %ld:\t%s", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
 	fflush(stderr);
 	pthread_mutex_unlock(&print_lock);
 }
@@ -252,14 +268,14 @@ inline void log_stdout(const char *format, ...){
 	char sprint_buf[200];
 	int n = vsprintf(sprint_buf, format, args);
 	va_end(args);
-	fprintf(stdout,"%s thread %ld:\t%s\n", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+	fprintf(stdout,"\r%s thread %ld:\t%s\n", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
 	fflush(stdout);
 	pthread_mutex_unlock(&print_lock);
 }
 
 inline void log(){
 	pthread_mutex_lock(&print_lock);
-	fprintf(stdout,"%s thread %ld:\tterry is good\n", time_string().c_str(),syscall(__NR_gettid));
+	fprintf(stdout,"\r%s thread %ld:\tterry is good\n", time_string().c_str(),syscall(__NR_gettid));
 	fflush(stdout);
 	pthread_mutex_unlock(&print_lock);
 }
@@ -457,6 +473,18 @@ inline bool double_equal(double d1, double d2){
 
 inline bool double_zero(double d, double epsilon = min_equal){
 	return fabs(d)<epsilon;
+}
+
+template<class T>
+void parallel_sort(T* data, size_t len, size_t grainsize, bool (*comp)(T, T)){
+    if(len <= grainsize){
+        std::sort(data, data + len, comp);
+    } else {
+        auto future = std::async(parallel_sort<T>, data, len/2, grainsize, comp);
+        parallel_sort(data + len/2, len - len/2, grainsize, comp);
+        future.wait();
+        std::inplace_merge(data, data + len/2, data + len, comp);
+    }
 }
 
 }

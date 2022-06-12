@@ -7,6 +7,8 @@
 
 #include "partition.h"
 
+namespace po = boost::program_options;
+
 // functions for sampling
 
 template <class O>
@@ -149,55 +151,94 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 
 int main(int argc, char** argv) {
 
-	const char *mbr_path = argv[1];
-	const char *point_path = argv[2];
-	const size_t partition_num = 200;
-	const double max_sample_rate = 0.1;
-//	const size_t min_sample_ratio = 64;
-//	const size_t max_partition_ratio = 512;
-//	const int sample_rounds = 5;
-//
-	const size_t min_sample_ratio = 1;
-	const size_t max_partition_ratio = 1;
-	const int sample_rounds = 1;
+	string mbr_path;
+	string point_path;
+
+	size_t min_cardinality = 2000;
+	size_t max_cardinality = 2000;
+
+	double min_sample_rate = 0.01;
+	double max_sample_rate = 0.01;
+
+	int sample_rounds = 1;
+
+	string ptype_str = "str";
+
+	po::options_description desc("query usage");
+	desc.add_options()
+		("help,h", "produce help message")
+		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
+		("target,t", po::value<string>(&point_path)->required(), "path to the target points")
+
+		("partition_type,p", po::value<string>(&ptype_str), "partition type should be one of: str|slc|bos|qt|bsp|hc|fg, if not set, all the algorithms will be tested")
+
+		("sample_rate,r", po::value<double>(&min_sample_rate), "the maximum sample rate (0.01 by default)")
+		("max_sample_rate", po::value<double>(&max_sample_rate), "the maximum sample rate (0.01 by default)")
+
+		("cardinality,c", po::value<size_t>(&min_cardinality), "the base number of objects per partition contain (2000 by default)")
+		("max_cardinality", po::value<size_t>(&max_cardinality), "the max number of objects per partition contain (2000 by default)")
+
+		("sample_rounds", po::value<int>(&sample_rounds), "the number of rounds the tests should be repeated")
+
+		;
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	if (vm.count("help")) {
+		cout << desc << "\n";
+		exit(0);
+	}
+	po::notify(vm);
+
+	if(max_sample_rate<min_sample_rate){
+		max_sample_rate = min_sample_rate;
+	}
+	if(max_cardinality<min_cardinality){
+		max_cardinality = min_cardinality;
+	}
+
+	PARTITION_TYPE start_type = STR;
+	PARTITION_TYPE end_type = BSP;
+	if(vm.count("partition_type")){
+		PARTITION_TYPE ptype = ::parse_partition_type(ptype_str.c_str());
+		start_type = ptype;
+		end_type = ptype;
+	}
 
 	struct timeval start = get_cur_time();
 	box *boxes;
-	size_t box_num = load_boxes_from_file(mbr_path, &boxes);
+	size_t box_num = load_boxes_from_file(mbr_path.c_str(), &boxes);
 	vector<box> box_vec(boxes, boxes+box_num);
 	logt("%ld objects are loaded",start, box_num);
 
 	Point *points;
-	size_t points_num = load_points_from_path(point_path, &points);
+	size_t points_num = load_points_from_path(point_path.c_str(), &points);
 	vector<Point> point_vec(points, points+points_num);
 
 	logt("%ld points are loaded", start, points_num);
 
-
-	for(int tr=0;tr<sample_rounds;tr++){
+	for(int sr=0;sr<sample_rounds;sr++){
 		// iterate the sampling rate
-		for(size_t s=1;s<=min_sample_ratio;s*=2){
+		for(double sample_rate = min_sample_rate;sample_rate/2.0<=max_sample_rate; sample_rate *= 2){
 			// sampling data
-			double sample_rate = max_sample_rate*s/min_sample_ratio;
 			vector<box *> objects = sample<box>(box_vec, sample_rate);
-			logt("%ld objects are sampled",start, objects.size());
+			logt("%ld objects are sampled with sample rate %f",start, objects.size(),sample_rate);
 
 			vector<Point *> targets = sample<Point>(point_vec, sample_rate);
-			logt("%ld targets are sampled",start, targets.size());
+			logt("%ld targets are sampled with sample rate %f",start, targets.size(),sample_rate);
 
-			for(int pt=0;pt<PARTITION_TYPE_NUM;pt++){
+			for(int pt=(int)start_type;pt<=(int)end_type;pt++){
 				PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
 
 				// iterate the partitioning number
-				for(size_t pr=1;pr<=max_partition_ratio;pr*=2){
+				for(size_t card=min_cardinality; (card/2)<=max_cardinality;card*=2){
 					// generate schema
-					size_t true_partition_num = partition_num*pr;
-					vector<Tile *> tiles = genschema(objects, true_partition_num, ptype);
+					vector<Tile *> tiles = genschema(objects, card, ptype);
+
 					RTree<Tile *, double, 2, double> tree;
 					for(Tile *t:tiles){
 						tree.Insert(t->low, t->high, t);
 					}
-					logt("%ld tiles are generated",start, tiles.size());
+					logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 					// partitioning data
 					partition(objects, tree);
@@ -211,10 +252,13 @@ int main(int argc, char** argv) {
 					// conduct query
 					size_t found = query(targets, tree);
 					double query_time = get_time_elapsed(start);
-					printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%f,%f\n", partition_type_names[ptype],tr,sample_rate,
-							true_partition_num, total_num, objects.size(), found, targets.size(),
-							partition_time,query_time);
-
+					logt("querying data",start);
+					printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%f,%f\n",
+							partition_type_names[ptype],sr,
+							sample_rate, card,
+							objects.size(), total_num,
+							targets.size(), found,
+							partition_time, query_time);
 					// clear the partition schema for this round
 					for(Tile *tile:tiles){
 						delete tile;

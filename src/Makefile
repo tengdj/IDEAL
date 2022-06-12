@@ -114,6 +114,9 @@ partition:	test/partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 
 partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+genschema:	test/generate_partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 		
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

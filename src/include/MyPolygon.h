@@ -15,7 +15,6 @@
 #include <stack>
 #include <map>
 #include <bits/stdc++.h>
-#include <boost/program_options.hpp>
 
 #include "../triangulate/poly2tri.h"
 #include "util.h"
@@ -25,7 +24,6 @@
 #include "Point.h"
 #include "query_context.h"
 
-namespace po = boost::program_options;
 using namespace std;
 using namespace p2t;
 

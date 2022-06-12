@@ -46,16 +46,16 @@ public:
 	}
 };
 
-vector<Tile *> genschema_str(vector<box *> &geometries, size_t part_num);
-vector<Tile *> genschema_slc(vector<box *> &geometries, size_t part_num);
-vector<Tile *> genschema_bos(vector<box *> &geometries, size_t part_num);
-vector<Tile *> genschema_hc(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality);
 
-vector<Tile *> genschema_fg(vector<box *> &geometries, size_t part_num);
-vector<Tile *> genschema_qt(vector<box *> &geometries, size_t part_num);
-vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t part_num);
+vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality);
 
-vector<Tile *> genschema(vector<box *> &geometries, size_t part_num, PARTITION_TYPE type);
-
+vector<Tile *> genschema(vector<box *> &geometries, size_t cardinality, PARTITION_TYPE type);
+void print_tiles(vector<Tile *> &tiles);
 PARTITION_TYPE parse_partition_type(const char *type);
 #endif /* SRC_PARTITION_PARTITION_HPP_ */

@@ -4,6 +4,7 @@
  *  Created on: Sep 3, 2020
  *      Author: teng
  */
+#include "query_context.h"
 #include "../include/MyPolygon.h"
 
 query_context::query_context(){
@@ -111,8 +112,8 @@ void query_context::report_progress(){
 		global_ctx->query_count += query_count;
 		global_ctx->lock();
 		double time_passed = get_time_elapsed(global_ctx->previous);
-		if(time_passed/1000>global_ctx->report_gap){
-			log("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
+		if(time_passed>global_ctx->report_gap){
+			log_refresh("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
 			global_ctx->previous = get_cur_time();
 		}
 		global_ctx->unlock();

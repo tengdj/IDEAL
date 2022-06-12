@@ -10,9 +10,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>
+#include <boost/program_options.hpp>
+
 #include "Point.h"
 #include "Pixel.h"
 
+namespace po = boost::program_options;
 using namespace std;
 class MyPolygon;
 
@@ -106,7 +109,8 @@ public:
 	size_t index = 0;
 	size_t index_end = 0;
 	struct timeval previous = get_cur_time();
-	int report_gap = 5;
+	// the gap between two reports, in ms
+	int report_gap = 100;
 	pthread_mutex_t lk;
 
 	//result
