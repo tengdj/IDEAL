@@ -151,11 +151,15 @@ int main(int argc, char** argv) {
 
 	const char *mbr_path = argv[1];
 	const char *point_path = argv[2];
-	const size_t partition_num = atoi(argv[3]);
-	const PARTITION_TYPE ptype = parse_partition_type(argv[4]);
-	const double max_sample_rate = 0.01;
+	const size_t partition_num = 200;
+	const double max_sample_rate = 0.1;
+//	const size_t min_sample_ratio = 64;
+//	const size_t max_partition_ratio = 512;
+//	const int sample_rounds = 5;
+//
 	const size_t min_sample_ratio = 1;
 	const size_t max_partition_ratio = 1;
+	const int sample_rounds = 1;
 
 	struct timeval start = get_cur_time();
 	box *boxes;
@@ -168,49 +172,60 @@ int main(int argc, char** argv) {
 	vector<Point> point_vec(points, points+points_num);
 
 	logt("%ld points are loaded", start, points_num);
-	// iterate the sampling rate
-	for(size_t s=1;s<=min_sample_ratio;s*=2){
-		// sampling data
-		double sample_rate = max_sample_rate*s/min_sample_ratio;
-		vector<box *> objects = sample<box>(box_vec, sample_rate);
-		logt("%ld objects are sampled",start, objects.size());
 
-		vector<Point *> targets = sample<Point>(point_vec, sample_rate);
-		logt("%ld targets are sampled",start, targets.size());
 
-		// iterate the partitioning number
-		for(size_t pr=1;pr<=max_partition_ratio;pr*=2){
-			// generate schema
-			size_t true_partition_num = partition_num*pr;
-			vector<Tile *> tiles = genschema(objects, true_partition_num, ptype);
-			RTree<Tile *, double, 2, double> tree;
-			for(Tile *t:tiles){
-				tree.Insert(t->low, t->high, t);
+	for(int tr=0;tr<sample_rounds;tr++){
+		// iterate the sampling rate
+		for(size_t s=1;s<=min_sample_ratio;s*=2){
+			// sampling data
+			double sample_rate = max_sample_rate*s/min_sample_ratio;
+			vector<box *> objects = sample<box>(box_vec, sample_rate);
+			logt("%ld objects are sampled",start, objects.size());
+
+			vector<Point *> targets = sample<Point>(point_vec, sample_rate);
+			logt("%ld targets are sampled",start, targets.size());
+
+			for(int pt=0;pt<PARTITION_TYPE_NUM;pt++){
+				PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
+
+				// iterate the partitioning number
+				for(size_t pr=1;pr<=max_partition_ratio;pr*=2){
+					// generate schema
+					size_t true_partition_num = partition_num*pr;
+					vector<Tile *> tiles = genschema(objects, true_partition_num, ptype);
+					RTree<Tile *, double, 2, double> tree;
+					for(Tile *t:tiles){
+						tree.Insert(t->low, t->high, t);
+					}
+					logt("%ld tiles are generated",start, tiles.size());
+
+					// partitioning data
+					partition(objects, tree);
+					size_t total_num = 0;
+					for(Tile *tile:tiles){
+						total_num += tile->get_objnum();
+					}
+					double partition_time = get_time_elapsed(start);
+					logt("partitioning data",start);
+
+					// conduct query
+					size_t found = query(targets, tree);
+					double query_time = get_time_elapsed(start);
+					printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%f,%f\n", partition_type_names[ptype],tr,sample_rate,
+							true_partition_num, total_num, objects.size(), found, targets.size(),
+							partition_time,query_time);
+
+					// clear the partition schema for this round
+					for(Tile *tile:tiles){
+						delete tile;
+					}
+					tiles.clear();
+				}
 			}
-			logt("%ld tiles are generated",start, tiles.size());
-
-			// partitioning data
-			partition(objects, tree);
-			size_t total_num = 0;
-			for(Tile *tile:tiles){
-				total_num += tile->get_objnum();
-			}
-			logt("partitioning data",start);
-
-			// conduct query
-			size_t found = query(targets, tree);
-			logt("%.4f boundary %.4f (%ld/%ld) average hit", start, 100.0*(total_num-objects.size())/objects.size(), 1.0*found/targets.size(),found, targets.size());
-
-			// clear the partition schema for this round
-			for(Tile *tile:tiles){
-				delete tile;
-			}
-			tiles.clear();
+			objects.clear();
+			targets.clear();
 		}
-		objects.clear();
-		targets.clear();
 	}
-
 
 	delete []boxes;
 	delete []points;

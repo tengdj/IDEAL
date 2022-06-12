@@ -13,14 +13,15 @@
 
 typedef enum {
 	STR = 0,
-	SLC,
-	BOS,
-	HC,
-	FG,
-	QT,
-	BSP
+	SLC = 1,
+	BOS = 2,
+	HC = 3,
+	FG = 4,
+	QT = 5,
+	BSP = 6,
+	PARTITION_TYPE_NUM
 }PARTITION_TYPE;
-
+extern const char *partition_type_names[7];
 
 class Tile: public box{
 	pthread_mutex_t lk;
