@@ -146,7 +146,45 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 		pthread_join(threads[i], &status);
 	}
 	return global_ctx.found;
+}
 
+void process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype, double sample_rate, int sr, bool fixed_card){
+	struct timeval start = get_cur_time();
+	// generate schema
+	vector<Tile *> tiles = genschema(objects, card, ptype);
+
+	RTree<Tile *, double, 2, double> tree;
+	for(Tile *t:tiles){
+		tree.Insert(t->low, t->high, t);
+	}
+	logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
+
+	// partitioning data
+	partition(objects, tree);
+	size_t total_num = 0;
+	for(Tile *tile:tiles){
+		total_num += tile->get_objnum();
+	}
+	double partition_time = get_time_elapsed(start);
+	logt("partitioning data",start);
+
+	// conduct query
+	size_t found = query(targets, tree);
+	double query_time = get_time_elapsed(start);
+	logt("querying data",start);
+	printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%ld,%f,%f,%d\n",
+			partition_type_names[ptype],sr,
+			sample_rate, card, tiles.size(),
+			objects.size(), total_num,
+			targets.size(), found,
+			partition_time, query_time,
+			fixed_card);
+	fflush(stdout);
+	// clear the partition schema for this round
+	for(Tile *tile:tiles){
+		delete tile;
+	}
+	tiles.clear();
 }
 
 int main(int argc, char** argv) {
@@ -216,54 +254,23 @@ int main(int argc, char** argv) {
 
 	logt("%ld points are loaded", start, points_num);
 
+
+	// repeat several rounds for a better estimation
 	for(int sr=0;sr<sample_rounds;sr++){
 		// iterate the sampling rate
-		for(double sample_rate = min_sample_rate;sample_rate/2.0<=max_sample_rate; sample_rate *= 2){
+		for(double sample_rate = min_sample_rate;sample_rate/1.6<=max_sample_rate; sample_rate *= 2){
 			// sampling data
 			vector<box *> objects = sample<box>(box_vec, sample_rate);
 			logt("%ld objects are sampled with sample rate %f",start, objects.size(),sample_rate);
-
 			vector<Point *> targets = sample<Point>(point_vec, sample_rate);
 			logt("%ld targets are sampled with sample rate %f",start, targets.size(),sample_rate);
 
-			for(int pt=(int)start_type;pt<=(int)end_type;pt++){
-				PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
-
-				// iterate the partitioning number
-				for(size_t card=min_cardinality; (card/2)<=max_cardinality;card*=2){
-					// generate schema
-					vector<Tile *> tiles = genschema(objects, card, ptype);
-
-					RTree<Tile *, double, 2, double> tree;
-					for(Tile *t:tiles){
-						tree.Insert(t->low, t->high, t);
-					}
-					logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
-
-					// partitioning data
-					partition(objects, tree);
-					size_t total_num = 0;
-					for(Tile *tile:tiles){
-						total_num += tile->get_objnum();
-					}
-					double partition_time = get_time_elapsed(start);
-					logt("partitioning data",start);
-
-					// conduct query
-					size_t found = query(targets, tree);
-					double query_time = get_time_elapsed(start);
-					logt("querying data",start);
-					printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%f,%f\n",
-							partition_type_names[ptype],sr,
-							sample_rate, card,
-							objects.size(), total_num,
-							targets.size(), found,
-							partition_time, query_time);
-					// clear the partition schema for this round
-					for(Tile *tile:tiles){
-						delete tile;
-					}
-					tiles.clear();
+			// varying the cardinality
+			for(size_t card=min_cardinality; (card/2)<=max_cardinality;card*=2){
+				for(int pt=(int)start_type;pt<=(int)end_type;pt++){
+					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
+					process(objects, targets, card, ptype, sample_rate, sr, true);
+					process(objects, targets, card*sample_rate+1, ptype, sample_rate, sr, false);
 				}
 			}
 			objects.clear();
