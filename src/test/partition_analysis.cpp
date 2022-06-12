@@ -270,7 +270,8 @@ int main(int argc, char** argv) {
 				for(int pt=(int)start_type;pt<=(int)end_type;pt++){
 					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
 					process(objects, targets, card, ptype, sample_rate, sr, true);
-					process(objects, targets, card*sample_rate+1, ptype, sample_rate, sr, false);
+
+					process(objects, targets, std::max((int)(card*sample_rate), 1), ptype, sample_rate, sr, false);
 				}
 			}
 			objects.clear();
