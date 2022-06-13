@@ -30,7 +30,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 
 	timeval start = get_cur_time();
 	ctx->distance = poly->distance(*p,ctx);
-	ctx->found += ctx->distance<10000000.0;
+	ctx->found += ctx->distance <= ctx->within_distance;
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
 		if(nv<5000){
