@@ -761,10 +761,10 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 		// both polygons are rasterized and the pixel of the target is larger
 		// then swap the role of source and target, and use the target as the host one
 		// currently we put this optimization in the caller
-//		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
-//			ctx->object_checked.counter--;
-//			return target->distance(this, ctx);
-//		}
+		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
+			ctx->object_checked.counter--;
+			return target->distance(this, ctx);
+		}
 
 		double mindist = getMBB()->max_distance(*target->getMBB(), ctx->geography);
 		const double mbrdist = getMBB()->distance(*target->getMBB(),ctx->geography);

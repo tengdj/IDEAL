@@ -38,20 +38,8 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 		ctx->found++;
         return true;
 	}
-
-//	if(target->getid()==8)
-	{
-		//log("%d (%d vertices) within of %d (%d vertices)", target->getid(), target->get_num_vertices(), poly->getid(), poly->get_num_vertices());
-		//poly->print(false, false);
-	}
-
 	timeval start = get_cur_time();
-	if(poly->get_rastor() && target->get_rastor() &&
-			target->get_rastor()->get_step(false) < poly->get_rastor()->get_step(false)){
-		ctx->distance = target->distance(poly,ctx);
-	}else{
-		ctx->distance = poly->distance(target,ctx);
-	}
+	ctx->distance = poly->distance(target,ctx);
 
 	ctx->found += ctx->distance <= ctx->within_distance;
 
