@@ -38,6 +38,7 @@ void *query(void *args){
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(ctx->sample_rate)){
+				ctx->report_progress();
 				continue;
 			}
 			MyPolygon *poly = gctx->target_polygons[i];
@@ -77,7 +78,7 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %d nodes", start,global_ctx.source_polygons.size());
 
-	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx,true);
+	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx);
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	start = get_cur_time();
 

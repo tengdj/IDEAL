@@ -220,7 +220,7 @@ public:
 	static MyPolygon *gen_box(box &pix);
 	static MyPolygon *read_one_polygon();
 
-	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false, int report_gap = 10);
+	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
 	static MyPolygon * load_binary_file_single(const char *path, query_context ctx, int idx);
 	static MyPolygon * read_polygon_binary_file(ifstream &is);
 

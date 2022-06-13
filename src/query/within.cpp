@@ -54,6 +54,7 @@ void *query(void *args){
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(gctx->sample_rate)){
+				ctx->report_progress();
 				continue;
 			}
 			struct timeval query_start = get_cur_time();

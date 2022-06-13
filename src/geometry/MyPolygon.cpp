@@ -258,7 +258,7 @@ MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context c
 
 }
 
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample, int report_gap){
+vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -284,11 +284,12 @@ vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context 
 
 	size_t num_edges = 0;
 	size_t data_size = 0;
-	size_t next = report_gap;
+	size_t report_gap = 500;
+	struct timeval reporttm = get_cur_time();
 	for(size_t i=0;i<num_polygons;i++){
-		if(i*100/num_polygons>=next){
-			log("loaded %d%%",next);
-			next += report_gap;
+		if(get_time_elapsed(reporttm)>=report_gap){
+			log_refresh("loaded %.2f%%",i*100.0/num_polygons);
+			reporttm = get_cur_time();
 		}
 		if(sample && !tryluck(ctx.sample_rate)){
 			continue;
