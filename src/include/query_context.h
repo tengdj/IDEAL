@@ -112,6 +112,7 @@ public:
 	// the gap between two reports, in ms
 	int report_gap = 100;
 	pthread_mutex_t lk;
+	const char *report_prefix = "processed";
 
 	//result
 	double distance = 0;

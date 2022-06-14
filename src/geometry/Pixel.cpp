@@ -216,7 +216,7 @@ size_t load_boxes_from_file(const char *path, box **mbrs){
 		exit(0);
 	}
 	size_t target_num = fsize/sizeof(box);
-
+	log_refresh("start loading %ld MBRs",target_num);
 	*mbrs = new box[target_num];
 
 	ifstream infile(path, ios::in | ios::binary);

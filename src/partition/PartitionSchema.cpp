@@ -231,7 +231,7 @@ vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality){
 
 	vector<Tile *> schema;
 
-	size_t hcnum = part_num*1000;
+	size_t hcnum = geometries.size()/10;
 	size_t hindex = log2(hcnum);
 	hindex += (1+(hindex%2==0));
 	hcnum = pow(2,hindex);
@@ -457,4 +457,20 @@ void print_tiles(vector<Tile *> &boxes){
 	}
 	cboxes->print();
 	delete cboxes;
+}
+
+double skewstdevratio(vector<Tile *> &tiles){
+	if(tiles.size()==0){
+		return 0;
+	}
+	size_t total = 0;
+	for(Tile *t:tiles){
+		total += t->get_objnum();
+	}
+	double avg = 1.0*total/tiles.size();
+	double st = 0.0;
+	for(Tile *t:tiles){
+		st += (t->get_objnum()-avg)*(t->get_objnum()-avg)/tiles.size();
+	}
+	return sqrt(st)/avg;
 }

@@ -94,6 +94,8 @@ size_t load_points_from_path(const char *path, Point **points){
 		exit(0);
 	}
 	size_t target_num = fsize/sizeof(Point);
+	log_refresh("start loading %ld points",target_num);
+
 	*points = new Point[target_num];
 	ifstream infile(path, ios::in | ios::binary);
 	infile.read((char *)*points, fsize);
@@ -113,7 +115,7 @@ void query_context::report_progress(){
 		global_ctx->lock();
 		double time_passed = get_time_elapsed(global_ctx->previous);
 		if(time_passed>global_ctx->report_gap){
-			log_refresh("processed %d (%.2f\%)",global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
+			log_refresh("%s %d (%.2f\%)",global_ctx->report_prefix, global_ctx->query_count,(double)global_ctx->query_count*100/(global_ctx->target_num));
 			global_ctx->previous = get_cur_time();
 		}
 		global_ctx->unlock();

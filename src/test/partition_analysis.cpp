@@ -39,6 +39,7 @@ vector<O *> sample(vector<O> &original, double sample_rate){
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = original.size();
 	global_ctx.sample_rate = sample_rate;
+	global_ctx.report_prefix = "sampled";
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -84,6 +85,8 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = objects.size();
+	global_ctx.report_prefix = "assigned";
+
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -130,6 +133,8 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = objects.size();
+	global_ctx.report_prefix = "queried";
+
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -149,9 +154,14 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 }
 
 void process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype, double sample_rate, int sr, bool fixed_card){
+	if(!fixed_card){
+		// adjust the cardinality for the sampling data
+		card = std::max((int)(card*sample_rate), 1);
+	}
 	struct timeval start = get_cur_time();
 	// generate schema
 	vector<Tile *> tiles = genschema(objects, card, ptype);
+
 
 	RTree<Tile *, double, 2, double> tree;
 	for(Tile *t:tiles){
@@ -172,13 +182,16 @@ void process(vector<box *> &objects, vector<Point *> &targets, size_t card, PART
 	size_t found = query(targets, tree);
 	double query_time = get_time_elapsed(start);
 	logt("querying data",start);
-	printf("%s,%d,%f,%ld,%ld,%ld,%ld,%ld,%ld,%f,%f,%d\n",
-			partition_type_names[ptype],sr,
-			sample_rate, card, tiles.size(),
+	printf("%d,%s,"
+			"%f,%ld,%ld,%f,"
+			"%ld,%ld,"
+			"%ld,%ld,"
+			"%f,%f\n",
+			sr,partition_type_names[ptype],
+			sample_rate, card, tiles.size(),skewstdevratio(tiles),
 			objects.size(), total_num,
 			targets.size(), found,
-			partition_time, query_time,
-			fixed_card);
+			partition_time, query_time);
 	fflush(stdout);
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
@@ -194,6 +207,7 @@ int main(int argc, char** argv) {
 
 	size_t min_cardinality = 2000;
 	size_t max_cardinality = 2000;
+	bool fixed_cardinality = false;
 
 	double min_sample_rate = 0.01;
 	double max_sample_rate = 0.01;
@@ -205,6 +219,7 @@ int main(int argc, char** argv) {
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
+		("fixed_cardinality,f", "fixed cardinality for all sampling rates")
 		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
 		("target,t", po::value<string>(&point_path)->required(), "path to the target points")
 
@@ -233,6 +248,7 @@ int main(int argc, char** argv) {
 	if(max_cardinality<min_cardinality){
 		max_cardinality = min_cardinality;
 	}
+	fixed_cardinality = vm.count("fixed_cardinality");
 
 	PARTITION_TYPE start_type = STR;
 	PARTITION_TYPE end_type = BSP;
@@ -258,7 +274,7 @@ int main(int argc, char** argv) {
 	// repeat several rounds for a better estimation
 	for(int sr=0;sr<sample_rounds;sr++){
 		// iterate the sampling rate
-		for(double sample_rate = min_sample_rate;sample_rate/1.6<=max_sample_rate; sample_rate *= 2){
+		for(double sample_rate = min_sample_rate;sample_rate/1.5<=max_sample_rate; sample_rate *= 2){
 			// sampling data
 			vector<box *> objects = sample<box>(box_vec, sample_rate);
 			logt("%ld objects are sampled with sample rate %f",start, objects.size(),sample_rate);
@@ -266,12 +282,10 @@ int main(int argc, char** argv) {
 			logt("%ld targets are sampled with sample rate %f",start, targets.size(),sample_rate);
 
 			// varying the cardinality
-			for(size_t card=min_cardinality; (card/2)<=max_cardinality;card*=2){
+			for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
 				for(int pt=(int)start_type;pt<=(int)end_type;pt++){
 					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
-					process(objects, targets, card, ptype, sample_rate, sr, true);
-
-					process(objects, targets, std::max((int)(card*sample_rate), 1), ptype, sample_rate, sr, false);
+					process(objects, targets, card, ptype, sample_rate, sr, fixed_cardinality);
 				}
 			}
 			objects.clear();
