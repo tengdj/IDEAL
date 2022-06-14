@@ -219,6 +219,7 @@ inline void unlock(){
 static pthread_mutex_t print_lock;
 inline void logt(const char *format, struct timeval &start, ...){
 	pthread_mutex_lock(&print_lock);
+	fprintf(stderr, "\r                                                                              ");
 	va_list args;
 	va_start(args, start);
 	char sprint_buf[200];
@@ -249,6 +250,25 @@ inline void log(const char *format, ...){
 	pthread_mutex_unlock(&print_lock);
 }
 
+inline void logt_refresh(const char *format, struct timeval &start, ...){
+	pthread_mutex_lock(&print_lock);
+	va_list args;
+	va_start(args, start);
+	char sprint_buf[200];
+	int n = vsprintf(sprint_buf, format, args);
+	va_end(args);
+	fprintf(stderr,"\r%s thread %ld:\t%s", time_string().c_str(), syscall(__NR_gettid),sprint_buf);
+
+	double mstime = get_time_elapsed(start, true);
+	if(mstime>1000){
+		fprintf(stderr," takes %f s", mstime/1000);
+	}else{
+		fprintf(stderr," takes %f ms", mstime);
+	}
+	fflush(stderr);
+
+	pthread_mutex_unlock(&print_lock);
+}
 inline void log_refresh(const char *format, ...){
 	pthread_mutex_lock(&print_lock);
 	va_list args;
@@ -485,6 +505,34 @@ void parallel_sort(T* data, size_t len, size_t grainsize, bool (*comp)(T, T)){
         future.wait();
         std::inplace_merge(data, data + len/2, data + len, comp);
     }
+}
+
+// generate y = a*x+b
+inline void linear_regression(vector<double> &X, vector<double> &Y, double &a, double &b){
+
+	double N = X.size();
+
+	assert(X.size()==Y.size()&&X.size()>0);
+
+	double sum_x = 0.0;
+	double sum_y = 0.0;
+	double sum_xy = 0.0;
+	double sum_xx = 0.0;
+	double sum_yy = 0.0;
+
+	for (size_t i = 0; i < X.size(); i++) {
+		double xi = X[i];
+		double yi = Y[i];
+		sum_x += xi;
+		sum_y += yi;
+		sum_xx += xi * xi;
+		sum_yy += yi * yi;
+		sum_xy += xi * yi;
+	}
+
+
+	a = (N * sum_xy - sum_x * sum_y) / (N * sum_xx - sum_x * sum_x);
+	b = (sum_y * sum_xx - sum_x * sum_xy)/(N * sum_xx - sum_x * sum_x);
 }
 
 }

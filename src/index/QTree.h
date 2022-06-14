@@ -9,6 +9,7 @@
 #define SRC_INDEX_QTREE_H_
 
 #include "../include/Pixel.h"
+#include <boost/sort/sort.hpp>
 
 enum QT_Direction{
 	bottom_left = 0,
@@ -336,7 +337,7 @@ public:
 		isleaf = false;
 		// horizontally split
 		if((mbr.high[0]-mbr.low[0])>(mbr.high[1]-mbr.low[1])){
-			std::sort(objects.begin(),objects.end(),comparePixelX);
+			boost::sort::block_indirect_sort(objects.begin(),objects.end(),comparePixelX);
 			size_t half_index = objects.size()/2;
 			double mid = objects[half_index]->low[0];
 			children[0] = new BTNode(mbr.low[0], mbr.low[1], mid, mbr.high[1]);
@@ -345,7 +346,7 @@ public:
 			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
 		}else{
 			// vertically split
-			std::sort(objects.begin(),objects.end(),comparePixelY);
+			boost::sort::block_indirect_sort(objects.begin(),objects.end(),comparePixelY);
 			size_t half_index = objects.size()/2;
 			double mid = objects[half_index]->low[1];
 			children[0] = new BTNode(mbr.low[0], mbr.low[1], mbr.high[0], mid);

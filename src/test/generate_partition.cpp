@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 		end_type = ptype;
 	}
 	for(int pt=start_type;pt<=end_type;pt++){
-		vector<Tile *> tiles = genschema(objects, cardinality, (PARTITION_TYPE)pt);
+		vector<Tile *> tiles = genschema(objects, std::max(1, (int)(sample_rate*cardinality)), (PARTITION_TYPE)pt);
 		if(vm.count("print")){
 			print_tiles(tiles);
 		}

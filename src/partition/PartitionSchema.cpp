@@ -124,22 +124,10 @@ vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
 	return schema;
 }
 
-typedef struct {
-	box *pix;
-	size_t *counter;
-} intersect_counter;
-
-bool CountIntersectNumber(box *poly, void* arg){
-	intersect_counter *target = (intersect_counter *)arg;
-	if(!poly->contain(*target->pix)){
-		(*target->counter)++;
-	}
-	return true;
-}
-
 vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	size_t part_num = geometries.size()/cardinality+1;
 
+	struct timeval start = get_cur_time();
 	const size_t objnum = geometries.size();
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);
@@ -148,16 +136,11 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	vector<box *> yordered;
 	xordered.insert(xordered.begin(), geometries.begin(), geometries.end());
 	yordered.insert(yordered.begin(), geometries.begin(), geometries.end());
-	//boost::sort::block_indirect_
-	sort(xordered.begin(), xordered.end(), comparePixelX);
-	//boost::sort::block_indirect_
-	sort(yordered.begin(), yordered.end(), comparePixelY);
+	boost::sort::block_indirect_sort(xordered.begin(), xordered.end(), comparePixelX);
+	boost::sort::block_indirect_sort(yordered.begin(), yordered.end(), comparePixelY);
 
+	logt_refresh("sorting",start);
 
-	RTree<box *, double, 2, double> tree;
-	for(box *g:geometries){
-		tree.Insert(g->low, g->high, g);
-	}
 	size_t x_iter = 0;
 	size_t y_iter = 0;
 
@@ -165,6 +148,9 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	double cur_y = yordered[y_iter]->low[1];
 
 	while(x_iter<objnum||y_iter<objnum){
+
+		double xcost = 0;
+		double ycost = 0;
 		// if cut an X slice
 		size_t xsize = std::min(cardinality, objnum-x_iter);
 		size_t true_xsize = 0;
@@ -180,11 +166,18 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 			tmp_cur_x = xordered[tmp_x_iter]->low[0];
 			true_xsize++;
 		}
-		size_t xcost = 0;
-		intersect_counter ct;
-		ct.pix = &xbuffer;
-		ct.counter = &xcost;
-		tree.Search(xbuffer.low, xbuffer.high, CountIntersectNumber, (void *)&ct);
+//		// count how many boudary objects is included
+//		for(size_t x=tmp_x_iter;x<objnum;x++){
+//			// already cut as a Y slice
+//			if(xordered[x]->low[1]<cur_y){
+//				continue;
+//			}
+//			if(xordered[x]->low[0]<=xbuffer.high[0]){
+//				xcost++;
+//			}else{
+//				break;
+//			}
+//		}
 
 		// if cut a Y slice
 		size_t ysize = std::min(cardinality, objnum-y_iter);
@@ -193,7 +186,7 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 		double tmp_cur_y = cur_y;
 		size_t tmp_y_iter = y_iter;
 		for(;tmp_y_iter<objnum&&true_ysize<ysize;tmp_y_iter++){
-			// already cut as a Y slice
+			// already cut as an X slice
 			if(yordered[tmp_y_iter]->low[0]<cur_x){
 				continue;
 			}
@@ -201,12 +194,37 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 			tmp_cur_y = yordered[tmp_y_iter]->low[1];
 			true_ysize++;
 		}
-		size_t ycost = 0;
-		ct.pix = &ybuffer;
-		ct.counter = &ycost;
-		tree.Search(ybuffer.low, ybuffer.high, CountIntersectNumber, (void *)&ct);
 
-		if(xcost<=ycost && x_iter<objnum){
+
+
+		//		for(size_t y=tmp_y_iter;y<objnum;y++){
+//			// already cut as an Y slice
+//			if(yordered[y]->low[0]<cur_x){
+//				continue;
+//			}
+//			if(yordered[y]->low[1]<=ybuffer.high[1]){
+//				ycost++;
+//			}
+//		}
+		if(x_iter == objnum){
+			schema.push_back(new Tile(ybuffer));
+			cur_y = tmp_cur_y;
+			y_iter = tmp_y_iter;
+			continue;
+		}
+
+		if(y_iter == objnum){
+			schema.push_back(new Tile(xbuffer));
+			cur_x = tmp_cur_x;
+			x_iter = tmp_x_iter;
+			continue;
+		}
+
+		xcost = (xbuffer.high[0]-tmp_cur_x)/(xbuffer.high[0]-xbuffer.low[0]);
+
+		ycost = (ybuffer.high[1]-tmp_cur_y)/(ybuffer.high[1]-ybuffer.low[1]);
+
+		if(xcost<=ycost){
 			schema.push_back(new Tile(xbuffer));
 			cur_x = tmp_cur_x;
 			x_iter = tmp_x_iter;
@@ -215,11 +233,10 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 			cur_y = tmp_cur_y;
 			y_iter = tmp_y_iter;
 		}
-		//log("%ld:\t xcost %ld\t ycost %ld\t x_iter %ld\t y_iter %ld\t cur_x %.2f\t cur_y %.2f",schema.size(),xcost, ycost, x_iter, y_iter,cur_x,cur_y);
+		log_refresh("%.2f%\%", 100.0*schema.size()/part_num);
 	}
 	xordered.clear();
 	yordered.clear();
-
 	return schema;
 }
 

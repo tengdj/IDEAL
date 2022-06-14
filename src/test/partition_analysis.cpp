@@ -14,16 +14,21 @@ namespace po = boost::program_options;
 template <class O>
 void *sample_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
-	vector<O> *original = (vector<O> *)(ctx->target);
+	vector<O *> *original = (vector<O *> *)(ctx->target);
 	vector<O *> *result = (vector<O *> *)(ctx->target2);
-	while(ctx->next_batch(1000)){
+	vector<O *> tmp;
+	while(ctx->next_batch(10000)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			if(tryluck(ctx->global_ctx->sample_rate)){
-				ctx->global_ctx->lock();
-				result->push_back(&(*original)[i]);
-				ctx->global_ctx->unlock();
+				tmp.push_back((*original)[i]);
 			}
 			ctx->report_progress();
+		}
+		if(tmp.size()>0){
+			ctx->global_ctx->lock();
+			result->insert(result->end(), tmp.begin(), tmp.end());
+			ctx->global_ctx->unlock();
+			tmp.clear();
 		}
 	}
 	ctx->merge_global();
@@ -31,7 +36,7 @@ void *sample_unit(void *arg){
 }
 
 template <class O>
-vector<O *> sample(vector<O> &original, double sample_rate){
+vector<O *> sample(vector<O *> &original, double sample_rate){
 
 	vector<O *> result;
 	query_context global_ctx;
@@ -59,6 +64,7 @@ vector<O *> sample(vector<O> &original, double sample_rate){
 	return result;
 }
 
+
 // functions for partitioning
 bool assign(Tile *tile, void *arg){
 	tile->insert((box *)arg, (box *)arg);
@@ -68,7 +74,7 @@ bool assign(Tile *tile, void *arg){
 void *partition_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<box *> *objects = (vector<box *> *)(ctx->target);
-	RTree<Tile *, double, 2, double> *tree= (RTree<Tile *, double, 2, double> *)(ctx->target2);
+	RTree<Tile *, double, 2, double> *tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
 	while(ctx->next_batch(100)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]));
@@ -153,11 +159,15 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 	return global_ctx.found;
 }
 
-void process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype, double sample_rate, int sr, bool fixed_card){
-	if(!fixed_card){
-		// adjust the cardinality for the sampling data
-		card = std::max((int)(card*sample_rate), 1);
-	}
+typedef struct{
+	double stddev = 0;
+	double boundary_rate = 0;
+	double found_rate = 0;
+	size_t tile_num = 0;
+}partition_stat;
+
+partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype){
+
 	struct timeval start = get_cur_time();
 	// generate schema
 	vector<Tile *> tiles = genschema(objects, card, ptype);
@@ -182,22 +192,19 @@ void process(vector<box *> &objects, vector<Point *> &targets, size_t card, PART
 	size_t found = query(targets, tree);
 	double query_time = get_time_elapsed(start);
 	logt("querying data",start);
-	printf("%d,%s,"
-			"%f,%ld,%ld,%f,"
-			"%ld,%ld,"
-			"%ld,%ld,"
-			"%f,%f\n",
-			sr,partition_type_names[ptype],
-			sample_rate, card, tiles.size(),skewstdevratio(tiles),
-			objects.size(), total_num,
-			targets.size(), found,
-			partition_time, query_time);
-	fflush(stdout);
+
+	partition_stat stat;
+	stat.stddev = skewstdevratio(tiles);
+	stat.boundary_rate = 1.0*(total_num-objects.size())/objects.size();
+	stat.found_rate = 1.0*found/targets.size();
+	stat.tile_num = tiles.size();
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
 		delete tile;
 	}
 	tiles.clear();
+
+	return stat;
 }
 
 int main(int argc, char** argv) {
@@ -261,36 +268,80 @@ int main(int argc, char** argv) {
 	struct timeval start = get_cur_time();
 	box *boxes;
 	size_t box_num = load_boxes_from_file(mbr_path.c_str(), &boxes);
-	vector<box> box_vec(boxes, boxes+box_num);
+	vector<box *> box_vec;
+	box_vec.resize(box_num);
+	for(size_t i=0;i<box_num;i++){
+		box_vec[i] = boxes+i;
+	}
 	logt("%ld objects are loaded",start, box_num);
 
 	Point *points;
 	size_t points_num = load_points_from_path(point_path.c_str(), &points);
-	vector<Point> point_vec(points, points+points_num);
-
+	vector<Point *> point_vec;
+	point_vec.resize(points_num);
+	for(size_t i=0;i<points_num;i++){
+		point_vec[i] = points+i;
+	}
 	logt("%ld points are loaded", start, points_num);
 
 
 	// repeat several rounds for a better estimation
 	for(int sr=0;sr<sample_rounds;sr++){
+		start = get_cur_time();
+		vector<box *> objects = sample<box>(box_vec, max_sample_rate);
+		logt("%ld objects are sampled with sample rate %f",start, objects.size(),max_sample_rate);
+		vector<Point *> targets = sample<Point>(point_vec, max_sample_rate);
+		logt("%ld targets are sampled with sample rate %f",start, targets.size(),max_sample_rate);
 		// iterate the sampling rate
-		for(double sample_rate = min_sample_rate;sample_rate/1.5<=max_sample_rate; sample_rate *= 2){
-			// sampling data
-			vector<box *> objects = sample<box>(box_vec, sample_rate);
-			logt("%ld objects are sampled with sample rate %f",start, objects.size(),sample_rate);
-			vector<Point *> targets = sample<Point>(point_vec, sample_rate);
-			logt("%ld targets are sampled with sample rate %f",start, targets.size(),sample_rate);
+		for(double sample_rate = max_sample_rate;sample_rate*1.5>=min_sample_rate; sample_rate /= 2){
+			vector<box *> cur_sampled_objects;
+			vector<Point *> cur_sampled_points;
 
-			// varying the cardinality
-			for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
-				for(int pt=(int)start_type;pt<=(int)end_type;pt++){
+			if(sample_rate == max_sample_rate){
+				cur_sampled_objects.insert(cur_sampled_objects.begin(), objects.begin(), objects.end());
+				cur_sampled_points.insert(cur_sampled_points.begin(), targets.begin(), targets.end());
+			}else{
+				cur_sampled_objects = sample<box>(objects, sample_rate/max_sample_rate);
+				cur_sampled_points = sample<Point>(targets, sample_rate/max_sample_rate);
+			}
+			logt("resampled %ld MBRs and %ld points with sample rate %f", start,cur_sampled_objects.size(),cur_sampled_points.size(), sample_rate);
+
+			for(int pt=(int)start_type;pt<=(int)end_type;pt++){
+				vector<double> num_tiles;
+				vector<double> stddevs;
+				vector<double> boundary;
+				vector<double> found;
+				// varying the cardinality
+				for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
+					size_t real_card = std::max((int)(card*sample_rate), 1);
 					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
-					process(objects, targets, card, ptype, sample_rate, sr, fixed_cardinality);
+					partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype);
+					printf("%d,%f,%s,%ld,"
+							"%ld,%f,%f,%f\n",
+							sr,sample_rate,partition_type_names[ptype], real_card,
+							 stat.tile_num, stat.stddev, stat.boundary_rate, stat.found_rate);
+					fflush(stdout);
+					logt("complete %d\t%f\t%s\t%ld",start,sr,sample_rate,partition_type_names[ptype], real_card);
+					num_tiles.push_back(stat.tile_num);
+					stddevs.push_back(stat.stddev);
+					boundary.push_back(stat.boundary_rate);
+					found.push_back(stat.found_rate);
+				}
+				if(num_tiles.size()>1){
+					double a,b;
+					linear_regression(num_tiles,stddevs,a,b);
+					printf("%f,%.10f,%.10f",sample_rate,a,b);
+					linear_regression(num_tiles,boundary,a,b);
+					printf(",%.10f,%.10f",a,b);
+					linear_regression(num_tiles,found,a,b);
+					printf(",%.10f,%.10f\n",a,b);
 				}
 			}
-			objects.clear();
-			targets.clear();
+			cur_sampled_objects.clear();
+			cur_sampled_points.clear();
 		}
+		objects.clear();
+		targets.clear();
 	}
 
 	delete []boxes;
