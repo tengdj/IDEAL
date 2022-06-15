@@ -79,7 +79,6 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 		boost::sort::block_indirect_sort(geometries.begin()+begin, geometries.begin()+end, comparePixelY);
 	}
 
-
 	for(size_t x=0;x<dimx;x++){
 		size_t size = num/dimx;
 		if(x==dimx-1){
@@ -91,9 +90,17 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 			size_t end = x*(num/dimx)+(y+1)*(size/dimy);
 			end = min(end,num);
 			for(size_t t = begin;t<end;t++){
-				b->update(*geometries[t]);
+				// the bottom slice should always contain all the objects
+				// otherwise, include only the onces that are not covered by previous slice
+				if(y==0 || schema[schema.size()-1]->high[1]<geometries[t]->high[1]){
+					b->update(*geometries[t]);
+				}
 			}
-			schema.push_back(b);
+			if(b->valid()){
+				schema.push_back(b);
+			}else{
+				delete b;
+			}
 		}
 	}
 	return schema;
@@ -114,12 +121,22 @@ vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
 			end = num;
 		}
 		Tile *b = new Tile();
-
 		end = min(end,num);
 		for(size_t t = begin;t<end;t++){
-			b->update(*geometries[t]);
+			box *obj = geometries[t];
+			log("%ld %ld",x,schema.size());
+			if(x==0 || schema[schema.size()-1]->high[0]<obj->high[0]){
+				b->update(*geometries[t]);
+			}else{
+
+			}
 		}
-		schema.push_back(b);
+
+		if(b->valid()){
+			schema.push_back(b);
+		}else{
+			delete b;
+		}
 	}
 	return schema;
 }
@@ -144,95 +161,84 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	size_t x_iter = 0;
 	size_t y_iter = 0;
 
-	double cur_x = xordered[x_iter]->low[0];
-	double cur_y = yordered[y_iter]->low[1];
+	box cursor_box;
+	cursor_box.low[0] = cursor_box.high[0] = xordered[x_iter]->low[0];
+	cursor_box.low[1] = cursor_box.high[1] = yordered[y_iter]->low[1];
 
-	while(x_iter<objnum||y_iter<objnum){
+
+	while(x_iter<objnum && y_iter<objnum){
+
+		box tmp_cursor_box = cursor_box;
+
 
 		double xcost = 0;
 		double ycost = 0;
 		// if cut an X slice
 		size_t xsize = std::min(cardinality, objnum-x_iter);
-		size_t true_xsize = 0;
 		box xbuffer;
-		double tmp_cur_x = cur_x;
 		size_t tmp_x_iter = x_iter;
-		for(;tmp_x_iter<objnum&&true_xsize<xsize;tmp_x_iter++){
-			// already cut as a Y slice
-			if(xordered[tmp_x_iter]->low[1]<cur_y){
-				continue;
+		for(size_t true_xsize = 0;tmp_x_iter<objnum&&true_xsize<xsize;tmp_x_iter++){
+			box *obj = xordered[tmp_x_iter];
+			// not cut as a Y slice, and is not covered by the last vertical box
+			if(obj->low[1]>cursor_box.low[1]){
+				true_xsize++;
+				if(obj->high[0]>cursor_box.high[0]){
+					xbuffer.update(*obj);
+					tmp_cursor_box.high[0] = max(tmp_cursor_box.high[0], obj->high[0]);
+					tmp_cursor_box.low[0] = obj->low[0];
+				}
 			}
-			xbuffer.update(*xordered[tmp_x_iter]);
-			tmp_cur_x = xordered[tmp_x_iter]->low[0];
-			true_xsize++;
 		}
-//		// count how many boudary objects is included
-//		for(size_t x=tmp_x_iter;x<objnum;x++){
-//			// already cut as a Y slice
-//			if(xordered[x]->low[1]<cur_y){
-//				continue;
-//			}
-//			if(xordered[x]->low[0]<=xbuffer.high[0]){
-//				xcost++;
-//			}else{
-//				break;
-//			}
-//		}
 
 		// if cut a Y slice
 		size_t ysize = std::min(cardinality, objnum-y_iter);
-		size_t true_ysize = 0;
 		box ybuffer;
-		double tmp_cur_y = cur_y;
 		size_t tmp_y_iter = y_iter;
-		for(;tmp_y_iter<objnum&&true_ysize<ysize;tmp_y_iter++){
-			// already cut as an X slice
-			if(yordered[tmp_y_iter]->low[0]<cur_x){
-				continue;
+		for(size_t true_ysize = 0;tmp_y_iter<objnum&&true_ysize<ysize;tmp_y_iter++){
+			box *obj = yordered[tmp_y_iter];
+			// not cut as an X slice, and is not covered by the last horizontal box
+			if(obj->low[0]>cursor_box.low[0]){
+				true_ysize++;
+				if(obj->high[1]>cursor_box.high[1]){
+					ybuffer.update(*obj);
+					tmp_cursor_box.high[1] = max(tmp_cursor_box.high[1], obj->high[1]);
+					tmp_cursor_box.low[1] = obj->low[1];
+				}
 			}
-			ybuffer.update(*yordered[tmp_y_iter]);
-			tmp_cur_y = yordered[tmp_y_iter]->low[1];
-			true_ysize++;
 		}
 
-
-
-		//		for(size_t y=tmp_y_iter;y<objnum;y++){
-//			// already cut as an Y slice
-//			if(yordered[y]->low[0]<cur_x){
-//				continue;
-//			}
-//			if(yordered[y]->low[1]<=ybuffer.high[1]){
-//				ycost++;
-//			}
-//		}
-		if(x_iter == objnum){
-			schema.push_back(new Tile(ybuffer));
-			cur_y = tmp_cur_y;
-			y_iter = tmp_y_iter;
-			continue;
-		}
-
-		if(y_iter == objnum){
+		if(xbuffer.valid() && !ybuffer.valid()){
 			schema.push_back(new Tile(xbuffer));
-			cur_x = tmp_cur_x;
+			cursor_box.low[0] = tmp_cursor_box.low[0];
+			cursor_box.high[0] = tmp_cursor_box.high[0];
 			x_iter = tmp_x_iter;
-			continue;
-		}
-
-		xcost = (xbuffer.high[0]-tmp_cur_x)/(xbuffer.high[0]-xbuffer.low[0]);
-
-		ycost = (ybuffer.high[1]-tmp_cur_y)/(ybuffer.high[1]-ybuffer.low[1]);
-
-		if(xcost<=ycost){
-			schema.push_back(new Tile(xbuffer));
-			cur_x = tmp_cur_x;
+			y_iter = tmp_y_iter; // skip the invalid ones
+		}else if(!xbuffer.valid() && ybuffer.valid()){
+			schema.push_back(new Tile(ybuffer));
+			cursor_box.low[1] = tmp_cursor_box.low[1];
+			cursor_box.high[1] = tmp_cursor_box.high[1];
+			y_iter = tmp_y_iter;
+			x_iter = tmp_x_iter;
+		}else if(!xbuffer.valid() && !ybuffer.valid()){
+			y_iter = tmp_y_iter;
 			x_iter = tmp_x_iter;
 		}else{
-			schema.push_back(new Tile(ybuffer));
-			cur_y = tmp_cur_y;
-			y_iter = tmp_y_iter;
+			xcost = (xbuffer.high[0]-tmp_cursor_box.low[0])/(xbuffer.high[0]-xbuffer.low[0]);
+			ycost = (ybuffer.high[1]-tmp_cursor_box.low[1])/(ybuffer.high[1]-ybuffer.low[1]);
+
+			if(xcost<=ycost ){
+				schema.push_back(new Tile(xbuffer));
+				cursor_box.low[0] = tmp_cursor_box.low[0];
+				cursor_box.high[0] = tmp_cursor_box.high[0];
+				x_iter = tmp_x_iter;
+			}else{
+				schema.push_back(new Tile(ybuffer));
+				cursor_box.low[1] = tmp_cursor_box.low[1];
+				cursor_box.high[1] = tmp_cursor_box.high[1];
+				y_iter = tmp_y_iter;
+			}
 		}
+
 		log_refresh("%.2f%\%", 100.0*schema.size()/part_num);
 	}
 	xordered.clear();

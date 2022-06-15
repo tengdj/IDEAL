@@ -14,10 +14,12 @@
 
 const static char *direction_str = "lrtb";
 
+#define BOX_GLOBAL_MIN 100000.0
+#define BOX_GLOBAL_MAX -100000.0
 class box{
 public:
-	double low[2] = {100000.0,100000.0};
-	double high[2] = {-100000.0,-100000.0};
+	double low[2] = {BOX_GLOBAL_MIN,BOX_GLOBAL_MIN};
+	double high[2] = {BOX_GLOBAL_MAX,BOX_GLOBAL_MAX};
 
 	box(){}
 
@@ -33,6 +35,7 @@ public:
 		high[0] = highx;
 		high[1] = highy;
 	}
+	bool valid();
 
 	void update(Point &p);
 	void update(box &b);

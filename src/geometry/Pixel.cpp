@@ -10,6 +10,11 @@
 
 bool print_debug = false;
 
+bool box::valid(){
+	return low[0] <= high[0] && low[1] <= high[1];
+
+}
+
 void box::update(Point &p){
 	low[0] = min(low[0], p.x);
 	low[1] = min(low[1], p.y);
