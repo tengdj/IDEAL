@@ -36,28 +36,6 @@ inline box profileSpace(vector<box *> &geometries){
 	return space;
 }
 
-vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
-
-	size_t part_num = geometries.size()/cardinality+1;
-	size_t dimx = sqrt(part_num);
-	size_t dimy = part_num/dimx;
-	vector<Tile *> schema;
-	box space = profileSpace(geometries);
-	double sx = (space.high[0]-space.low[0])/dimx;
-	double sy = (space.high[1]-space.low[1])/dimx;
-
-	for(size_t x=0;x<dimx;x++){
-		for(size_t y=0;y<dimy;y++){
-			Tile *t = new Tile();
-			t->low[0] = space.low[0]+x*sx;
-			t->high[0] = space.low[0]+(x+1)*sx;
-			t->low[1] = space.low[1]+y*sy;
-			t->high[1] = space.low[1]+(y+1)*sy;
-			schema.push_back(t);
-		}
-	}
-	return schema;
-}
 
 vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 	size_t part_num = geometries.size()/cardinality+1;
@@ -67,7 +45,6 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
-
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), comparePixelX);
 
 	for(size_t x=0;x<dimx;x++){
@@ -77,66 +54,53 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 			end = num;
 		}
 		boost::sort::block_indirect_sort(geometries.begin()+begin, geometries.begin()+end, comparePixelY);
-	}
 
-	for(size_t x=0;x<dimx;x++){
-		size_t size = num/dimx;
-		if(x==dimx-1){
-			size = num - x*(num/dimx);
-		}
-		for(size_t y=0;y<dimy;y++){
+		size_t cur = begin;
+		while(cur<end){
 			Tile *b = new Tile();
-			size_t begin = x*(num/dimx)+y*(size/dimy);
-			size_t end = x*(num/dimx)+(y+1)*(size/dimy);
-			end = min(end,num);
-			for(size_t t = begin;t<end;t++){
-				// the bottom slice should always contain all the objects
-				// otherwise, include only the onces that are not covered by previous slice
-				if(y==0 || schema[schema.size()-1]->high[1]<geometries[t]->high[1]){
-					b->update(*geometries[t]);
+			for(size_t t = 0;t<cardinality && cur<end; t++, cur++){
+				box *obj = geometries[cur];
+				b->update(*geometries[cur]);
+			}
+			// some objects at the right side are also coverd by this slice
+			while(cur<end){
+				box *obj = geometries[cur];
+				if(obj->high[1]>b->high[1]){
+					break;
 				}
+				b->update(*obj);
+				cur++;
 			}
-			if(b->valid()){
-				schema.push_back(b);
-			}else{
-				delete b;
-			}
+			schema.push_back(b);
 		}
 	}
 	return schema;
 }
 
 vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
-	size_t part_num = geometries.size()/cardinality+1;
 
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), comparePixelX);
 
-	for(size_t x=0;x<part_num;x++){
-		size_t begin = x*(num/part_num);
-		size_t end = (x+1)*(num/part_num);
-		if(x==part_num-1){
-			end = num;
-		}
+	size_t cur = 0;
+	while(cur<num){
 		Tile *b = new Tile();
-		end = min(end,num);
-		for(size_t t = begin;t<end;t++){
-			box *obj = geometries[t];
-			log("%ld %ld",x,schema.size());
-			if(x==0 || schema[schema.size()-1]->high[0]<obj->high[0]){
-				b->update(*geometries[t]);
-			}else{
-
+		for(size_t t = 0;t<cardinality && cur<num; t++, cur++){
+			box *obj = geometries[cur];
+			b->update(*geometries[cur]);
+		}
+		// some objects at the right side are also coverd by this slice
+		while(cur<num){
+			box *obj = geometries[cur];
+			if(obj->high[0]>b->high[0]){
+				break;
 			}
+			b->update(*obj);
+			cur++;
 		}
-
-		if(b->valid()){
-			schema.push_back(b);
-		}else{
-			delete b;
-		}
+		schema.push_back(b);
 	}
 	return schema;
 }
@@ -156,7 +120,7 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	boost::sort::block_indirect_sort(xordered.begin(), xordered.end(), comparePixelX);
 	boost::sort::block_indirect_sort(yordered.begin(), yordered.end(), comparePixelY);
 
-	logt_refresh("sorting",start);
+	logt("sorting",start);
 
 	size_t x_iter = 0;
 	size_t y_iter = 0;
@@ -165,81 +129,72 @@ vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality){
 	cursor_box.low[0] = cursor_box.high[0] = xordered[x_iter]->low[0];
 	cursor_box.low[1] = cursor_box.high[1] = yordered[y_iter]->low[1];
 
-
 	while(x_iter<objnum && y_iter<objnum){
-
 		box tmp_cursor_box = cursor_box;
 
-
-		double xcost = 0;
-		double ycost = 0;
 		// if cut an X slice
-		size_t xsize = std::min(cardinality, objnum-x_iter);
 		box xbuffer;
 		size_t tmp_x_iter = x_iter;
-		for(size_t true_xsize = 0;tmp_x_iter<objnum&&true_xsize<xsize;tmp_x_iter++){
+		for(size_t true_xsize = 0;tmp_x_iter<objnum&&true_xsize<std::min(cardinality, objnum-x_iter);tmp_x_iter++){
 			box *obj = xordered[tmp_x_iter];
-			// not cut as a Y slice, and is not covered by the last vertical box
+			// not cut as a Y slice
 			if(obj->low[1]>cursor_box.low[1]){
 				true_xsize++;
-				if(obj->high[0]>cursor_box.high[0]){
-					xbuffer.update(*obj);
-					tmp_cursor_box.high[0] = max(tmp_cursor_box.high[0], obj->high[0]);
-					tmp_cursor_box.low[0] = obj->low[0];
-				}
+				xbuffer.update(*obj);
+				tmp_cursor_box.high[0] = max(tmp_cursor_box.high[0], obj->high[0]);
+				tmp_cursor_box.low[0] = obj->low[0];
 			}
 		}
 
 		// if cut a Y slice
-		size_t ysize = std::min(cardinality, objnum-y_iter);
 		box ybuffer;
 		size_t tmp_y_iter = y_iter;
-		for(size_t true_ysize = 0;tmp_y_iter<objnum&&true_ysize<ysize;tmp_y_iter++){
+		for(size_t true_ysize = 0;tmp_y_iter<objnum&&true_ysize<std::min(cardinality, objnum-y_iter);tmp_y_iter++){
 			box *obj = yordered[tmp_y_iter];
-			// not cut as an X slice, and is not covered by the last horizontal box
+			// not cut as an X slice
 			if(obj->low[0]>cursor_box.low[0]){
 				true_ysize++;
-				if(obj->high[1]>cursor_box.high[1]){
-					ybuffer.update(*obj);
-					tmp_cursor_box.high[1] = max(tmp_cursor_box.high[1], obj->high[1]);
-					tmp_cursor_box.low[1] = obj->low[1];
-				}
+				ybuffer.update(*obj);
+				tmp_cursor_box.high[1] = max(tmp_cursor_box.high[1], obj->high[1]);
+				tmp_cursor_box.low[1] = obj->low[1];
 			}
 		}
 
-		if(xbuffer.valid() && !ybuffer.valid()){
-			schema.push_back(new Tile(xbuffer));
+		double xcost = (xbuffer.high[0]-tmp_cursor_box.low[0])/(xbuffer.high[0]-xbuffer.low[0]);
+		double ycost = (ybuffer.high[1]-tmp_cursor_box.low[1])/(ybuffer.high[1]-ybuffer.low[1]);
+
+		if(xcost<=ycost){
 			cursor_box.low[0] = tmp_cursor_box.low[0];
 			cursor_box.high[0] = tmp_cursor_box.high[0];
 			x_iter = tmp_x_iter;
-			y_iter = tmp_y_iter; // skip the invalid ones
-		}else if(!xbuffer.valid() && ybuffer.valid()){
-			schema.push_back(new Tile(ybuffer));
+			while(x_iter<objnum){
+				box *obj = geometries[x_iter];
+				if(obj->low[1]>cursor_box.low[1]){
+					if(obj->high[0]>xbuffer.high[0]||obj->high[1]>cursor_box.high[1]){
+						break;
+					}
+					xbuffer.update(*obj);
+				}
+				x_iter++;
+			}
+			schema.push_back(new Tile(xbuffer));
+		}else{
 			cursor_box.low[1] = tmp_cursor_box.low[1];
 			cursor_box.high[1] = tmp_cursor_box.high[1];
 			y_iter = tmp_y_iter;
-			x_iter = tmp_x_iter;
-		}else if(!xbuffer.valid() && !ybuffer.valid()){
-			y_iter = tmp_y_iter;
-			x_iter = tmp_x_iter;
-		}else{
-			xcost = (xbuffer.high[0]-tmp_cursor_box.low[0])/(xbuffer.high[0]-xbuffer.low[0]);
-			ycost = (ybuffer.high[1]-tmp_cursor_box.low[1])/(ybuffer.high[1]-ybuffer.low[1]);
-
-			if(xcost<=ycost ){
-				schema.push_back(new Tile(xbuffer));
-				cursor_box.low[0] = tmp_cursor_box.low[0];
-				cursor_box.high[0] = tmp_cursor_box.high[0];
-				x_iter = tmp_x_iter;
-			}else{
-				schema.push_back(new Tile(ybuffer));
-				cursor_box.low[1] = tmp_cursor_box.low[1];
-				cursor_box.high[1] = tmp_cursor_box.high[1];
-				y_iter = tmp_y_iter;
+			while(y_iter<objnum){
+				box *obj = geometries[y_iter];
+				if(obj->low[0]>cursor_box.low[0]){
+					if(obj->high[1]>ybuffer.high[1]||obj->high[0]>cursor_box.high[0]){
+						break;
+					}
+					ybuffer.update(*obj);
+				}
+				y_iter++;
 			}
+			schema.push_back(new Tile(ybuffer));
 		}
-
-		log_refresh("%.2f%\%", 100.0*schema.size()/part_num);
+		//log_refresh("%.2f%\%", 100.0*max(x_iter, y_iter)/objnum);
 	}
 	xordered.clear();
 	yordered.clear();
@@ -311,6 +266,28 @@ vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality){
 	return schema;
 }
 
+vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
+
+	size_t part_num = geometries.size()/cardinality+1;
+	size_t dimx = sqrt(part_num);
+	size_t dimy = part_num/dimx;
+	vector<Tile *> schema;
+	box space = profileSpace(geometries);
+	double sx = (space.high[0]-space.low[0])/dimx;
+	double sy = (space.high[1]-space.low[1])/dimx;
+
+	for(size_t x=0;x<dimx;x++){
+		for(size_t y=0;y<dimy;y++){
+			Tile *t = new Tile();
+			t->low[0] = space.low[0]+x*sx;
+			t->high[0] = space.low[0]+(x+1)*sx;
+			t->low[1] = space.low[1]+y*sy;
+			t->high[1] = space.low[1]+(y+1)*sy;
+			schema.push_back(t);
+		}
+	}
+	return schema;
+}
 
 vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality){
 
