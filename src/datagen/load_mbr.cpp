@@ -6,10 +6,11 @@
  */
 
 #include "MyPolygon.h"
+#include <boost/sort/sort.hpp>
 
 using namespace std;
 
-size_t load_binary_file(const char *path, box **mbrs){
+size_t load_binary_file(const char *path, box **mbrs, size_t **edge_num){
 	if(!file_exist(path)){
 		log("%s does not exist",path);
 		return 0;
@@ -34,12 +35,13 @@ size_t load_binary_file(const char *path, box **mbrs){
 	size_t num_edges = 0;
 	size_t data_size = 0;
 
+	*edge_num = new size_t[num_polygons];
 	*mbrs = new box[num_polygons];
 	struct timeval timer = get_cur_time();
 
 	for(size_t i=0;i<num_polygons;i++){
-		if(get_time_elapsed(timer, false)>=2000){
-			log("loaded %f%%",i*100.0/num_polygons);
+		if(get_time_elapsed(timer, false)>=200){
+			log_refresh("loaded %f%%",i*100.0/num_polygons);
 			timer = get_cur_time();
 		}
 		infile.seekg(offsets[i], infile.beg);
@@ -51,6 +53,7 @@ size_t load_binary_file(const char *path, box **mbrs){
 		(*mbrs)[i].high[0] = poly->getMBB()->high[0];
 		(*mbrs)[i].low[1] = poly->getMBB()->low[1];
 		(*mbrs)[i].high[1] = poly->getMBB()->high[1];
+		(*edge_num)[i] = poly->get_num_vertices();
 		delete poly;
 	}
 	infile.close();
@@ -65,10 +68,26 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 
 	box *boxes;
-	size_t box_num = load_binary_file(global_ctx.source_path.c_str(), &boxes);
-	write_file(global_ctx.target_path.c_str(), (char *)boxes, sizeof(box)*box_num);
+	size_t *edge_num;
+	size_t box_num = load_binary_file(global_ctx.source_path.c_str(), &boxes, &edge_num);
+
+	size_t *edge_num_tmp = new size_t[box_num];
+	memcpy(edge_num_tmp, edge_num, box_num*sizeof(edge_num[0]));
+
+	boost::sort::block_indirect_sort(edge_num_tmp, edge_num_tmp+box_num, std::greater<size_t>());
+
+	size_t threshold = edge_num_tmp[box_num/4];
+	size_t iter = 0;
+	for(size_t i=0;i<box_num;i++){
+		if(edge_num[i]<=threshold){
+			boxes[iter++] = boxes[i];
+		}
+	}
+	log("%ld smaller than %ld ",iter, threshold);
+	write_file(global_ctx.target_path.c_str(), (char *)boxes, sizeof(box)*(box_num-box_num/4));
 
 	delete []boxes;
+	delete []edge_num;
 	return 0;
 }
 

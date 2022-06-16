@@ -44,7 +44,7 @@ vector<O *> sample(vector<O *> &original, double sample_rate){
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = original.size();
 	global_ctx.sample_rate = sample_rate;
-	global_ctx.report_prefix = "sampled";
+	global_ctx.report_prefix = "sampling";
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -91,7 +91,7 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = objects.size();
-	global_ctx.report_prefix = "assigned";
+	global_ctx.report_prefix = "partitioning";
 
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
@@ -110,6 +110,45 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
 	}
 
 }
+
+void *index_unit(void *arg){
+	query_context *ctx = (query_context *)arg;
+	vector<Tile *> *tiles = (vector<Tile *> *)(ctx->target);
+	while(ctx->next_batch(1)){
+		for(size_t i=ctx->index;i<ctx->index_end;i++){
+			(*tiles)[i]->build_index();
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void indexing(vector<Tile *> &tiles){
+
+	query_context global_ctx;
+	pthread_t threads[global_ctx.num_threads];
+	query_context ctx[global_ctx.num_threads];
+	global_ctx.target_num = tiles.size();
+	global_ctx.report_prefix = "indexing";
+
+	for(int i=0;i<global_ctx.num_threads;i++){
+		ctx[i] = global_ctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = &global_ctx;
+		ctx[i].target = (void *) &tiles;
+	}
+	for(int i=0;i<global_ctx.num_threads;i++){
+		pthread_create(&threads[i], NULL, index_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < global_ctx.num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+}
+
 
 // function for the query phase
 bool search(Tile *tile, void *arg){
@@ -139,7 +178,7 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = objects.size();
-	global_ctx.report_prefix = "queried";
+	global_ctx.report_prefix = "querying";
 
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
@@ -172,12 +211,13 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	// generate schema
 	vector<Tile *> tiles = genschema(objects, card, ptype);
 
-
 	RTree<Tile *, double, 2, double> tree;
 	for(Tile *t:tiles){
 		tree.Insert(t->low, t->high, t);
 	}
 	logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
+
+	struct timeval entire_start = get_cur_time();
 
 	// partitioning data
 	partition(objects, tree);
@@ -188,10 +228,17 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	double partition_time = get_time_elapsed(start);
 	logt("partitioning data",start);
 
+	// local indexing
+	indexing(tiles);
+	logt("building local index", start);
+
 	// conduct query
 	size_t found = query(targets, tree);
 	double query_time = get_time_elapsed(start);
 	logt("querying data",start);
+
+
+	logt("entire process", entire_start);
 
 	partition_stat stat;
 	stat.stddev = skewstdevratio(tiles);

@@ -13,19 +13,19 @@
 
 typedef enum {
 	STR = 0,
-	SLC = 1,
-	BOS = 2,
-	HC = 3,
-	FG = 4,
-	QT = 5,
-	BSP = 6,
-	PARTITION_TYPE_NUM
+	SLC,
+	HC,
+	FG,
+	QT,
+	BSP,
+	PARTITION_TYPE_NUM,
+	BOS
 }PARTITION_TYPE;
 extern const char *partition_type_names[7];
 
 class Tile: public box{
 	pthread_mutex_t lk;
-	size_t objnum = 0;
+	vector<pair<box *, void *>> objects;
 	void lock();
 	void unlock();
 	static bool lookup_tree(void *, void *arg);
@@ -37,12 +37,13 @@ public:
 	Tile(box b);
 	~Tile();
 	bool insert(box *b, void *obj);
+	void build_index();
 	size_t lookup_count(box *p);
 	size_t lookup_count(Point *p);
 	vector<void *> lookup(box *b);
 	vector<void *> lookup(Point *p);
 	size_t get_objnum(){
-		return objnum;
+		return objects.size();
 	}
 };
 

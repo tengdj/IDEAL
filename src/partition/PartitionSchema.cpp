@@ -63,12 +63,7 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 				b->update(*geometries[cur]);
 			}
 			// some objects at the right side are also coverd by this slice
-			while(cur<end){
-				box *obj = geometries[cur];
-				if(obj->high[1]>b->high[1]){
-					break;
-				}
-				b->update(*obj);
+			while(cur<num && b->contain(*geometries[cur])){
 				cur++;
 			}
 			schema.push_back(b);
@@ -91,13 +86,8 @@ vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
 			box *obj = geometries[cur];
 			b->update(*geometries[cur]);
 		}
-		// some objects at the right side are also coverd by this slice
-		while(cur<num){
-			box *obj = geometries[cur];
-			if(obj->high[0]>b->high[0]){
-				break;
-			}
-			b->update(*obj);
+		// some objects at the right side are also covered by this slice
+		while(cur<num && b->contain(*geometries[cur])){
 			cur++;
 		}
 		schema.push_back(b);
@@ -407,10 +397,17 @@ void Tile::unlock(){
 
 bool Tile::insert(box *b, void *obj){
 	lock();
-	objnum++;
-	tree.Insert(b->low, b->high, obj);
+	objects.push_back(pair<box *, void *>(b, obj));
 	unlock();
 	return true;
+}
+
+void Tile::build_index(){
+	lock();
+	for(pair<box *, void *> &p:objects){
+		tree.Insert(p.first->low, p.first->high, p.second);
+	}
+	unlock();
 }
 
 bool Tile::lookup_tree(void *obj, void *arg){
