@@ -25,7 +25,7 @@
 
 using namespace std;
 
-const char *partition_type_names[7] = {"str", "slc", "bos", "hc", "fg", "qt", "bsp"};
+const char *partition_type_names[7] = {"str", "slc", "hc", "fg", "qt", "bsp", "bos"};
 
 
 inline box profileSpace(vector<box *> &geometries){
@@ -276,6 +276,7 @@ vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
 			schema.push_back(t);
 		}
 	}
+
 	return schema;
 }
 
@@ -287,11 +288,10 @@ vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality){
 	box space = profileSpace(geometries);
 	QTNode *qtree = new QTNode(space);
 
-	size_t pnum = part_num*1000;
+	size_t pnum = std::min(part_num*100, geometries.size());
 	size_t max_level = (log2(pnum)/log2(4)+1);
 
 	qtree->split_to(max_level);
-
 	for(box *g:geometries){
 		Point p(g->low[0], g->low[1]);
 		qtree->touch(p);
@@ -312,8 +312,6 @@ vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality){
 }
 
 vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality){
-
-	size_t part_num = geometries.size()/cardinality+1;
 
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);

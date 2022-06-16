@@ -217,7 +217,7 @@ inline void unlock(){
 }
 
 static pthread_mutex_t print_lock;
-inline void logt(const char *format, struct timeval &start, ...){
+inline double logt(const char *format, struct timeval &start, ...){
 	pthread_mutex_lock(&print_lock);
 	fprintf(stderr, "\r                                                                              ");
 	va_list args;
@@ -236,6 +236,8 @@ inline void logt(const char *format, struct timeval &start, ...){
 	fflush(stderr);
 
 	pthread_mutex_unlock(&print_lock);
+
+	return mstime;
 }
 
 inline void log(const char *format, ...){
@@ -250,7 +252,7 @@ inline void log(const char *format, ...){
 	pthread_mutex_unlock(&print_lock);
 }
 
-inline void logt_refresh(const char *format, struct timeval &start, ...){
+inline double logt_refresh(const char *format, struct timeval &start, ...){
 	pthread_mutex_lock(&print_lock);
 	va_list args;
 	va_start(args, start);
@@ -268,6 +270,7 @@ inline void logt_refresh(const char *format, struct timeval &start, ...){
 	fflush(stderr);
 
 	pthread_mutex_unlock(&print_lock);
+	return mstime;
 }
 inline void log_refresh(const char *format, ...){
 	pthread_mutex_lock(&print_lock);

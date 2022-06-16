@@ -199,14 +199,35 @@ size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
 }
 
 typedef struct{
+	int sample_rounds = 0;
+	double sample_rate = 1.0;
+	size_t cardinality = 1;
+	PARTITION_TYPE ptype;
+
 	double stddev = 0;
 	double boundary_rate = 0;
 	double found_rate = 0;
 	size_t tile_num = 0;
+	double genschema_time = 0.0;
+	double partition_time = 0.0;
+	double index_time = 0;
+	double query_time = 0;
+	double total_time = 0.0;
+
+	void print(){
+		printf("%d,%f,%s,%ld,"
+				"%ld,%f,%f,%f,"
+				"%f,%f,%f,%f,%f\n",
+				sample_rounds,sample_rate,partition_type_names[ptype], cardinality,
+				 tile_num, stddev, boundary_rate, found_rate,
+				 genschema_time, partition_time, index_time, query_time, total_time);
+		fflush(stdout);
+	}
 }partition_stat;
 
 partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype){
 
+	partition_stat stat;
 	struct timeval start = get_cur_time();
 	// generate schema
 	vector<Tile *> tiles = genschema(objects, card, ptype);
@@ -215,7 +236,7 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	for(Tile *t:tiles){
 		tree.Insert(t->low, t->high, t);
 	}
-	logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
+	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 	struct timeval entire_start = get_cur_time();
 
@@ -226,21 +247,20 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 		total_num += tile->get_objnum();
 	}
 	double partition_time = get_time_elapsed(start);
-	logt("partitioning data",start);
+	stat.partition_time = logt("partitioning data",start);
 
 	// local indexing
 	indexing(tiles);
-	logt("building local index", start);
+	stat.index_time = logt("building local index", start);
 
 	// conduct query
 	size_t found = query(targets, tree);
 	double query_time = get_time_elapsed(start);
-	logt("querying data",start);
+	stat.query_time = logt("querying data",start);
 
 
-	logt("entire process", entire_start);
+	stat.total_time = logt("entire process", entire_start);
 
-	partition_stat stat;
 	stat.stddev = skewstdevratio(tiles);
 	stat.boundary_rate = 1.0*(total_num-objects.size())/objects.size();
 	stat.found_rate = 1.0*found/targets.size();
@@ -362,13 +382,14 @@ int main(int argc, char** argv) {
 				for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
 					size_t real_card = std::max((int)(card*sample_rate), 1);
 					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
+					log("processing %d\t%f\t%s\t%ld",sr,sample_rate,partition_type_names[ptype], real_card);
 					partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype);
-					printf("%d,%f,%s,%ld,"
-							"%ld,%f,%f,%f\n",
-							sr,sample_rate,partition_type_names[ptype], real_card,
-							 stat.tile_num, stat.stddev, stat.boundary_rate, stat.found_rate);
-					fflush(stdout);
-					logt("complete %d\t%f\t%s\t%ld",start,sr,sample_rate,partition_type_names[ptype], real_card);
+					stat.sample_rate = sample_rate,
+					stat.sample_rounds = sr;
+					stat.ptype = ptype;
+					stat.cardinality = real_card;
+					stat.print();
+					logt("complete",start);
 					num_tiles.push_back(stat.tile_num);
 					stddevs.push_back(stat.stddev);
 					boundary.push_back(stat.boundary_rate);
