@@ -10,7 +10,6 @@
 namespace po = boost::program_options;
 
 // functions for sampling
-
 template <class O>
 void *sample_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
@@ -74,10 +73,10 @@ bool assign(Tile *tile, void *arg){
 void *partition_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<box *> *objects = (vector<box *> *)(ctx->target);
-	RTree<Tile *, double, 2, double> *tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
+	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
 	while(ctx->next_batch(100)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
-			tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]));
+			global_tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]), ctx->data_oriented);
 			ctx->report_progress();
 		}
 	}
@@ -85,7 +84,7 @@ void *partition_unit(void *arg){
 	return NULL;
 }
 
-void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
+void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &global_tree, PARTITION_TYPE ptype){
 
 	query_context global_ctx;
 	pthread_t threads[global_ctx.num_threads];
@@ -98,7 +97,8 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 		ctx[i].target = (void *) &objects;
-		ctx[i].target2 = (void *) &tree;
+		ctx[i].target2 = (void *) &global_tree;
+		ctx[i].data_oriented = is_data_oriented(ptype);
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
@@ -111,6 +111,54 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &tree){
 
 }
 
+bool assign_target(Tile *tile, void *arg){
+	tile->insert_target(arg);
+	return true;
+}
+
+void *partition_target_unit(void *arg){
+	query_context *ctx = (query_context *)arg;
+	vector<Point *> *objects = (vector<Point *> *)(ctx->target);
+	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
+	while(ctx->next_batch(10)){
+		for(size_t i=ctx->index;i<ctx->index_end;i++){
+			Point *p = (*objects)[i];
+			global_tree->Search((double *)p, (double *)p, assign_target, (void *)p);
+			ctx->report_progress();
+		}
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double> &global_tree){
+
+	query_context global_ctx;
+	pthread_t threads[global_ctx.num_threads];
+	query_context ctx[global_ctx.num_threads];
+	global_ctx.target_num = targets.size();
+	global_ctx.report_prefix = "partitioning";
+
+	for(int i=0;i<global_ctx.num_threads;i++){
+		ctx[i] = global_ctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = &global_ctx;
+		ctx[i].target = (void *) &targets;
+		ctx[i].target2 = (void *) &global_tree;
+	}
+	for(int i=0;i<global_ctx.num_threads;i++){
+		pthread_create(&threads[i], NULL, partition_target_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < global_ctx.num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+}
+
+
+// functions for local indexing
 void *index_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<Tile *> *tiles = (vector<Tile *> *)(ctx->target);
@@ -150,21 +198,18 @@ void indexing(vector<Tile *> &tiles){
 }
 
 
-// function for the query phase
-bool search(Tile *tile, void *arg){
-	query_context *ctx = (query_context *)arg;
-	ctx->found += tile->lookup_count((Point *)ctx->target);
-	return true;
-}
+// functions for the query phase
 
 void *query_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
-	vector<Point *> *objects = (vector<Point *> *)(ctx->target);
-	RTree<Tile *, double, 2, double> *tree= (RTree<Tile *, double, 2, double> *)(ctx->target2);
-	while(ctx->next_batch(100)){
+	vector<Tile *> *tiles = (vector<Tile *> *)(ctx->target);
+	while(ctx->next_batch(1)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
-			ctx->target = (void *) (*objects)[i];
-			tree->Search((double *)(*objects)[i], (double *)(*objects)[i], search, (void *)ctx);
+			Tile *tile = (*tiles)[i];
+			for(void *t:tile->targets){
+				Point *p = (Point *)t;
+				ctx->found += tile->lookup_count(p);
+			}
 			ctx->report_progress();
 		}
 	}
@@ -172,20 +217,19 @@ void *query_unit(void *arg){
 	return NULL;
 }
 
-size_t query(vector<Point *> &objects, RTree<Tile *, double, 2, double> &tree){
+size_t query(vector<Tile *> &tiles){
 
 	query_context global_ctx;
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
-	global_ctx.target_num = objects.size();
+	global_ctx.target_num = tiles.size();
 	global_ctx.report_prefix = "querying";
 
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
-		ctx[i].target = (void *) &objects;
-		ctx[i].target2 = (void *) &tree;
+		ctx[i].target = (void *) &tiles;
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, query_unit, (void *)&ctx[i]);
@@ -206,6 +250,7 @@ typedef struct{
 
 	double stddev = 0;
 	double boundary_rate = 0;
+	double target_boundary_rate = 0.0;
 	double found_rate = 0;
 	size_t tile_num = 0;
 	double genschema_time = 0.0;
@@ -215,11 +260,11 @@ typedef struct{
 	double total_time = 0.0;
 
 	void print(){
-		printf("%d,%f,%s,%ld,"
-				"%ld,%f,%f,%f,"
-				"%f,%f,%f,%f,%f\n",
-				sample_rounds,sample_rate,partition_type_names[ptype], cardinality,
-				 tile_num, stddev, boundary_rate, found_rate,
+		printf("setup,%d,%f,%s,%ld,%ld,"
+				"stats,%f,%f,%f,%f,"
+				"time,%f,%f,%f,%f,%f\n",
+				sample_rounds,sample_rate,partition_type_names[ptype], cardinality, tile_num,
+				stddev, boundary_rate, target_boundary_rate, found_rate,
 				 genschema_time, partition_time, index_time, query_time, total_time);
 		fflush(stdout);
 	}
@@ -232,21 +277,19 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	// generate schema
 	vector<Tile *> tiles = genschema(objects, card, ptype);
 
-	RTree<Tile *, double, 2, double> tree;
+	RTree<Tile *, double, 2, double> global_tree;
 	for(Tile *t:tiles){
-		tree.Insert(t->low, t->high, t);
+		global_tree.Insert(t->low, t->high, t);
 	}
 	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 	struct timeval entire_start = get_cur_time();
 
 	// partitioning data
-	partition(objects, tree);
-	size_t total_num = 0;
-	for(Tile *tile:tiles){
-		total_num += tile->get_objnum();
+	if(!is_data_oriented(ptype)){
+		partition(objects, global_tree, ptype);
 	}
-	double partition_time = get_time_elapsed(start);
+	partition_target(targets, global_tree);
 	stat.partition_time = logt("partitioning data",start);
 
 	// local indexing
@@ -254,17 +297,25 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	stat.index_time = logt("building local index", start);
 
 	// conduct query
-	size_t found = query(targets, tree);
+	size_t found = query(tiles);
 	double query_time = get_time_elapsed(start);
 	stat.query_time = logt("querying data",start);
 
-
 	stat.total_time = logt("entire process", entire_start);
 
+	size_t total_num = 0;
+	size_t total_target_num = 0;
+	for(Tile *t:tiles){
+		total_num += t->objects.size();
+		total_target_num += t->targets.size();
+	}
+
 	stat.stddev = skewstdevratio(tiles);
-	stat.boundary_rate = 1.0*(total_num-objects.size())/objects.size();
+	stat.boundary_rate = 1.0*total_num/objects.size();
+	stat.target_boundary_rate = 1.0*total_target_num/targets.size();
 	stat.found_rate = 1.0*found/targets.size();
 	stat.tile_num = tiles.size();
+
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
 		delete tile;

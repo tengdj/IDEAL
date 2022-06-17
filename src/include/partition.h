@@ -25,26 +25,26 @@ extern const char *partition_type_names[7];
 
 class Tile: public box{
 	pthread_mutex_t lk;
-	vector<pair<box *, void *>> objects;
 	void lock();
 	void unlock();
 	static bool lookup_tree(void *, void *arg);
 public:
 	size_t id;
+	vector<pair<box *, void *>> objects;
+	vector<void *> targets;
 	RTree<void *, double, 2, double> tree;
 
 	Tile();
 	Tile(box b);
 	~Tile();
+	void merge(Tile *n);
 	bool insert(box *b, void *obj);
+	bool insert_target(void *obj);
 	void build_index();
 	size_t lookup_count(box *p);
 	size_t lookup_count(Point *p);
 	vector<void *> lookup(box *b);
 	vector<void *> lookup(Point *p);
-	size_t get_objnum(){
-		return objects.size();
-	}
 };
 
 vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality);
@@ -60,4 +60,5 @@ vector<Tile *> genschema(vector<box *> &geometries, size_t cardinality, PARTITIO
 void print_tiles(vector<Tile *> &tiles);
 double skewstdevratio(vector<Tile *> &tiles);
 PARTITION_TYPE parse_partition_type(const char *type);
+bool is_data_oriented(PARTITION_TYPE);
 #endif /* SRC_PARTITION_PARTITION_HPP_ */

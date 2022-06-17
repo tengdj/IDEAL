@@ -60,12 +60,12 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 			Tile *b = new Tile();
 			for(size_t t = 0;t<cardinality && cur<end; t++, cur++){
 				box *obj = geometries[cur];
-				b->update(*geometries[cur]);
+				b->insert(obj, (void *)obj);
 			}
-			// some objects at the right side are also coverd by this slice
-			while(cur<num && b->contain(*geometries[cur])){
-				cur++;
-			}
+			// some objects at the right side are also covered by this slice
+//			while(cur<num && b->contain(*geometries[cur])){
+//				cur++;
+//			}
 			schema.push_back(b);
 		}
 	}
@@ -84,12 +84,12 @@ vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
 		Tile *b = new Tile();
 		for(size_t t = 0;t<cardinality && cur<num; t++, cur++){
 			box *obj = geometries[cur];
-			b->update(*geometries[cur]);
+			b->insert(obj, (void *)obj);
 		}
 		// some objects at the right side are also covered by this slice
-		while(cur<num && b->contain(*geometries[cur])){
-			cur++;
-		}
+//		while(cur<num && b->contain(*geometries[cur])){
+//			cur++;
+//		}
 		schema.push_back(b);
 	}
 	return schema;
@@ -206,10 +206,11 @@ vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality){
 	size_t dimx = pow(2,hindex/2);
 	size_t dimy = pow(2,hindex/2);
 
-	size_t *cell_count = new size_t[hcnum];
-	memset((void *)cell_count,0,sizeof(size_t)*hcnum);
-	vector<box> cells;
+	vector<Tile *> cells;
 	cells.reserve(hcnum);
+	for(size_t i=0;i<hcnum;i++){
+		cells[i] = new Tile();
+	}
 
 	box space = profileSpace(geometries);
 
@@ -221,38 +222,26 @@ vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality){
 		size_t y = (p->low[1]-space.low[1])/sy;
 		size_t hc = xy2d(hindex,x,y);
 		assert(hc<hcnum);
-		if(cell_count[hc]==0){
-			cells[hc].low[0] = p->low[0];
-			cells[hc].low[1] = p->low[1];
-			cells[hc].high[0] = p->high[0];
-			cells[hc].high[1] = p->high[1];
-		}else{
-			cells[hc].update(*p);
-		}
-		cell_count[hc]++;
+		cells[hc]->insert(p, (void *)p);
 	}
 
 	Tile *pix = new Tile();
-	size_t cur_num = 0;
 	for(size_t i=0;i<hcnum;i++){
-		if(cell_count[i]>0){
-			pix->update(cells[i]);
-			cur_num += cell_count[i];
-		}
-		if(cur_num>=cardinality){
+		pix->merge(cells[i]);
+		if(pix->objects.size()>=cardinality){
 			schema.push_back(pix);
 			pix = new Tile();
-			cur_num = 0;
 		}
+		delete cells[i];
 	}
-	if(cur_num>0){
+	cells.clear();
+
+	if(pix->objects.size()>0){
 		schema.push_back(pix);
 	}else{
 		delete pix;
 	}
 
-	delete []cell_count;
-	cells.clear();
 	return schema;
 }
 
@@ -366,6 +355,23 @@ PARTITION_TYPE parse_partition_type(const char *type){
 	return QT;
 }
 
+bool is_data_oriented(PARTITION_TYPE pt){
+	switch(pt){
+	case STR:
+	case SLC:
+	case BOS:
+	case HC:
+		return true;
+	case FG:
+	case QT:
+	case BSP:
+		return false;
+	default:
+		assert(false && "wrong partitioning type");
+		return false;
+	}
+}
+
 
 Tile::Tile(){
 	pthread_mutex_init(&lk, NULL);
@@ -383,6 +389,8 @@ Tile::Tile(box b){
 }
 
 Tile::~Tile(){
+	targets.clear();
+	objects.clear();
 }
 
 void Tile::lock(){
@@ -393,9 +401,28 @@ void Tile::unlock(){
 	pthread_mutex_unlock(&lk);
 }
 
+void Tile::merge(Tile *n){
+	if(n->objects.size()==0&&n->targets.size()==0){
+		return;
+	}
+	lock();
+	update(*n);
+	objects.insert(objects.end(),n->objects.begin(), n->objects.end());
+	targets.insert(targets.end(),n->targets.begin(), n->targets.end());
+	unlock();
+}
+
 bool Tile::insert(box *b, void *obj){
 	lock();
+	update(*b);
 	objects.push_back(pair<box *, void *>(b, obj));
+	unlock();
+	return true;
+}
+
+bool Tile::insert_target(void *tgt){
+	lock();
+	targets.push_back(tgt);
 	unlock();
 	return true;
 }
@@ -416,31 +443,23 @@ bool Tile::lookup_tree(void *obj, void *arg){
 
 vector<void *> Tile::lookup(box *b){
 	vector<void *> results;
-	lock();
 	tree.Search(b->low, b->high, lookup_tree, (void *)&results);
-	unlock();
 	return results;
 }
 
 vector<void *> Tile::lookup(Point *p){
 	vector<void *> results;
-	lock();
 	tree.Search((double *)p, (double *)p, lookup_tree, (void *)&results);
-	unlock();
 	return results;
 }
 
 size_t Tile::lookup_count(box *b){
-	lock();
 	size_t count = tree.Search(b->low, b->high, NULL, NULL);
-	unlock();
 	return count;
 }
 
 size_t Tile::lookup_count(Point *p){
-	lock();
 	size_t count = tree.Search((double *)p, (double *)p , NULL, NULL);
-	unlock();
 	return count;
 }
 
@@ -460,12 +479,12 @@ double skewstdevratio(vector<Tile *> &tiles){
 	}
 	size_t total = 0;
 	for(Tile *t:tiles){
-		total += t->get_objnum();
+		total += t->objects.size();
 	}
 	double avg = 1.0*total/tiles.size();
 	double st = 0.0;
 	for(Tile *t:tiles){
-		st += (t->get_objnum()-avg)*(t->get_objnum()-avg)/tiles.size();
+		st += (t->objects.size()-avg)*(t->objects.size()-avg)/tiles.size();
 	}
 	return sqrt(st)/avg;
 }
