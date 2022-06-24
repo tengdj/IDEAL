@@ -11,17 +11,18 @@
 namespace po = boost::program_options;
 
 // functions for sampling
+box china(73.47431,3.393568,134.86609,53.65586);
 
 template <class O>
 void *sample_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
-	vector<O> *original = (vector<O> *)(ctx->target);
+	vector<O *> *original = (vector<O *> *)(ctx->target);
 	vector<O *> *result = (vector<O *> *)(ctx->target2);
 	while(ctx->next_batch(1000)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			if(tryluck(ctx->global_ctx->sample_rate)){
 				ctx->global_ctx->lock();
-				result->push_back(&(*original)[i]);
+				result->push_back((*original)[i]);
 				ctx->global_ctx->unlock();
 			}
 			ctx->report_progress();
@@ -32,7 +33,7 @@ void *sample_unit(void *arg){
 }
 
 template <class O>
-vector<O *> sample(vector<O> &original, double sample_rate){
+vector<O *> sample(vector<O *> &original, double sample_rate){
 
 	vector<O *> result;
 	query_context global_ctx;
@@ -40,6 +41,7 @@ vector<O *> sample(vector<O> &original, double sample_rate){
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = original.size();
 	global_ctx.sample_rate = sample_rate;
+	global_ctx.report_prefix = "sample";
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -72,9 +74,9 @@ int main(int argc, char** argv) {
 		("source,s", po::value<string>(&data_path)->required(), "path to the source")
 		("sample_rate,r", po::value<double>(&sample_rate), "sample rate")
 		("cardinality,c", po::value<size_t>(&cardinality), "the number of objects per partition contain")
-		("partition_type,t", po::value<string>(&ptype_str), "partition type should be one of: str|slc|bos|qt|bsp|hc|fg")
+		("partition_type,t", po::value<string>(&ptype_str), "partition type should be one of: str|slc|qt|bsp|hc|fg")
 		("print,p", "print the generated schema")
-
+		("is_points", "the input is points")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -84,13 +86,32 @@ int main(int argc, char** argv) {
 	}
 	po::notify(vm);
 	struct timeval start = get_cur_time();
+	vector<box *> all_objects;
 	box *boxes;
-	size_t box_num = load_boxes_from_file(data_path.c_str(), &boxes);
+	size_t box_num = 0;
+
+	if(vm.count("is_points")){
+		Point *points = NULL;
+		box_num = load_points_from_path(data_path.c_str(), &points);
+		box *boxes = new box[box_num];
+		for(size_t i=0;i<box_num;i++){
+			boxes[i].low[0] = points[i].x;
+			boxes[i].low[1] = points[i].y;
+			boxes[i].high[0] = points[i].x;
+			boxes[i].high[1] = points[i].y;
+		}
+		delete []points;
+	}else{
+		box_num = load_boxes_from_file(data_path.c_str(), &boxes);
+		for(size_t i=0;i<box_num;i++){
+			all_objects.push_back(boxes+i);
+		}
+	}
+
 	logt("%ld objects are loaded",start, box_num);
 
 	// sampling data
-	vector<box> box_vec(boxes, boxes+box_num);
-	vector<box *> objects = sample<box>(box_vec, sample_rate);
+	vector<box *> objects = sample<box>(all_objects, sample_rate);
 	logt("%ld objects are sampled",start, objects.size());
 
 	PARTITION_TYPE start_type = STR;
@@ -114,7 +135,6 @@ int main(int argc, char** argv) {
 		tiles.clear();
 	}
 
-	box_vec.clear();
 	objects.clear();
 	delete []boxes;
 	return 0;

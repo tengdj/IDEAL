@@ -348,6 +348,14 @@ public:
 	}
 };
 
+class MyMultiPoint{
+	vector<Point *> points;
+public:
+	void insert(vector<Point *> &origin_points);
+	void insert(Point *p);
+	void print(size_t max_num = INT_MAX);
+};
+
 
 //utility functions
 void process_rasterization(query_context *ctx);
