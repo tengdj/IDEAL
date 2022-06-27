@@ -159,7 +159,7 @@ public:
 	size_t offset = 0;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
-	vector<VertexSequence *> internal_polygons;
+	vector<VertexSequence *> holes;
 	MyPolygon(){
 	    pthread_mutex_init(&ideal_partition_lock, NULL);
 	    pthread_mutex_init(&qtree_partition_lock, NULL);
@@ -219,10 +219,6 @@ public:
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
 	static MyPolygon *gen_box(box &pix);
 	static MyPolygon *read_one_polygon();
-
-	static vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
-	static MyPolygon * load_binary_file_single(const char *path, query_context ctx, int idx);
-	static MyPolygon * read_polygon_binary_file(ifstream &is);
 
 	bool contain(Point &p);// brute-forcely check containment
 	bool contain(Point &p, query_context *ctx, bool profile = true);
@@ -365,6 +361,11 @@ void process_internal_rtree(query_context *gctx);
 void preprocess(query_context *gctx);
 
 void print_boxes(vector<box *> boxes);
+
+size_t load_points_from_path(const char *path, Point **points);
+size_t load_boxes_from_file(const char *path, box **);
+
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
+vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
 
 #endif /* SRC_MYPOLYGON_H_ */

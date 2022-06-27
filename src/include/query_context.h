@@ -155,7 +155,7 @@ public:
 	void unlock();
 
 	// for multiple thread
-	void report_progress();
+	void report_progress(int eval_batch=10);
 	bool next_batch(int batch_num=1);
 
 	// for query statistics
@@ -195,8 +195,6 @@ public:
 	}
 };
 
-
-size_t load_points_from_path(const char *path, Point **points);
 query_context get_parameters(int argc, char **argv);
 
 

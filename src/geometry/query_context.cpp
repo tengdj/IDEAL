@@ -87,30 +87,14 @@ void query_context::report_latency(int num_v, double lt){
 	}
 }
 
-size_t load_points_from_path(const char *path, Point **points){
-	size_t fsize = file_size(path);
-	if(fsize<=0){
-		log("%s is empty",path);
-		exit(0);
-	}
-	size_t target_num = fsize/sizeof(Point);
-	log_refresh("start loading %ld points",target_num);
-
-	*points = new Point[target_num];
-	ifstream infile(path, ios::in | ios::binary);
-	infile.read((char *)*points, fsize);
-	infile.close();
-	return target_num;
-}
-
 void query_context::load_points(){
 	struct timeval start = get_cur_time();
 	target_num = load_points_from_path(target_path.c_str(), &points);
 	logt("loaded %ld points", start,target_num);
 }
 
-void query_context::report_progress(){
-	if(++query_count==10){
+void query_context::report_progress(int eval_batch){
+	if(++query_count==eval_batch){
 		global_ctx->query_count += query_count;
 		global_ctx->lock();
 		double time_passed = get_time_elapsed(global_ctx->previous);

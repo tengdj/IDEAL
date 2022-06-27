@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
     global_ctx.geography = true;
 
 	timeval start = get_cur_time();
-    global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+    global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
 	logt("loaded %d objects", start,global_ctx.source_polygons.size());
 
 //

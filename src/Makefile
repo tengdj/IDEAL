@@ -13,6 +13,7 @@ CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_SRCS += $(wildcard triangulate/*.cpp)
+GEOMETRY_SRCS += $(wildcard storage/*.cpp)
 GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
 
 PARTITION_SRCS := $(wildcard partition/*.cpp)

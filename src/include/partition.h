@@ -58,7 +58,7 @@ vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality);
 
 vector<Tile *> genschema(vector<box *> &geometries, size_t cardinality, PARTITION_TYPE type);
 void print_tiles(vector<Tile *> &tiles);
-double skewstdevratio(vector<Tile *> &tiles);
+double skewstdevratio(vector<Tile *> &tiles, int tag = 0);
 PARTITION_TYPE parse_partition_type(const char *type);
 bool is_data_oriented(PARTITION_TYPE);
 #endif /* SRC_PARTITION_PARTITION_HPP_ */

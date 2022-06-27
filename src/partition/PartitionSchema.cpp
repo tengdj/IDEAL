@@ -473,18 +473,48 @@ void print_tiles(vector<Tile *> &boxes){
 	delete cboxes;
 }
 
-double skewstdevratio(vector<Tile *> &tiles){
+double skewstdevratio(vector<Tile *> &tiles, int tag){
 	if(tiles.size()==0){
 		return 0;
 	}
 	size_t total = 0;
 	for(Tile *t:tiles){
-		total += t->objects.size();
+		size_t obj_num = 0;
+		switch(tag){
+		case 0:
+			obj_num += t->objects.size();
+			break;
+		case 1:
+			obj_num += t->targets.size();
+			break;
+		case 2:
+			obj_num += t->objects.size();
+			obj_num += t->targets.size();
+			break;
+		default:
+			assert(false&&"can only be 0 1 2");
+		}
+		total += obj_num;
 	}
 	double avg = 1.0*total/tiles.size();
 	double st = 0.0;
 	for(Tile *t:tiles){
-		st += (t->objects.size()-avg)*(t->objects.size()-avg)/tiles.size();
+		size_t obj_num = 0;
+		switch(tag){
+		case 0:
+			obj_num += t->objects.size();
+			break;
+		case 1:
+			obj_num += t->targets.size();
+			break;
+		case 2:
+			obj_num += t->objects.size();
+			obj_num += t->targets.size();
+			break;
+		default:
+			assert(false&&"can only be 0 1 2");
+		}
+		st += (obj_num-avg)*(obj_num-avg)/tiles.size();
 	}
 	return sqrt(st)/avg;
 }

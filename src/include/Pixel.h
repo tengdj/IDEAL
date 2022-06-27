@@ -65,8 +65,6 @@ public:
 	void to_array(Point *p);
 };
 
-size_t load_boxes_from_file(const char *path, box **);
-
 /*
  *
  *	for pixel class

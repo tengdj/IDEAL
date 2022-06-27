@@ -201,120 +201,11 @@ VertexSequence *MyPolygon::read_vertices(const char *wkt, size_t &offset, bool c
 	return vs;
 }
 
-
-MyPolygon *MyPolygon::read_polygon_binary_file(ifstream &infile){
-	long num_holes = 0;
-	infile.read((char *)&num_holes,sizeof(long));
-	long num_vertices = 0;
-	infile.read((char *)&num_vertices,sizeof(long));
-	if(num_vertices==0){
-		return NULL;
-	}
-	MyPolygon *poly = new MyPolygon();
-	poly->boundary = new VertexSequence(num_vertices);
-	infile.read((char *)poly->boundary->p,num_vertices*sizeof(Point));
-	if(poly->boundary->clockwise()){
-		poly->boundary->reverse();
-	}
-//	string str = poly->to_string();
-//	poly->boundary->fix();
-//	if(poly->boundary->num_vertices<10){
-//		cout<<str<<endl;
-//		poly->print();
-//	}
-	for(int i=0;i<num_holes;i++){
-		infile.read((char *)&num_vertices,sizeof(long));
-		assert(num_vertices);
-		VertexSequence *vs = new VertexSequence(num_vertices);
-		infile.read((char *)vs->p,num_vertices*sizeof(Point));
-		if(!vs->clockwise()){
-			vs->reverse();
-		}
-		vs->fix();
-		poly->internal_polygons.push_back(vs);
-	}
-	return poly;
-}
-
-inline bool compareIterator(MyPolygon *p1, MyPolygon *p2){
-	return p1->get_num_vertices()>p2->get_num_vertices();
-}
-
-MyPolygon * MyPolygon::load_binary_file_single(const char *path, query_context ctx, int idx){
-	ifstream infile;
-	infile.open(path, ios::in | ios::binary);
-	size_t num;
-	infile.read((char *)&num, sizeof(size_t));
-	size_t offset = sizeof(size_t)+idx*sizeof(size_t);
-	infile.seekg(offset,infile.beg);
-	infile.read((char *)&offset, sizeof(size_t));
-	//cout<<num<<" "<<offset<<endl;
-
-	infile.seekg(offset,infile.beg);
-	MyPolygon *poly = read_polygon_binary_file(infile);
-	infile.close();
-	assert(poly);
-	return poly;
-
-}
-
-vector<MyPolygon *> MyPolygon::load_binary_file(const char *path, query_context &ctx, bool sample){
-	vector<MyPolygon *> polygons;
-	if(!file_exist(path)){
-		log("%s does not exist",path);
-		return polygons;
-	}
-	struct timeval start = get_cur_time();
-	ifstream infile;
-	infile.open(path, ios::in | ios::binary);
-	size_t off;
-	size_t num_polygons = 0;
-	infile.seekg(0, infile.end);
-	//seek to the first polygon
-	infile.seekg(-sizeof(size_t), infile.end);
-	infile.read((char *)&num_polygons, sizeof(size_t));
-	assert(num_polygons>0 && "the file should contain at least one polygon");
-	size_t *offsets = new size_t[num_polygons];
-
-	infile.seekg(-sizeof(size_t)*(num_polygons+1), infile.end);
-	infile.read((char *)offsets, sizeof(size_t)*num_polygons);
-	num_polygons = min(num_polygons, ctx.max_num_polygons);
-
-	log("loading %ld polygon from %s",num_polygons,path);
-
-	size_t num_edges = 0;
-	size_t data_size = 0;
-	size_t report_gap = 500;
-	struct timeval reporttm = get_cur_time();
-	for(size_t i=0;i<num_polygons;i++){
-		if(get_time_elapsed(reporttm)>=report_gap){
-			log_refresh("loaded %.2f%%",i*100.0/num_polygons);
-			reporttm = get_cur_time();
-		}
-		if(sample && !tryluck(ctx.sample_rate)){
-			continue;
-		}
-		infile.seekg(offsets[i], infile.beg);
-		MyPolygon *poly = read_polygon_binary_file(infile);
-		assert(poly);
-		num_edges += poly->get_num_vertices();
-		data_size += poly->get_data_size();
-		poly->setid(i);
-		polygons.push_back(poly);
-
-	}
-	infile.close();
-	delete []offsets;
-	logt("loaded %ld polygons each with %ld edges %ld MB", start, polygons.size(),num_edges/polygons.size(),data_size/1024/1024);
-	return polygons;
-}
-
-
 MyPolygon *MyPolygon::clone(){
 	MyPolygon *polygon = new MyPolygon();
 	polygon->boundary = boundary->clone();
-	for(VertexSequence *t:internal_polygons){
-		polygon->internal_polygons.push_back(t->clone());
+	for(VertexSequence *t:holes){
+		polygon->holes.push_back(t->clone());
 	}
 	polygon->getMBB();
 	return polygon;
@@ -343,7 +234,7 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 			vc->reverse();
 		}
 		vc->fix();
-		polygon->internal_polygons.push_back(vc);
+		polygon->holes.push_back(vc);
 
 		skip_space(wkt, offset);
 	}
@@ -352,46 +243,16 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 	return polygon;
 }
 
-void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path){
-	ofstream os;
-	os.open(path, ios::out | ios::binary |ios::trunc);
-	assert(os.is_open());
-
-	size_t buffer_size = 100*1024*1024;
-	char *data_buffer = new char[buffer_size];
-	size_t data_size = 0;
-	size_t *offsets = new size_t[polygons.size()];
-	size_t curoffset = 0;
-	for(int i=0;i<polygons.size();i++){
-		MyPolygon *p = polygons[i];
-		if(p->get_data_size()+data_size>buffer_size){
-			os.write(data_buffer, data_size);
-			data_size = 0;
-		}
-		data_size += p->encode_to(data_buffer+data_size);
-		offsets[i] = curoffset;
-		curoffset += p->get_data_size();
-	}
-
-	if(data_size!=0){
-		os.write(data_buffer, data_size);
-	}
-	os.write((char *)offsets, sizeof(size_t)*polygons.size());
-	size_t bs = polygons.size();
-	os.write((char *)&bs, sizeof(size_t));
-	os.close();
-}
-
 MyPolygon::~MyPolygon(){
 	if(this->boundary){
 		delete boundary;
 	}
-	for(VertexSequence *p:internal_polygons){
+	for(VertexSequence *p:holes){
 		if(p){
 			delete p;
 		}
 	}
-	internal_polygons.clear();
+	holes.clear();
 	if(mbr){
 		delete mbr;
 	}
@@ -425,12 +286,16 @@ size_t MyPolygon::get_data_size(){
 	return ds;
 }
 
+/*
+ * |num_holes|boundary|holes boundaries|
+ *
+ * */
 size_t MyPolygon::encode_to(char *target){
 	size_t encoded = 0;
-	((long *)target)[0] = internal_polygons.size();
-	encoded += sizeof(long);
+	((size_t *)target)[0] = holes.size();
+	encoded += 2*sizeof(size_t); //saved two size_t
 	encoded += boundary->encode(target+encoded);
-	for(VertexSequence *vs:internal_polygons){
+	for(VertexSequence *vs:holes){
 		encoded += vs->encode(target+encoded);
 	}
 	return encoded;
@@ -439,8 +304,8 @@ size_t MyPolygon::decode_from(char *source){
 	size_t decoded = 0;
 	assert(!boundary);
 	boundary = new VertexSequence();
-	size_t num_holes = ((long *)source)[0];
-	decoded += sizeof(long);
+	size_t num_holes = ((size_t *)source)[0];
+	decoded += sizeof(size_t);
 	decoded += boundary->decode(source+decoded);
 	for(size_t i=0;i<num_holes;i++){
 		VertexSequence *vs = new VertexSequence();
@@ -505,7 +370,7 @@ void MyPolygon::print_without_head(bool print_hole, bool complete_ring){
 
 	boundary->print(complete_ring);
 	if(print_hole){
-		for(VertexSequence *vs:this->internal_polygons){
+		for(VertexSequence *vs:this->holes){
 			cout<<", ";
 			vs->print(complete_ring);
 		}

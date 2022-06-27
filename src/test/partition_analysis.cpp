@@ -248,7 +248,10 @@ typedef struct{
 	size_t cardinality = 1;
 	PARTITION_TYPE ptype;
 
-	double stddev = 0;
+	double stddev_r = 0; // for reference
+	double stddev_t = 0; // for target
+	double stddev_a = 0; // for all
+
 	double boundary_rate = 0;
 	double target_boundary_rate = 0.0;
 	double found_rate = 0;
@@ -261,10 +264,12 @@ typedef struct{
 
 	void print(){
 		printf("setup,%d,%f,%s,%ld,%ld,"
-				"stats,%f,%f,%f,%f,"
+				"stddev,%f,%f,%f,"
+				"stats,%f,%f,%f,"
 				"time,%f,%f,%f,%f,%f\n",
 				sample_rounds,sample_rate,partition_type_names[ptype], cardinality, tile_num,
-				stddev, boundary_rate, target_boundary_rate, found_rate,
+				stddev_r, stddev_t, stddev_a,
+				boundary_rate, target_boundary_rate, found_rate,
 				 genschema_time, partition_time, index_time, query_time, total_time);
 		fflush(stdout);
 	}
@@ -310,7 +315,10 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 		total_target_num += t->targets.size();
 	}
 
-	stat.stddev = skewstdevratio(tiles);
+	stat.stddev_r = skewstdevratio(tiles, 0);
+	stat.stddev_t = skewstdevratio(tiles, 1);
+	stat.stddev_a = skewstdevratio(tiles, 2);
+
 	stat.boundary_rate = 1.0*total_num/objects.size();
 	stat.target_boundary_rate = 1.0*total_target_num/targets.size();
 	stat.found_rate = 1.0*found/targets.size();
@@ -426,7 +434,7 @@ int main(int argc, char** argv) {
 
 			for(int pt=(int)start_type;pt<=(int)end_type;pt++){
 				vector<double> num_tiles;
-				vector<double> stddevs;
+				//vector<double> stddevs;
 				vector<double> boundary;
 				vector<double> found;
 				// varying the cardinality
@@ -442,14 +450,14 @@ int main(int argc, char** argv) {
 					stat.print();
 					logt("complete",start);
 					num_tiles.push_back(stat.tile_num);
-					stddevs.push_back(stat.stddev);
+					//stddevs.push_back(stat.stddev);
 					boundary.push_back(stat.boundary_rate);
 					found.push_back(stat.found_rate);
 				}
 				if(num_tiles.size()>1){
 					double a,b;
-					linear_regression(num_tiles,stddevs,a,b);
-					printf("%f,%.10f,%.10f",sample_rate,a,b);
+					//linear_regression(num_tiles,stddevs,a,b);
+					//printf("%f,%.10f,%.10f",sample_rate,a,b);
 					linear_regression(num_tiles,boundary,a,b);
 					printf(",%.10f,%.10f",a,b);
 					linear_regression(num_tiles,found,a,b);

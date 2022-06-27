@@ -71,14 +71,14 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 
 	timeval start = get_cur_time();
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 	start = get_cur_time();
 	for(MyPolygon *p:global_ctx.source_polygons){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree with %d nodes", start,global_ctx.source_polygons.size());
 
-	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx);
+	global_ctx.target_polygons = load_binary_file(global_ctx.target_path.c_str(),global_ctx);
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	start = get_cur_time();
 
