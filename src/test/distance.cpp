@@ -36,7 +36,7 @@ int main(int argc, char **argv){
 	po::notify(vm);
 	timeval start = get_cur_time();
 	query_context ctx;
-	vector<MyPolygon *> polys = MyPolygon::load_binary_file(input_path.c_str(), ctx);
+	vector<MyPolygon *> polys = load_binary_file(input_path.c_str(), ctx);
 	logt("read polygons", start);
 	for(MyPolygon *p:polys){
 		p->rasterization(vpr);

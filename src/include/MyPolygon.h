@@ -134,7 +134,13 @@ public:
 
 };
 
-
+// the structured metadata of a polygon
+typedef struct PolygonMeta_{
+	uint size; // size of the polygon in bytes
+	uint num_vertices; // number of vertices in the boundary (hole excluded)
+	size_t offset; // the offset in the file
+	box mbr; // the bounding boxes
+} PolygonMeta;
 
 class MyPolygon{
 	size_t id = 0;
@@ -279,6 +285,7 @@ public:
 		id = iid;
 	}
 
+	PolygonMeta get_meta();
 	size_t get_data_size();
 	size_t encode_to(char *target);
 	size_t decode_from(char *source);

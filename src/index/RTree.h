@@ -561,8 +561,7 @@ size_t RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NU
 
   // NOTE: May want to return search result another way, perhaps returning the number of found elements here.
 
-  size_t foundCount = 0;
-  Search(m_root, &rect, foundCount, a_resultCallback, a_context, cover_only);
+  size_t foundCount = Search(m_root, &rect, foundCount, a_resultCallback, a_context, cover_only);
 
   return foundCount;
 }
@@ -1535,7 +1534,7 @@ bool RTREE_QUAL::Overlap(Rect* a_rectA, Rect* a_rectB)
 
   for(int index=0; index < NUMDIMS; ++index)
   {
-    if (a_rectA->m_min[index] > a_rectB->m_max[index] ||
+    if (a_rectA->m_min[index] >= a_rectB->m_max[index] ||
         a_rectB->m_min[index] > a_rectA->m_max[index])
     {
       return false;

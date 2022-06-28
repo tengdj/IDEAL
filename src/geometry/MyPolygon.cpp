@@ -274,6 +274,13 @@ MyPolygon::~MyPolygon(){
 	}
 }
 
+PolygonMeta MyPolygon::get_meta(){
+	PolygonMeta pmeta;
+	pmeta.size = this->get_data_size();
+	pmeta.num_vertices = this->get_num_vertices();
+	pmeta.mbr = *this->getMBB();
+	return pmeta;
+}
 
 size_t MyPolygon::get_data_size(){
 	size_t ds = 0;
@@ -293,7 +300,7 @@ size_t MyPolygon::get_data_size(){
 size_t MyPolygon::encode_to(char *target){
 	size_t encoded = 0;
 	((size_t *)target)[0] = holes.size();
-	encoded += 2*sizeof(size_t); //saved two size_t
+	encoded += sizeof(size_t); //saved one size_t for number of holes
 	encoded += boundary->encode(target+encoded);
 	for(VertexSequence *vs:holes){
 		encoded += vs->encode(target+encoded);

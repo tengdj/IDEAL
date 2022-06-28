@@ -74,9 +74,6 @@ debug_distance:	test/debug_distance.o $(GEOMETRY_OBJS)
 	
 debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-triangulate:	test/triangulate.o $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 test:	test/within_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 	
@@ -99,9 +96,6 @@ load:	datagen/loadwkt.o $(GEOMETRY_OBJS)
 loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
-loadmbr:	datagen/load_mbr.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
 geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
@@ -109,9 +103,6 @@ geninsert_point:	datagen/geninsert_point.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # for data partitioning
-
-partition:	test/partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 

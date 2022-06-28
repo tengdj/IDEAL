@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 
 	query_context ctx;
-	vector<MyPolygon *> source = MyPolygon::load_binary_file(source_path.c_str(),ctx);
+	vector<MyPolygon *> source = load_binary_file(source_path.c_str(),ctx);
 	logt("loaded %ld polygons", start, source.size());
 	for(MyPolygon *p:source){
 		p->rasterization(10);

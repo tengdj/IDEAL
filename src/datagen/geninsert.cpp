@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 
 	int index = 0;
 	if(!vm.count("point")){
-		vector<MyPolygon *> polygons = MyPolygon::load_binary_file(ctx.source_path.c_str(), ctx, false);
+		vector<MyPolygon *> polygons = load_binary_file(ctx.source_path.c_str(), ctx, false);
 		for(MyPolygon *poly:polygons){
 			if(!tryluck(ctx.sample_rate)){
 				if(poly){

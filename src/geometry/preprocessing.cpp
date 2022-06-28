@@ -341,7 +341,7 @@ void process_rasterization(query_context *gctx){
 		num_border_partitions += poly->get_rastor()->get_num_pixels(BORDER);
 		num_edges += poly->get_rastor()->get_num_border_edge();
 	}
-	logt("partitioned %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
+	logt("IDEALized %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
 			polygons.size(),
 			num_border_partitions/polygons.size(),
 			num_partitions/polygons.size(),

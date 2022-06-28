@@ -410,7 +410,6 @@ int main(int argc, char** argv) {
 	}
 	logt("%ld points are loaded", start, points_num);
 
-
 	// repeat several rounds for a better estimation
 	for(int sr=0;sr<sample_rounds;sr++){
 		start = get_cur_time();

@@ -35,6 +35,7 @@ data/
 *.wkt
 *.dat
 *.mbr
+*.idl
 build/
 
 .cproject
