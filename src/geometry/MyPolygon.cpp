@@ -96,6 +96,7 @@ void VertexSequence::fix(){
 }
 
 size_t VertexSequence::encode(char *dest){
+	assert(num_vertices>0);
 	size_t encoded = 0;
 	((long *)dest)[0] = num_vertices;
 	encoded += sizeof(long);
@@ -107,6 +108,7 @@ size_t VertexSequence::encode(char *dest){
 size_t VertexSequence::decode(char *source){
 	size_t decoded = 0;
 	num_vertices = ((long *)source)[0];
+	assert(num_vertices>0);
 	p = new Point[num_vertices];
 	decoded += sizeof(long);
 	memcpy((char *)p,source+decoded,num_vertices*sizeof(Point));
