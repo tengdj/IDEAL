@@ -28,6 +28,58 @@ MyPolygon *MyMultiPolygon::read_one_polygon(){
 	return ret;
 }
 
+bool MyMultiPolygon::validate_wkt(string &wkt_str){
+	const char *wkt = wkt_str.c_str();
+	size_t len = wkt_str.size();
+	size_t offset = 0;
+	// validate the symbol MULTIPOLYGON
+	while(offset<len &&wkt[offset]!='M'&&wkt[offset]!='P'){
+		offset++;
+	}
+	if(offset==len){
+		return false;
+	}
+	bool is_multiple = (wkt[offset]=='M');
+	if(is_multiple){
+		for(int i=0;i<strlen(multipolygon_char);i++){
+			if(wkt[offset++]!=multipolygon_char[i]){
+				return false;
+			}
+		}
+		skip_space(wkt,offset);
+		// read the left parenthesis
+		if(wkt[offset++]!='('){
+			return false;
+		}
+	}else {
+		for(int i=0;i<strlen(polygon_char);i++){
+			if(wkt[offset++]!=polygon_char[i]){
+				return false;
+			}
+		}
+		skip_space(wkt,offset);
+	}
+	// read the first polygon
+	if(!MyPolygon::validate_polygon(wkt,offset,len)){
+		return false;
+	}
+	if(is_multiple){
+		skip_space(wkt, offset);
+		// read the rest polygons
+		while(offset<len && wkt[offset++]==','){
+			if(!MyPolygon::validate_polygon(wkt,offset,len)){
+				return false;
+			}
+			skip_space(wkt,offset);
+		}
+		// read the right parenthesis
+		if(wkt[offset++]!=')'){
+			return false;
+		}
+	}
+	return true;
+}
+
 MyMultiPolygon::MyMultiPolygon(const char *wkt){
 	size_t offset = 0;
 	// read the symbol MULTIPOLYGON

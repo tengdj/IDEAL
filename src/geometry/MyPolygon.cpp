@@ -164,6 +164,38 @@ void VertexSequence::reverse(){
 	}
 }
 
+bool MyPolygon::validate_vertices(const char *wkt, size_t &offset, size_t &len){
+	// read until the left parenthesis
+	skip_space(wkt, offset);
+	if(wkt[offset++]!='('){
+		return false;
+	}
+
+	// count the number of vertices
+	int cur_offset = offset;
+	int num_vertices = 0;
+	while(wkt[cur_offset++]!=')'){
+		if(wkt[cur_offset]==','){
+			num_vertices++;
+		}
+	}
+	num_vertices++;
+
+	// read x/y
+	for(int i=0;i<num_vertices;i++){
+		read_double(wkt, offset);
+		read_double(wkt, offset);
+	}
+
+	// read until the right parenthesis
+	skip_space(wkt, offset);
+	if(wkt[offset++]!=')'){
+		return false;
+	}
+	return true;
+}
+
+
 VertexSequence *MyPolygon::read_vertices(const char *wkt, size_t &offset, bool clockwise){
 	// read until the left parenthesis
 	skip_space(wkt, offset);
@@ -211,6 +243,32 @@ MyPolygon *MyPolygon::clone(){
 	return polygon;
 }
 
+bool MyPolygon::validate_polygon(const char *wkt, size_t &offset, size_t &len){
+	skip_space(wkt, offset);
+	// left parentheses for the entire polygon
+	if(wkt[offset++]!='('){
+		return false;
+	}
+
+	// read the vertices of the boundary polygon
+	// the vertex must rotation in clockwise
+	if(!validate_vertices(wkt, offset, len)){
+		return false;
+	}
+	skip_space(wkt, offset);
+	//polygons as the holes of the boundary polygon
+	while(wkt[offset]==','){
+		offset++;
+		if(!validate_vertices(wkt, offset, len)){
+			return false;
+		}
+		skip_space(wkt, offset);
+	}
+	if(wkt[offset++]!=')'){
+		return false;
+	}
+	return true;
+}
 
 MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 	MyPolygon *polygon = new MyPolygon();

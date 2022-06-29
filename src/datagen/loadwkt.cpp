@@ -28,6 +28,8 @@ vector<PolygonMeta> pmeta;
 size_t global_offset = 0;
 bool fix = false;
 
+size_t valid_line_count = 0;
+
 void *process_wkt(void *args){
 
 	int id = *(int *)args;
@@ -38,37 +40,44 @@ void *process_wkt(void *args){
 	char *data_buffer = new char[buffer_size];
 
 	vector<PolygonMeta> local_pmeta;
-
+	size_t valid_local = 0;
 	//Parsing polygon input
 	while (!stop||is_working[id]) {
 		if(!is_working[id]){
 			usleep(10);
 			continue;
 		}
-		MyMultiPolygon *mp = new MyMultiPolygon(processing_line[id].c_str());
+		if(MyMultiPolygon::validate_wkt(processing_line[id])){
+			MyMultiPolygon *mp = new MyMultiPolygon(processing_line[id].c_str());
 
-		vector<MyPolygon *> polygons = mp->get_polygons();
-		for(MyPolygon *p:polygons){
-			if(fix){
-				p->boundary->fix();
-			}
-			//log("processed polygon with %d vertices", p->get_num_vertices());
-			if(p->get_data_size() + data_size>buffer_size){
-				pthread_mutex_lock(&output_lock);
-				os.write(data_buffer, data_size);
-				for(PolygonMeta &m:local_pmeta){
-					m.offset = global_offset;
-					global_offset += m.size;
+			vector<MyPolygon *> polygons = mp->get_polygons();
+			for(MyPolygon *p:polygons){
+				if(fix){
+					p->boundary->fix();
 				}
-				pmeta.insert(pmeta.end(), local_pmeta.begin(), local_pmeta.end());
-				pthread_mutex_unlock(&output_lock);
-				data_size = 0;
-				local_pmeta.clear();
+				//log("processed polygon with %d vertices", p->get_num_vertices());
+				if(p->get_data_size() + data_size>buffer_size){
+					pthread_mutex_lock(&output_lock);
+					os.write(data_buffer, data_size);
+					for(PolygonMeta &m:local_pmeta){
+						m.offset = global_offset;
+						global_offset += m.size;
+					}
+					pmeta.insert(pmeta.end(), local_pmeta.begin(), local_pmeta.end());
+					pthread_mutex_unlock(&output_lock);
+					data_size = 0;
+					local_pmeta.clear();
+				}
+				data_size += p->encode_to(data_buffer + data_size);
+				local_pmeta.push_back(p->get_meta());
 			}
-			data_size += p->encode_to(data_buffer + data_size);
-			local_pmeta.push_back(p->get_meta());
+			delete mp;
+			valid_local++;
+		}else{
+			printf("%s\n",processing_line[id].c_str());
+			log("invalid wkt");
 		}
-		delete mp;
+
 		processing_line[id].clear();
 		is_working[id] = false;
 	} // end of while
@@ -82,6 +91,9 @@ void *process_wkt(void *args){
 		pmeta.insert(pmeta.end(), local_pmeta.begin(), local_pmeta.end());
 		pthread_mutex_unlock(&output_lock);
 	}
+	pthread_mutex_lock(&output_lock);
+	valid_line_count += valid_local;
+	pthread_mutex_unlock(&output_lock);
 
 	delete []data_buffer;
 

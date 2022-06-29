@@ -222,6 +222,9 @@ public:
 
 	static VertexSequence *read_vertices(const char *wkt, size_t &offset, bool clockwise=true);
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
+	static bool validate_polygon(const char *wkt, size_t &offset, size_t &len);
+	static bool validate_vertices(const char *wkt, size_t &offset, size_t &len);
+
 	static MyPolygon *gen_box(double minx,double miny,double maxx,double maxy);
 	static MyPolygon *gen_box(box &pix);
 	static MyPolygon *read_one_polygon();
@@ -318,6 +321,8 @@ class MyMultiPolygon{
 public:
 	static MyMultiPolygon *read_multipolygon();
 	static MyPolygon *read_one_polygon();
+	static bool validate_wkt(string &wkt_str);
+
 	MyMultiPolygon(const char *wkt);
 	MyMultiPolygon(){};
 	~MyMultiPolygon();
