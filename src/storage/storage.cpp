@@ -231,20 +231,38 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool 
 	return polygons;
 }
 
-size_t load_boxes_from_file(const char *path, box **mbrs){
-	size_t fsize = file_size(path);
-	if(fsize<=0){
+size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta){
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t num_polygons_infile = 0;
+	infile.seekg(0, infile.end);
+	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
+	infile.read((char *)&num_polygons_infile, sizeof(size_t));
+	assert(num_polygons_infile>0 && "the file should contain at least one polygon");
+
+	*pmeta = new PolygonMeta[num_polygons_infile];
+	infile.seekg(-sizeof(size_t)-sizeof(PolygonMeta)*num_polygons_infile, infile.end);
+	infile.read((char *)*pmeta, sizeof(PolygonMeta)*num_polygons_infile);
+
+	return num_polygons_infile;
+}
+
+size_t load_mbr_from_file(const char *path, box **mbrs){
+
+	if(!file_exist(path)){
 		log("%s is empty",path);
 		exit(0);
 	}
-	size_t target_num = fsize/sizeof(box);
-	log_refresh("start loading %ld MBRs",target_num);
-	*mbrs = new box[target_num];
 
-	ifstream infile(path, ios::in | ios::binary);
-	infile.read((char *)*mbrs, fsize);
-	infile.close();
-	return target_num;
+	PolygonMeta *pmeta;
+	size_t num_polygons = load_polygonmeta_from_file(path, &pmeta);
+	*mbrs = new box[num_polygons];
+	for(size_t i=0;i<num_polygons;i++){
+		(*mbrs)[i] = pmeta[i].mbr;
+	}
+	delete []pmeta;
+	return num_polygons;
 }
 
 size_t load_points_from_path(const char *path, Point **points){

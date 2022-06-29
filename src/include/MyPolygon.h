@@ -375,7 +375,8 @@ void preprocess(query_context *gctx);
 void print_boxes(vector<box *> boxes);
 
 size_t load_points_from_path(const char *path, Point **points);
-size_t load_boxes_from_file(const char *path, box **);
+size_t load_mbr_from_file(const char *path, box **);
+size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta);
 
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
 vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);

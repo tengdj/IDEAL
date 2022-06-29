@@ -140,9 +140,8 @@ int main(int argc, char** argv) {
 	}
 	struct timeval start_time = get_cur_time();
 	std::string input_line;
-	int num_objects = 0;
-	int next_report = 0;
-	long processed_size = 0;
+	size_t num_objects = 0;
+	size_t processed_size = 0;
 
 	while(getline(is, input_line)) {
 		while(true){
@@ -158,7 +157,7 @@ int main(int argc, char** argv) {
 			if(assigned){
 				break;
 			}
-			usleep(10);
+			//usleep(1);
 		}
 		processed_size += input_line.size()+1;
 		if(++num_objects%100==0){
@@ -176,7 +175,7 @@ int main(int argc, char** argv) {
 	size_t bs = pmeta.size();
 	os.write((char *)&bs, sizeof(size_t));
 
-	logt("processed %d", start_time, num_objects);
+	logt("processed %d lines %ld valid %ld invalid", start_time, num_objects, valid_line_count, num_objects - valid_line_count);
 	os.close();
 	pmeta.clear();
 }

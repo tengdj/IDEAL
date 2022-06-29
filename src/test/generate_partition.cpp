@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
 		}
 		delete []points;
 	}else{
-		box_num = load_boxes_from_file(data_path.c_str(), &boxes);
+		box_num = load_mbr_from_file(data_path.c_str(), &boxes);
 		for(size_t i=0;i<box_num;i++){
 			all_objects.push_back(boxes+i);
 		}

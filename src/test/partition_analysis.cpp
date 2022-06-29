@@ -393,7 +393,7 @@ int main(int argc, char** argv) {
 
 	struct timeval start = get_cur_time();
 	box *boxes;
-	size_t box_num = load_boxes_from_file(mbr_path.c_str(), &boxes);
+	size_t box_num = load_mbr_from_file(mbr_path.c_str(), &boxes);
 	vector<box *> box_vec;
 	box_vec.resize(box_num);
 	for(size_t i=0;i<box_num;i++){

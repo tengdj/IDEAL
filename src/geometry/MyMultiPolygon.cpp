@@ -66,7 +66,8 @@ bool MyMultiPolygon::validate_wkt(string &wkt_str){
 	if(is_multiple){
 		skip_space(wkt, offset);
 		// read the rest polygons
-		while(offset<len && wkt[offset++]==','){
+		while(offset<len && wkt[offset]==','){
+			offset++;
 			if(!MyPolygon::validate_polygon(wkt,offset,len)){
 				return false;
 			}
