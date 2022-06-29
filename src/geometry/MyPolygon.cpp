@@ -23,6 +23,7 @@ VertexSequence::VertexSequence(int nv){
 	num_vertices = nv;
 }
 VertexSequence::VertexSequence(int nv, Point *pp){
+	assert(nv>0);
 	num_vertices = nv;
 	p = new Point[nv];
 	memcpy((char *)p,(char *)pp,num_vertices*sizeof(Point));
@@ -314,7 +315,6 @@ MyPolygon::~MyPolygon(){
 	if(mbr){
 		delete mbr;
 	}
-
 	if(mer){
 		delete mer;
 	}

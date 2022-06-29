@@ -44,7 +44,7 @@ void *process_wkt(void *args){
 	//Parsing polygon input
 	while (!stop||is_working[id]) {
 		if(!is_working[id]){
-			usleep(10);
+			usleep(1);
 			continue;
 		}
 		if(MyMultiPolygon::validate_wkt(processing_line[id])){
