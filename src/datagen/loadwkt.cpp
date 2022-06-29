@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iostream>
 #include <boost/program_options.hpp>
+#include <queue>
 
 namespace po = boost::program_options;
 
@@ -17,10 +18,11 @@ using namespace std;
 const size_t buffer_size = 100*1024*1024;
 
 // some shared parameters
-string processing_line[MAX_THREAD_NUM];
-bool is_working[MAX_THREAD_NUM];
-pthread_mutex_t output_lock;
+queue<string> input_lines;
 bool stop = false;
+
+pthread_mutex_t output_lock;
+pthread_mutex_t fetch_lock;
 
 ofstream os;
 vector<PolygonMeta> pmeta;
@@ -42,13 +44,22 @@ void *process_wkt(void *args){
 	vector<PolygonMeta> local_pmeta;
 	size_t valid_local = 0;
 	//Parsing polygon input
-	while (!stop||is_working[id]) {
-		if(!is_working[id]){
+	while (!stop) {
+		string line;
+		bool isempty = true;
+		pthread_mutex_lock(&fetch_lock);
+		if(!input_lines.empty()){
+			line = input_lines.front();
+			input_lines.pop();
+			isempty = false;
+		}
+		pthread_mutex_unlock(&fetch_lock);
+		if(isempty){
 			usleep(1);
 			continue;
 		}
-		if(MyMultiPolygon::validate_wkt(processing_line[id])){
-			MyMultiPolygon *mp = new MyMultiPolygon(processing_line[id].c_str());
+		if(MyMultiPolygon::validate_wkt(line)){
+			MyMultiPolygon *mp = new MyMultiPolygon(line.c_str());
 
 			vector<MyPolygon *> polygons = mp->get_polygons();
 			for(MyPolygon *p:polygons){
@@ -74,12 +85,10 @@ void *process_wkt(void *args){
 			delete mp;
 			valid_local++;
 		}else{
-			printf("%s\n",processing_line[id].c_str());
+			printf("%s\n",line.c_str());
 			log("invalid wkt");
 		}
-
-		processing_line[id].clear();
-		is_working[id] = false;
+		line.clear();
 	} // end of while
 	if(data_size>0){
 		pthread_mutex_lock(&output_lock);
@@ -132,8 +141,6 @@ int main(int argc, char** argv) {
 	int id[num_threads];
 	for(int i=0;i<num_threads;i++){
 		id[i] = i;
-		processing_line[i].clear();
-		is_working[i] = false;
 	}
 	for(int i=0;i<num_threads;i++){
 		pthread_create(&threads[i], NULL, process_wkt, (void *)&id[i]);
@@ -144,21 +151,9 @@ int main(int argc, char** argv) {
 	size_t processed_size = 0;
 
 	while(getline(is, input_line)) {
-		while(true){
-			bool assigned = false;
-			for(int i=0;i<num_threads;i++){
-				if(is_working[i]==false){
-					processing_line[i] = input_line;
-					is_working[i] = true;
-					assigned = true;
-					break;
-				}
-			}
-			if(assigned){
-				break;
-			}
-			//usleep(1);
-		}
+		pthread_mutex_lock(&fetch_lock);
+		input_lines.push(input_line);
+		pthread_mutex_unlock(&fetch_lock);
 		processed_size += input_line.size()+1;
 		if(++num_objects%100==0){
 			log_refresh("processed %d objects", num_objects);
