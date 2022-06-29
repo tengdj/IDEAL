@@ -9,6 +9,15 @@
 #include "MyPolygon.h"
 
 
+void dump_to_file(const char *path, char *data, size_t size){
+	ofstream os;
+	os.open(path, ios::out | ios::binary |ios::trunc);
+	assert(os.is_open());
+
+	os.write(data, size);
+	os.close();
+}
+
 /*
  * in this file we define the .idl file format
  *
@@ -35,7 +44,7 @@ void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path){
 		pmeta[i].size = p->get_data_size();
 		pmeta[i].mbr = *p->getMBB();
 		pmeta[i].num_vertices = p->get_num_vertices();
-		data_size += p->encode_to(data_buffer+data_size);
+		data_size += p->encode(data_buffer+data_size);
 		curoffset += p->get_data_size();
 	}
 
@@ -103,7 +112,7 @@ MyPolygon *load_binary_file_single(const char *path, query_context ctx, int idx)
 	infile.read(buffer, pmeta.size);
 
 	MyPolygon *poly = new MyPolygon();
-	poly->decode_from(buffer);
+	poly->decode(buffer);
 
 	delete []buffer;
 	infile.close();
@@ -141,8 +150,12 @@ void *load_unit(void *arg){
 			size_t off = 0;
 			while(off<poly_size){
 				MyPolygon *poly = new MyPolygon();
-				off += poly->decode_from(buffer+off);
-				polygons.push_back(poly);
+				off += poly->decode(buffer+off);
+				if(tryluck(ctx->sample_rate)){
+					polygons.push_back(poly);
+				}else{
+					delete poly;
+				}
 			}
 			ctx->report_progress(1);
 		}
@@ -155,7 +168,7 @@ void *load_unit(void *arg){
 	return NULL;
 }
 
-vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample){
+vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -176,7 +189,7 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool 
 	infile.seekg(-sizeof(size_t)-sizeof(PolygonMeta)*num_polygons_infile, infile.end);
 	infile.read((char *)pmeta, sizeof(PolygonMeta)*num_polygons_infile);
 	// the last one is the end
-	size_t num_polygons = min(num_polygons_infile, ctx.max_num_polygons);
+	size_t num_polygons = min(num_polygons_infile, global_ctx.max_num_polygons);
 
 	logt("loading %ld polygon from %s",start, num_polygons,path);
 	// organizing tasks
@@ -184,7 +197,6 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool 
 	size_t cur = 0;
 	while(cur<num_polygons){
 		size_t end = cur+1;
-
 		while(end<num_polygons &&
 				pmeta[end].offset - pmeta[cur].offset + pmeta[end].size < buffer_size){
 			end++;
@@ -203,7 +215,6 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool 
 
 	logt("packed %ld tasks", start, tasks.size());
 
-	query_context global_ctx;
 	global_ctx.target_num = tasks.size();
 	pthread_t threads[global_ctx.num_threads];
 	query_context myctx[global_ctx.num_threads];

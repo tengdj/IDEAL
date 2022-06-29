@@ -110,90 +110,9 @@ box *MyPolygon::getMER(query_context *ctx){
 	return mer;
 }
 
-// To find orientation of ordered triplet (p, q, r).
-// The function returns following values
-// 0 --> p, q and r are colinear
-// 1 --> Clockwise
-// 2 --> Counterclockwise
-inline int orientation(Point p, Point q, Point r){
-	double val = (q.y - p.y) * (r.x - q.x) -
-			  (q.x - p.x) * (r.y - q.y);
-	if (val == 0.0) return 0;  // colinear
-	return (val > 0)? 1: 2; // clock or counterclock wise
-}
-
-inline int orientation(double px, double py, double qx, double qy, double rx, double ry){
-	double val = (qy - py) * (rx - qx) -
-			  (qx - px) * (ry - qy);
-	if (val == 0.0) return 0;  // colinear
-	return (val > 0)? 1: 2; // clock or counterclock wise
-}
-
-// Prints convex hull of a set of n points.
-VertexSequence *convexHull(VertexSequence *boundary)
-{
-
-	int n = boundary->num_vertices-1;
-    // There must be at least 3 points
-    if (n < 3){
-    	return NULL;
-    }
-    // Initialize Result
-    vector<int> hull;
-
-    // Find the leftmost point
-    int p = 0;
-    for (int i = 1; i < n; i++)
-        if (boundary->p[i].x < boundary->p[p].x)
-        	p = i;
-
-    // Start from leftmost point, keep moving counterclockwise
-    // until reach the start point again.  This loop runs O(h)
-    // times where h is number of points in result or output.
-    int idx = 0;
-    bool complete = false;
-    do
-    {
-        // Add current point to result
-        hull.push_back(p);
-
-        // Search for a point 'q' such that orientation(p, x,
-        // q) is counterclockwise for all points 'x'. The idea
-        // is to keep track of last visited most counterclock-
-        // wise point in q. If any point 'i' is more counterclock-
-        // wise than q, then update q.
-        int q = (p+1)%n;
-        for (int i = 0; i < n; i++)
-        {
-           // If i is more counterclockwise than current q, then
-           // update q
-           if (q!=i && orientation(boundary->p[p].x, boundary->p[p].y,boundary->p[i].x, boundary->p[i].y,boundary->p[q].x,boundary->p[q].y) == 2)
-               q = i;
-        }
-
-        // Now q is the most counterclockwise with respect to p
-        // Set p as q for next iteration, so that q is added to
-        // result 'hull'
-        p = q;
-		for (int ih=0;ih<hull.size()&&!complete;ih++){
-			complete = (p==hull[ih]);
-		}
-    } while (!complete);  // While we don't come to first point
-
-   VertexSequence *ch = new VertexSequence(hull.size()+1);
-   for (int i=0;i<hull.size();i++){
-	   ch->p[i].x = boundary->p[hull[i]].x;
-	   ch->p[i].y = boundary->p[hull[i]].y;
-   }
-   ch->p[hull.size()].x = ch->p[0].x;
-   ch->p[hull.size()].y = ch->p[0].y;
-   hull.clear();
-   return ch;
-}
-
 VertexSequence *MyPolygon::get_convex_hull(){
 	if(convex_hull==NULL){
-		convex_hull = convexHull(boundary);
+		convex_hull = boundary->convexHull();
 	}
 	return convex_hull;
 }

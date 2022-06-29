@@ -46,6 +46,7 @@ public:
 	~VertexSequence();
 	vector<Vertex *> pack_to_polyline();
 	VertexSequence *clone();
+	VertexSequence *convexHull();
 	box *getMBR();
 	void print(bool complete_ring=false);
 	bool clockwise();
@@ -290,8 +291,8 @@ public:
 
 	PolygonMeta get_meta();
 	size_t get_data_size();
-	size_t encode_to(char *target);
-	size_t decode_from(char *source);
+	size_t encode(char *target);
+	size_t decode(char *source);
 	static char *encode_raster(vector<vector<Pixel>> raster);
 	static vector<vector<Pixel>> decode_raster(char *);
 
@@ -378,7 +379,8 @@ size_t load_points_from_path(const char *path, Point **points);
 size_t load_mbr_from_file(const char *path, box **);
 size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta);
 
+void dump_to_file(const char *path, char *data, size_t size);
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
-vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx, bool sample=false);
+vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx);
 
 #endif /* SRC_MYPOLYGON_H_ */

@@ -112,6 +112,9 @@ genschema:	test/generate_partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 
 printpoints:	test/print_points.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+sample:	test/sample.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 		
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

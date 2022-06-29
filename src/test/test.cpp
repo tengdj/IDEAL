@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 
 	//global_ctx.max_num_polygons = wrong+1;
-	vector<MyPolygon *> source_polygons = load_binary_file("/home/teng/git/IDEAL/src/hild_valid.dat",global_ctx, false);
+	vector<MyPolygon *> source_polygons = load_binary_file("/home/teng/git/IDEAL/src/hild_valid.dat",global_ctx);
 	global_ctx.source_polygons = source_polygons;
 	logt("loading data",start);
 

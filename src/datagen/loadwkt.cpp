@@ -79,7 +79,7 @@ void *process_wkt(void *args){
 					data_size = 0;
 					local_pmeta.clear();
 				}
-				data_size += p->encode_to(data_buffer + data_size);
+				data_size += p->encode(data_buffer + data_size);
 				local_pmeta.push_back(p->get_meta());
 			}
 			delete mp;
