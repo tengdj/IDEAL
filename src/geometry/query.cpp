@@ -134,7 +134,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 	}else if(qtree && this->get_num_pixels()>5){
 		start = get_cur_time();
 		QTNode *tnode = get_qtree()->retrieve(p);
-		assert(tnode->isleaf&&tnode->mbr.contain(p));
+		assert(tnode->isleaf()&&tnode->mbr.contain(p));
 		if(profile){
 			ctx->pixel_evaluated.counter++;
 			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);

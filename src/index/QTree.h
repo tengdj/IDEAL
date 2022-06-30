@@ -21,7 +21,7 @@ enum QT_Direction{
 class QTNode{
 
 	void internal_leaf_count(int &count){
-		if(isleaf){
+		if(isleaf()){
 			count++;
 		}else{
 			for(int i=0;i<4;i++){
@@ -31,7 +31,7 @@ class QTNode{
 	}
 
 	void internal_border_leaf_count(int &count){
-		if(isleaf){
+		if(isleaf()){
 			if(!interior&&!exterior){
 				count++;
 			}
@@ -48,7 +48,7 @@ class QTNode{
 		}
 		double tmpd = mbr.distance(p, geography);
 
-		if(!isleaf){
+		if(!isleaf()){
 			for(QTNode *c:children){
 				c->internal_distance(p, dist, geography);
 			}
@@ -60,8 +60,7 @@ class QTNode{
 
 public:
 
-	bool isleaf = true;
-	QTNode *children[4];
+	QTNode *children[4] = {NULL, NULL, NULL, NULL};
 	box mbr;
 	bool interior = false;
 	bool exterior = false;
@@ -77,8 +76,12 @@ public:
 	QTNode(box m){
 		mbr = m;
 	}
+
+	bool isleaf(){
+		return children[0]==NULL;
+	}
+
 	void split(){
-		isleaf = false;
 		double mid_x = (mbr.high[0]+mbr.low[0])/2;
 		double mid_y = (mbr.high[1]+mbr.low[1])/2;
 		children[bottom_left] = new QTNode(mbr.low[0],mbr.low[1],mid_x,mid_y);
@@ -90,12 +93,10 @@ public:
 		}
 	}
 	void split_to(const size_t target_level){
-
 		if(level==target_level){
 			return;
 		}
-
-		if(isleaf){
+		if(isleaf()){
 			split();
 		}
 		for(int i=0;i<4;i++){
@@ -103,14 +104,14 @@ public:
 		}
 	}
 	void push(std::stack<QTNode *> &ws){
-		if(!isleaf){
+		if(!isleaf()){
 			for(int i=0;i<4;i++){
 				ws.push(children[i]);
 			}
 		}
 	}
 	void get_leafs(vector<box *> &leafs){
-		if(isleaf){
+		if(isleaf()){
 			leafs.push_back(new box(mbr));
 		}else{
 			for(int i=0;i<4;i++){
@@ -119,9 +120,10 @@ public:
 		}
 	}
 	~QTNode(){
-		if(!isleaf){
+		if(!isleaf()){
 			for(int i=0;i<4;i++){
 				delete children[i];
+				children[i] = NULL;
 			}
 		}
 	}
@@ -155,7 +157,7 @@ public:
 //  for queries
 	QTNode *retrieve(Point &p){
 		assert(mbr.contain(p));
-		if(this->isleaf){
+		if(this->isleaf()){
 			return this;
 		}else{
 			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
@@ -168,7 +170,7 @@ public:
 			return;
 		}
 		objnum++;
-		if(!isleaf){
+		if(!isleaf()){
 			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
 			assert(offset<4 && offset>=0);
 			children[offset]->touch(p);
@@ -176,11 +178,12 @@ public:
 	}
 
 	void converge(const size_t threshold){
-		if(!isleaf){
-			if(objnum<threshold){
-				isleaf = true;
+		if(!isleaf()){
+			if(objnum<=threshold){
+				// merge the children
 				for(int i=0;i<4;i++){
 					delete children[i];
+					children[i] = NULL;
 				}
 			}else{
 				for(int i=0;i<4;i++){
@@ -198,11 +201,11 @@ public:
 	}
 
 	bool within(Point &p, double within_dist){
-		if(isleaf&&(interior||exterior)){
+		if(isleaf()&&(interior||exterior)){
 			return false;
 		}
 		if(mbr.distance(p, true)<=within_dist){
-			if(isleaf){
+			if(isleaf()){
 				// boundary pixel
 				return true;
 			}else{
@@ -219,7 +222,7 @@ public:
 
 	void retrieve_within(Point &p, vector<QTNode *> &candidates, double within_dist){
 		if(this->mbr.distance(p, true)<=within_dist){
-			if(isleaf){
+			if(isleaf()){
 				if(!interior&&!exterior){
 					candidates.push_back(this);
 				}
@@ -233,11 +236,11 @@ public:
 
 	// the segment is within the distance
 	bool within(Point &start, Point &end, double within_dist){
-		if(isleaf&&(interior||exterior)){
+		if(isleaf()&&(interior||exterior)){
 			return false;
 		}
 		if(mbr.distance(start, end, true)<=within_dist){
-			if(isleaf){
+			if(isleaf()){
 				// boundary pixel
 				return true;
 			}else{
@@ -254,7 +257,7 @@ public:
 
 	void retrieve_within(Point &start, Point &end, vector<QTNode *> &candidates, double within_dist){
 		if(this->mbr.distance(start, end, true)<=within_dist){
-			if(isleaf){
+			if(isleaf()){
 				if(!interior&&!exterior){
 					candidates.push_back(this);
 				}
@@ -278,7 +281,7 @@ public:
 		if(!mbr.intersect(p)){
 			return true;
 		}
-		if(isleaf){
+		if(isleaf()){
 			//border box
 			if(!interior&&!exterior){
 				return false;

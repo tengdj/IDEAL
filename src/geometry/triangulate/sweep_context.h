@@ -35,7 +35,7 @@
 #include <list>
 #include <vector>
 #include <cstddef>
-#include "../include/Point.h"
+#include "Point.h"
 
 namespace p2t {
 

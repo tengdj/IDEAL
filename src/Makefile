@@ -6,13 +6,13 @@ SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 INCLUDES	= -I /usr/include -I include
-LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos
-CPPFLAGS	= -g -std=c++14 -Wno-cpp
+LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos -fopenmp
+CPPFLAGS	= -g -std=c++14 -Wno-cpp 
 
 CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
-GEOMETRY_SRCS += $(wildcard triangulate/*.cpp)
+GEOMETRY_SRCS += $(wildcard geometry/triangulate/*.cpp)
 GEOMETRY_SRCS += $(wildcard storage/*.cpp)
 GEOMETRY_OBJS := $(patsubst %.cpp,%.o,$(GEOMETRY_SRCS))
 
@@ -115,6 +115,9 @@ printpoints:	test/print_points.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	
 sample:	test/sample.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-		
+
+subset:	test/subset.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)

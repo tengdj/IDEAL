@@ -80,7 +80,9 @@ void *process_wkt(void *args){
 					local_pmeta.clear();
 				}
 				data_size += p->encode(data_buffer + data_size);
-				local_pmeta.push_back(p->get_meta());
+				PolygonMeta pm = p->get_meta();
+				local_pmeta.push_back(pm);
+				//log("%f",p->getMBB()->area());
 			}
 			delete mp;
 			valid_local++;

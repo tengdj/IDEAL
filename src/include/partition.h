@@ -38,8 +38,9 @@ public:
 	Tile(box b);
 	~Tile();
 	void merge(Tile *n);
-	bool insert(box *b, void *obj);
+	bool insert(box *b, void *obj, bool update_box = true);
 	bool insert_target(void *obj);
+	void update_box();
 	void build_index();
 	size_t lookup_count(box *p);
 	size_t lookup_count(Point *p);

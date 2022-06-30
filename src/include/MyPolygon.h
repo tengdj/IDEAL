@@ -16,7 +16,7 @@
 #include <map>
 #include <bits/stdc++.h>
 
-#include "../triangulate/poly2tri.h"
+#include "../geometry/triangulate/poly2tri.h"
 #include "util.h"
 #include "../index/RTree.h"
 #include "../index/QTree.h"

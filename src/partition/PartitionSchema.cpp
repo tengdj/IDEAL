@@ -282,8 +282,8 @@ vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality){
 
 	qtree->split_to(max_level);
 	for(box *g:geometries){
-		Point p(g->low[0], g->low[1]);
-		qtree->touch(p);
+		Point ct = g->centroid();
+		qtree->touch(ct);
 	}
 	qtree->converge(3*cardinality);
 
@@ -412,9 +412,11 @@ void Tile::merge(Tile *n){
 	unlock();
 }
 
-bool Tile::insert(box *b, void *obj){
+bool Tile::insert(box *b, void *obj, bool update_box){
 	lock();
-	update(*b);
+	if(update_box){
+		update(*b);
+	}
 	objects.push_back(pair<box *, void *>(b, obj));
 	unlock();
 	return true;
@@ -427,12 +429,33 @@ bool Tile::insert_target(void *tgt){
 	return true;
 }
 
-void Tile::build_index(){
+// enlarge the size of the box for data-oriented partition
+void Tile::update_box(){
 	lock();
 	for(pair<box *, void *> &p:objects){
+		update(*p.first);
+	}
+	unlock();
+}
+
+void Tile::build_index(){
+	lock();
+	log("%ld", objects.size());
+	for(pair<box *, void *> &p:objects){
+//		p.first->print();
+//		this->print();
 		tree.Insert(p.first->low, p.first->high, p.second);
 	}
 	unlock();
+//
+//	if(objects.size()==1817){
+//		this->print();
+//		vector<box *> boxes;
+//		for(pair<box *, void *> &p:objects){
+//			boxes.push_back(p.first);
+//		}
+//		print_boxes(boxes);
+//	}
 }
 
 bool Tile::lookup_tree(void *obj, void *arg){

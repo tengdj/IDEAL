@@ -66,7 +66,7 @@ vector<O *> sample(vector<O *> &original, double sample_rate){
 
 // functions for partitioning
 bool assign(Tile *tile, void *arg){
-	tile->insert((box *)arg, (box *)arg);
+	tile->insert((box *)arg, (box *)arg, false);
 	return true;
 }
 
@@ -76,7 +76,7 @@ void *partition_unit(void *arg){
 	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
 	while(ctx->next_batch(100)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
-			global_tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]), ctx->data_oriented);
+			global_tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]));
 			ctx->report_progress();
 		}
 	}
@@ -179,7 +179,6 @@ void indexing(vector<Tile *> &tiles){
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = tiles.size();
 	global_ctx.report_prefix = "indexing";
-
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
@@ -365,7 +364,6 @@ int main(int argc, char** argv) {
 		("max_cardinality", po::value<size_t>(&max_cardinality), "the max number of objects per partition contain (2000 by default)")
 
 		("sample_rounds", po::value<int>(&sample_rounds), "the number of rounds the tests should be repeated")
-
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);

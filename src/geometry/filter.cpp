@@ -6,7 +6,7 @@
  */
 
 #include "../include/MyPolygon.h"
-#include "../triangulate/poly2tri.h"
+#include "triangulate/poly2tri.h"
 using namespace p2t;
 
 

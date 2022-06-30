@@ -5,7 +5,6 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
 #include <string.h>
 #include <assert.h>
 #include <iostream>
@@ -15,6 +14,8 @@
 #include <vector>
 #include <thread>
 #include <unordered_map>
+
+#include "MyPolygon.h"
 
 using namespace std;
 
@@ -46,25 +47,12 @@ vector<Vertex *> VertexSequence::pack_to_polyline(){
 
 box *VertexSequence::getMBR(){
 	box *mbr = new box();
-	double min_x = 180, min_y = 180, max_x = -180, max_y = -180;
 	for(int i=0;i<num_vertices;i++){
-		if(min_x>p[i].x){
-			min_x = p[i].x;
-		}
-		if(max_x<p[i].x){
-			max_x = p[i].x;
-		}
-		if(min_y>p[i].y){
-			min_y = p[i].y;
-		}
-		if(max_y<p[i].y){
-			max_y = p[i].y;
-		}
+		mbr->low[0] = min(mbr->low[0], p[i].x);
+		mbr->high[0] = max(mbr->high[0], p[i].x);
+		mbr->low[1] = min(mbr->low[1], p[i].y);
+		mbr->high[1] = max(mbr->high[1], p[i].y);
 	}
-	mbr->low[0] = min_x;
-	mbr->low[1] = min_y;
-	mbr->high[0] = max_x;
-	mbr->high[1] = max_y;
 	return mbr;
 }
 
@@ -99,7 +87,7 @@ size_t VertexSequence::encode(char *dest){
 	assert(num_vertices>0);
 	size_t encoded = 0;
 	((long *)dest)[0] = num_vertices;
-	encoded += sizeof(long);
+	encoded += sizeof(size_t);
 	memcpy(dest+encoded,(char *)p,num_vertices*sizeof(Point));
 	encoded += num_vertices*sizeof(Point);
 	return encoded;
@@ -107,17 +95,17 @@ size_t VertexSequence::encode(char *dest){
 
 size_t VertexSequence::decode(char *source){
 	size_t decoded = 0;
-	num_vertices = ((long *)source)[0];
+	num_vertices = ((size_t *)source)[0];
 	assert(num_vertices>0);
 	p = new Point[num_vertices];
-	decoded += sizeof(long);
+	decoded += sizeof(size_t);
 	memcpy((char *)p,source+decoded,num_vertices*sizeof(Point));
 	decoded += num_vertices*sizeof(Point);
 	return decoded;
 }
 
 size_t VertexSequence::get_data_size(){
-	return sizeof(long)+num_vertices*sizeof(Point);
+	return sizeof(size_t)+num_vertices*sizeof(Point);
 }
 
 
@@ -418,20 +406,20 @@ MyPolygon::~MyPolygon(){
 
 PolygonMeta MyPolygon::get_meta(){
 	PolygonMeta pmeta;
-	pmeta.size = this->get_data_size();
-	pmeta.num_vertices = this->get_num_vertices();
-	pmeta.mbr = *this->getMBB();
+	pmeta.size = get_data_size();
+	pmeta.num_vertices = get_num_vertices();
+	pmeta.mbr = *getMBB();
 	return pmeta;
 }
 
 size_t MyPolygon::get_data_size(){
 	size_t ds = 0;
-	ds += sizeof(long);
+	ds += sizeof(size_t);
 	// for boundary
 	ds += boundary->get_data_size();
-//	for(VertexSequence *vs:internal_polygons){
-//		ds += vs->get_data_size();
-//	}
+	for(VertexSequence *vs:holes){
+		ds += vs->get_data_size();
+	}
 	return ds;
 }
 
@@ -613,7 +601,7 @@ void MyPolygon::print_partition(query_context qt){
 		while(!ws.empty()){
 			QTNode *cur = ws.top();
 			ws.pop();
-			if(cur->isleaf){
+			if(cur->isleaf()){
 				MyPolygon *m = gen_box(cur->mbr);
 				if(cur->interior){
 					inpolys->insert_polygon(m);

@@ -181,6 +181,10 @@ box box::expand(double expand_buffer, bool geography){
 	return b;
 }
 
+Point box::centroid(){
+	return Point((high[0]+low[0])/2, (high[1]+low[1])/2);
+}
+
 void box::to_array(Point *p){
 	p[0].x = low[0];
 	p[0].y = low[1];

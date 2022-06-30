@@ -60,6 +60,8 @@ public:
 
 	box expand(double expand_buffer, bool geography);
 
+	Point centroid();
+
 	void print_vertices();
 	void print();
 	void to_array(Point *p);

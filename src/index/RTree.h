@@ -86,7 +86,7 @@ public:
   /// \param a_resultCallback Callback function to return result.  Callback should return 'true' to continue searching
   /// \param a_context User context to pass as parameter to a_resultCallback
   /// \return Returns the number of entries found
-  size_t Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context, bool cover_only = false);
+  size_t Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   
   void construct_pixel(RTNode *n);
 
@@ -346,7 +346,7 @@ protected:
   bool Overlap(Rect* a_rectA, Rect* a_rectB);
   bool Cover(Rect* a_rectA, Rect* a_rectB);
   void ReInsert(Node* a_node, ListNode** a_listNode);
-  bool Search(Node* a_node, Rect* a_rect, size_t& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context, bool cover_only = false);
+  bool Search(Node* a_node, Rect* a_rect, size_t& a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context);
   void construct_pixel(Node* a_node, RTNode *);
   void RemoveAllRec(Node* a_node);
   void Reset();
@@ -542,7 +542,7 @@ void RTREE_QUAL::construct_pixel(Node* a_node, RTNode *p)
 }
 
 RTREE_TEMPLATE
-size_t RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context, bool cover_only)
+size_t RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NUMDIMS], bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
 {
 #ifdef _DEBUG
   for(int index=0; index<NUMDIMS; ++index)
@@ -561,7 +561,7 @@ size_t RTREE_QUAL::Search(const ELEMTYPE a_min[NUMDIMS], const ELEMTYPE a_max[NU
 
   // NOTE: May want to return search result another way, perhaps returning the number of found elements here.
 
-  size_t foundCount = Search(m_root, &rect, foundCount, a_resultCallback, a_context, cover_only);
+  size_t foundCount = Search(m_root, &rect, foundCount, a_resultCallback, a_context);
 
   return foundCount;
 }
@@ -1534,7 +1534,7 @@ bool RTREE_QUAL::Overlap(Rect* a_rectA, Rect* a_rectB)
 
   for(int index=0; index < NUMDIMS; ++index)
   {
-    if (a_rectA->m_min[index] >= a_rectB->m_max[index] ||
+    if (a_rectA->m_min[index] > a_rectB->m_max[index] ||
         a_rectB->m_min[index] > a_rectA->m_max[index])
     {
       return false;
@@ -1579,7 +1579,7 @@ void RTREE_QUAL::ReInsert(Node* a_node, ListNode** a_listNode)
 
 // Search in an index tree or subtree for all data retangles that overlap the argument rectangle.
 RTREE_TEMPLATE
-bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, size_t & a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context, bool cover_only)
+bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, size_t & a_foundCount, bool  a_resultCallback(DATATYPE a_data, void* a_context), void* a_context)
 {
   ASSERT(a_node);
   //log("%ld %ld", a_node->m_count, a_node->m_level);
@@ -1590,8 +1590,7 @@ bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, size_t & a_foundCount, bool 
   {
     for(int index=0; index < a_node->m_count; ++index)
     {
-      if((!cover_only&&Overlap(a_rect, &a_node->m_branch[index].m_rect))||
-    	  (cover_only&&Cover(a_rect, &a_node->m_branch[index].m_rect)))
+      if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
       {
         if(!Search(a_node->m_branch[index].m_child, a_rect, a_foundCount, a_resultCallback, a_context))
         {
@@ -1604,8 +1603,7 @@ bool RTREE_QUAL::Search(Node* a_node, Rect* a_rect, size_t & a_foundCount, bool 
   {
     for(int index=0; index < a_node->m_count; ++index)
     {
-      if((!cover_only&&Overlap(a_rect, &a_node->m_branch[index].m_rect))||
-          (cover_only&&Cover(a_rect, &a_node->m_branch[index].m_rect)))
+      if(Overlap(a_rect, &a_node->m_branch[index].m_rect))
       {
         DATATYPE& id = a_node->m_branch[index].m_data;
         

@@ -37,7 +37,7 @@
 #include <cstddef>
 #include <assert.h>
 #include <cmath>
-#include "../include/Point.h"
+#include "Point.h"
 namespace p2t {
 
 // Triangle-based data structures are know to have better performance than quad-edge structures

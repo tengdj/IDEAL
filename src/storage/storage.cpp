@@ -32,18 +32,15 @@ void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path){
 	char *data_buffer = new char[buffer_size];
 	size_t data_size = 0;
 	size_t curoffset = 0;
-	vector<PolygonMeta> pmeta;
-	pmeta.reserve(polygons.size());
+	PolygonMeta *pmeta = new PolygonMeta[polygons.size()];
 	for(int i=0;i<polygons.size();i++){
 		MyPolygon *p = polygons[i];
 		if(p->get_data_size()+data_size>buffer_size){
 			os.write(data_buffer, data_size);
 			data_size = 0;
 		}
+		pmeta[i] = p->get_meta();
 		pmeta[i].offset = curoffset;
-		pmeta[i].size = p->get_data_size();
-		pmeta[i].mbr = *p->getMBB();
-		pmeta[i].num_vertices = p->get_num_vertices();
 		data_size += p->encode(data_buffer+data_size);
 		curoffset += p->get_data_size();
 	}
@@ -53,12 +50,14 @@ void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path){
 		os.write(data_buffer, data_size);
 	}
 	// dump the meta data of the polygons
-	os.write((char *)&pmeta[0], sizeof(PolygonMeta)*pmeta.size());
+	os.write((char *)pmeta, sizeof(PolygonMeta)*polygons.size());
+//	for(PolygonMeta &pm:pmeta){
+//		printf("%ld\t%d\t%.12f\n", pm.offset, pm.size, pm.mbr.area());
+//	}
 	size_t bs = polygons.size();
 	os.write((char *)&bs, sizeof(size_t));
 	os.close();
-
-	pmeta.clear();
+	delete []pmeta;
 }
 
 MyPolygon *read_polygon_binary_file(ifstream &infile){
