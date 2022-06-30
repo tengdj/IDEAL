@@ -44,8 +44,9 @@ int main(int argc, char** argv) {
 	for(size_t i=0;i<polygons.size()/4;i++){
 		delete polygons[i];
 	}
+	polygons.erase(polygons.begin(), polygons.begin()+polygons.size()/4);
 	logt("selected %ld polygons",start, polygons.size());
-//	polygons.erase(polygons.begin(), polygons.begin()+polygons.size()/4);
+
 	dump_polygons_to_file(polygons, out_path.c_str());
 	logt("stored %ld polygons to %s",start, polygons.size(), out_path.c_str());
 #pragma omp parallel for
