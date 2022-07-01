@@ -112,7 +112,8 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &global_
 }
 
 bool assign_target(Tile *tile, void *arg){
-	tile->insert_target(arg);
+	query_context *ctx = (query_context *)arg;
+	tile->insert_target(ctx->target);
 	return true;
 }
 
@@ -123,7 +124,10 @@ void *partition_target_unit(void *arg){
 	while(ctx->next_batch(10)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			Point *p = (*objects)[i];
-			global_tree->Search((double *)p, (double *)p, assign_target, (void *)p);
+			vector<Tile *> belongs;
+			query_context tmpctx;
+			tmpctx.target = (void *)p;
+			global_tree->Search((double *)p, (double *)p, assign_target, (void *)&tmpctx);
 			ctx->report_progress();
 		}
 	}
@@ -134,6 +138,7 @@ void *partition_target_unit(void *arg){
 void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double> &global_tree){
 
 	query_context global_ctx;
+	//global_ctx.num_threads = 1;
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = targets.size();
@@ -198,7 +203,6 @@ void indexing(vector<Tile *> &tiles){
 
 
 // functions for the query phase
-
 void *query_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<Tile *> *tiles = (vector<Tile *> *)(ctx->target);
@@ -321,8 +325,24 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	stat.boundary_rate = 1.0*total_num/objects.size();
 	stat.target_boundary_rate = 1.0*total_target_num/targets.size();
 	stat.found_rate = 1.0*found/targets.size();
+	log("%ld",found);
 	stat.tile_num = tiles.size();
 
+//	for(Tile *t:tiles){
+//		if(t->objects.size()>=card){
+//			vector<box *> boxes;
+//			for(pair<box *, void *> &p:t->objects){
+//				boxes.push_back(p.first);
+//			}
+//			print_boxes(boxes);
+//			MyMultiPoint mp;
+//			for(void *v:t->targets){
+//				mp.insert((Point *)v);
+//			}
+//			mp.print();
+//			exit(0);
+//		}
+//	}
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
 		delete tile;
@@ -353,7 +373,7 @@ int main(int argc, char** argv) {
 		("help,h", "produce help message")
 		("fixed_cardinality,f", "fixed cardinality for all sampling rates")
 		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
-		("target,t", po::value<string>(&point_path)->required(), "path to the target points")
+		("target,t", po::value<string>(&point_path), "path to the target points")
 
 		("partition_type,p", po::value<string>(&ptype_str), "partition type should be one of: str|slc|bos|qt|bsp|hc|fg, if not set, all the algorithms will be tested")
 
@@ -400,7 +420,16 @@ int main(int argc, char** argv) {
 	logt("%ld objects are loaded",start, box_num);
 
 	Point *points;
-	size_t points_num = load_points_from_path(point_path.c_str(), &points);
+	size_t points_num = 0;
+	if(vm.count("target")){
+		points_num = load_points_from_path(point_path.c_str(), &points);
+	}else{
+		points = new Point[box_num];
+		points_num = box_num;
+		for(size_t i=0;i<box_num;i++){
+			points[i] = boxes[i].centroid();
+		}
+	}
 	vector<Point *> point_vec;
 	point_vec.resize(points_num);
 	for(size_t i=0;i<points_num;i++){

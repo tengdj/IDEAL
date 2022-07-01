@@ -136,9 +136,9 @@ void query_context::merge_global(){
 }
 
 bool query_context::next_batch(int batch_num){
-	lock();
+	global_ctx->lock();
 	if(global_ctx->index==global_ctx->target_num){
-		unlock();
+		global_ctx->unlock();
 		return false;
 	}
 	index = global_ctx->index;
@@ -148,7 +148,7 @@ bool query_context::next_batch(int batch_num){
 		index_end = index+batch_num;
 	}
 	global_ctx->index = index_end;
-	unlock();
+	global_ctx->unlock();
 	return true;
 }
 

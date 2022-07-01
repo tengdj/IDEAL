@@ -28,6 +28,7 @@ class Tile: public box{
 	void lock();
 	void unlock();
 	static bool lookup_tree(void *, void *arg);
+	static bool lookup_count_tree(void *obj, void *arg);
 public:
 	size_t id;
 	vector<pair<box *, void *>> objects;

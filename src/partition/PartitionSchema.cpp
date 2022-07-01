@@ -440,7 +440,6 @@ void Tile::update_box(){
 
 void Tile::build_index(){
 	lock();
-	log("%ld", objects.size());
 	for(pair<box *, void *> &p:objects){
 //		p.first->print();
 //		this->print();
@@ -481,8 +480,15 @@ size_t Tile::lookup_count(box *b){
 	return count;
 }
 
+bool Tile::lookup_count_tree(void *obj, void *arg){
+	size_t *count = (size_t *)arg;
+	(*count)++;
+	return true;
+}
+
 size_t Tile::lookup_count(Point *p){
-	size_t count = tree.Search((double *)p, (double *)p , NULL, NULL);
+	size_t count = 0;
+	tree.Search((double *)p, (double *)p , lookup_count_tree, (void *)&count);
 	return count;
 }
 
