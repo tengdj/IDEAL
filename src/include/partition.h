@@ -18,8 +18,7 @@ typedef enum {
 	FG,
 	QT,
 	BSP,
-	PARTITION_TYPE_NUM,
-	BOS
+	PARTITION_TYPE_NUM
 }PARTITION_TYPE;
 extern const char *partition_type_names[7];
 
@@ -28,7 +27,6 @@ class Tile: public box{
 	void lock();
 	void unlock();
 	static bool lookup_tree(void *, void *arg);
-	static bool lookup_count_tree(void *obj, void *arg);
 public:
 	size_t id;
 	vector<pair<box *, void *>> objects;
@@ -41,17 +39,13 @@ public:
 	void merge(Tile *n);
 	bool insert(box *b, void *obj, bool update_box = true);
 	bool insert_target(void *obj);
-	void update_box();
 	void build_index();
-	size_t lookup_count(box *p);
-	size_t lookup_count(Point *p);
 	vector<void *> lookup(box *b);
 	vector<void *> lookup(Point *p);
 };
 
 vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality);
 vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality);
-vector<Tile *> genschema_bos(vector<box *> &geometries, size_t cardinality);
 vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality);
 
 vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality);

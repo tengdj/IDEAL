@@ -140,26 +140,6 @@ public:
 	int num_edges_covered();
 };
 
-inline bool comparePixelX(box *p1, box *p2)
-{
-    return (p1->low[0] < p2->low[0]);
-}
-
-inline bool comparePixelY(box *p1, box *p2)
-{
-    return (p1->low[1] < p2->low[1]);
-}
-
-inline bool compareHighPixelX(box *p1, box *p2)
-{
-    return (p1->low[0] < p2->low[0]);
-}
-
-inline bool compareHighPixelY(box *p1, box *p2)
-{
-    return (p1->low[1] < p2->low[1]);
-}
-
 /*
  * the node for RTree
  *

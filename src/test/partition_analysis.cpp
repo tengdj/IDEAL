@@ -211,7 +211,9 @@ void *query_unit(void *arg){
 			Tile *tile = (*tiles)[i];
 			for(void *t:tile->targets){
 				Point *p = (Point *)t;
-				ctx->found += tile->lookup_count(p);
+				vector<void *> result = tile->lookup(p);
+				ctx->found += result.size();
+				result.clear();
 			}
 			ctx->report_progress();
 		}
@@ -328,21 +330,6 @@ partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t 
 	log("%ld",found);
 	stat.tile_num = tiles.size();
 
-//	for(Tile *t:tiles){
-//		if(t->objects.size()>=card){
-//			vector<box *> boxes;
-//			for(pair<box *, void *> &p:t->objects){
-//				boxes.push_back(p.first);
-//			}
-//			print_boxes(boxes);
-//			MyMultiPoint mp;
-//			for(void *v:t->targets){
-//				mp.insert((Point *)v);
-//			}
-//			mp.print();
-//			exit(0);
-//		}
-//	}
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
 		delete tile;
