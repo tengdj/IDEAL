@@ -163,7 +163,8 @@ class MyPolygon{
 
 
 public:
-	size_t offset = 0;
+	// the Hilbert curve value of the MBR centroid
+	size_t hc_id = 0;
 	VertexSequence *boundary = NULL;
 	VertexSequence *convex_hull = NULL;
 	vector<VertexSequence *> holes;

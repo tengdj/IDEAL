@@ -11,7 +11,7 @@
 #include <queue>
 #include <fstream>
 #include "../include/MyPolygon.h"
-
+#include <omp.h>
 // some shared parameters
 RTree<MyPolygon *, double, 2, double> tree;
 
@@ -56,6 +56,25 @@ void *query(void *args){
 }
 
 int main(int argc, char** argv) {
+
+
+//	printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+//	omp_set_num_threads(5);
+//	printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+//
+//#pragma omp parallel num_threads(12)
+//	{
+//		// omp_set_num_threads(6);	// Do not call it in parallel region
+//		printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+//	}
+//
+//	printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+//
+//	omp_set_num_threads(6);
+//	printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+
+
+	return 0;
 	query_context global_ctx;
 	//global_ctx.max_num_polygons = 200;
 	global_ctx.use_grid = true;

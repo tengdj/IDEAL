@@ -66,17 +66,25 @@ public:
 	bool exterior = false;
 	int level = 0;
 	size_t objnum = 0;
+	pthread_mutex_t lk;
 
 	QTNode(double low_x, double low_y, double high_x, double high_y){
+		pthread_mutex_init(&lk, NULL);
 		mbr.low[0] = low_x;
 		mbr.low[1] = low_y;
 		mbr.high[0] = high_x;
 		mbr.high[1] = high_y;
 	}
 	QTNode(box m){
+		pthread_mutex_init(&lk, NULL);
 		mbr = m;
 	}
-
+	void lock(){
+		pthread_mutex_lock(&lk);
+	}
+	void unlock(){
+		pthread_mutex_unlock(&lk);
+	}
 	bool isleaf(){
 		return children[0]==NULL;
 	}
@@ -152,8 +160,6 @@ public:
 		return count;
 	}
 
-
-
 //  for queries
 	QTNode *retrieve(Point &p){
 		assert(mbr.contain(p));
@@ -169,14 +175,27 @@ public:
 		if(!mbr.contain(p)){
 			return;
 		}
-		objnum++;
 		if(!isleaf()){
 			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
 			assert(offset<4 && offset>=0);
 			children[offset]->touch(p);
+		}else{
+			lock();
+			objnum++;
+			unlock();
 		}
 	}
 
+	size_t merge_objnum(){
+		if(!isleaf()){
+			//not merged
+			assert(objnum==0);
+			for(int i=0;i<4;i++){
+				objnum += children[i]->merge_objnum();
+			}
+		}
+		return objnum;
+	}
 	void converge(const size_t threshold){
 		if(!isleaf()){
 			if(objnum<=threshold){

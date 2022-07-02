@@ -26,33 +26,33 @@ class Tile: public box{
 	pthread_mutex_t lk;
 	void lock();
 	void unlock();
-	static bool lookup_tree(void *, void *arg);
+	static bool lookup_tree(MyPolygon *, void *arg);
 public:
 	size_t id;
-	vector<pair<box *, void *>> objects;
-	vector<void *> targets;
-	RTree<void *, double, 2, double> tree;
+	vector<MyPolygon *> objects;
+	vector<Point *> targets;
+	RTree<MyPolygon *, double, 2, double> tree;
 
 	Tile();
 	Tile(box b);
 	~Tile();
 	void merge(Tile *n);
-	bool insert(box *b, void *obj, bool update_box = true);
-	bool insert_target(void *obj);
+	bool insert(MyPolygon *obj, bool update_box = true);
+	bool insert_target(Point *obj);
 	void build_index();
-	vector<void *> lookup(box *b);
-	vector<void *> lookup(Point *p);
+	vector<MyPolygon *> lookup(box *b);
+	vector<MyPolygon *> lookup(Point *p);
 };
 
-vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality);
-vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality);
-vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality);
 
-vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality);
-vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality);
-vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality);
+vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality);
 
-vector<Tile *> genschema(vector<box *> &geometries, size_t cardinality, PARTITION_TYPE type);
+vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type);
 void print_tiles(vector<Tile *> &tiles);
 double skewstdevratio(vector<Tile *> &tiles, int tag = 0);
 PARTITION_TYPE parse_partition_type(const char *type);

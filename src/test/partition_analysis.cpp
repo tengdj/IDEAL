@@ -66,17 +66,17 @@ vector<O *> sample(vector<O *> &original, double sample_rate){
 
 // functions for partitioning
 bool assign(Tile *tile, void *arg){
-	tile->insert((box *)arg, (box *)arg, false);
+	tile->insert((MyPolygon *)arg, false);
 	return true;
 }
 
 void *partition_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
-	vector<box *> *objects = (vector<box *> *)(ctx->target);
+	vector<MyPolygon *> *objects = (vector<MyPolygon *> *)(ctx->target);
 	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
 	while(ctx->next_batch(100)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
-			global_tree->Search((*objects)[i]->low, (*objects)[i]->high, assign, (void *)((*objects)[i]));
+			global_tree->Search((*objects)[i]->getMBB()->low, (*objects)[i]->getMBB()->high, assign, (void *)((*objects)[i]));
 			ctx->report_progress();
 		}
 	}
@@ -84,7 +84,7 @@ void *partition_unit(void *arg){
 	return NULL;
 }
 
-void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &global_tree, PARTITION_TYPE ptype){
+void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &global_tree, PARTITION_TYPE ptype){
 
 	query_context global_ctx;
 	pthread_t threads[global_ctx.num_threads];
@@ -113,7 +113,7 @@ void partition(vector<box *> &objects, RTree<Tile *, double, 2, double> &global_
 
 bool assign_target(Tile *tile, void *arg){
 	query_context *ctx = (query_context *)arg;
-	tile->insert_target(ctx->target);
+	tile->insert_target((Point *)ctx->target);
 	return true;
 }
 
@@ -209,10 +209,11 @@ void *query_unit(void *arg){
 	while(ctx->next_batch(1)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			Tile *tile = (*tiles)[i];
-			for(void *t:tile->targets){
-				Point *p = (Point *)t;
-				vector<void *> result = tile->lookup(p);
-				ctx->found += result.size();
+			for(Point *p:tile->targets){
+				vector<MyPolygon *> result = tile->lookup(p);
+				for(MyPolygon *poly:result){
+					ctx->found += poly->contain(*p);
+				}
 				result.clear();
 			}
 			ctx->report_progress();
@@ -280,7 +281,7 @@ typedef struct{
 	}
 }partition_stat;
 
-partition_stat process(vector<box *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype){
+partition_stat process(vector<MyPolygon *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype){
 
 	partition_stat stat;
 	struct timeval start = get_cur_time();
@@ -397,24 +398,19 @@ int main(int argc, char** argv) {
 	}
 
 	struct timeval start = get_cur_time();
-	box *boxes;
-	size_t box_num = load_mbr_from_file(mbr_path.c_str(), &boxes);
-	vector<box *> box_vec;
-	box_vec.resize(box_num);
-	for(size_t i=0;i<box_num;i++){
-		box_vec[i] = boxes+i;
-	}
-	logt("%ld objects are loaded",start, box_num);
+	query_context ctx;
+	vector<MyPolygon *> polygons = load_binary_file(mbr_path.c_str(), ctx);
+	logt("%ld objects are loaded",start, polygons.size());
 
 	Point *points;
 	size_t points_num = 0;
 	if(vm.count("target")){
 		points_num = load_points_from_path(point_path.c_str(), &points);
 	}else{
-		points = new Point[box_num];
-		points_num = box_num;
-		for(size_t i=0;i<box_num;i++){
-			points[i] = boxes[i].centroid();
+		points = new Point[polygons.size()];
+		points_num = polygons.size();
+		for(size_t i=0;i<polygons.size();i++){
+			points[i] = polygons[i]->getMBB()->centroid();
 		}
 	}
 	vector<Point *> point_vec;
@@ -427,20 +423,20 @@ int main(int argc, char** argv) {
 	// repeat several rounds for a better estimation
 	for(int sr=0;sr<sample_rounds;sr++){
 		start = get_cur_time();
-		vector<box *> objects = sample<box>(box_vec, max_sample_rate);
+		vector<MyPolygon *> objects = sample<MyPolygon>(polygons, max_sample_rate);
 		logt("%ld objects are sampled with sample rate %f",start, objects.size(),max_sample_rate);
 		vector<Point *> targets = sample<Point>(point_vec, max_sample_rate);
 		logt("%ld targets are sampled with sample rate %f",start, targets.size(),max_sample_rate);
 		// iterate the sampling rate
 		for(double sample_rate = max_sample_rate;sample_rate*1.5>=min_sample_rate; sample_rate /= 2){
-			vector<box *> cur_sampled_objects;
+			vector<MyPolygon *> cur_sampled_objects;
 			vector<Point *> cur_sampled_points;
 
 			if(sample_rate == max_sample_rate){
 				cur_sampled_objects.insert(cur_sampled_objects.begin(), objects.begin(), objects.end());
 				cur_sampled_points.insert(cur_sampled_points.begin(), targets.begin(), targets.end());
 			}else{
-				cur_sampled_objects = sample<box>(objects, sample_rate/max_sample_rate);
+				cur_sampled_objects = sample<MyPolygon>(objects, sample_rate/max_sample_rate);
 				cur_sampled_points = sample<Point>(targets, sample_rate/max_sample_rate);
 			}
 			logt("resampled %ld MBRs and %ld points with sample rate %f", start,cur_sampled_objects.size(),cur_sampled_points.size(), sample_rate);
@@ -484,7 +480,10 @@ int main(int argc, char** argv) {
 		targets.clear();
 	}
 
-	delete []boxes;
+	for(MyPolygon *p:polygons){
+		delete p;
+	}
+	polygons.clear();
 	delete []points;
 	return 0;
 }

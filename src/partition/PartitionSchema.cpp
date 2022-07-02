@@ -14,6 +14,7 @@
 #include <cmath>
 #include <vector>
 #include <boost/sort/sort.hpp>
+#include <omp.h>
 
 #include "../index/hilbert_curve.h"
 #include "MyPolygon.h"
@@ -27,43 +28,56 @@ using namespace std;
 
 const char *partition_type_names[7] = {"str", "slc", "hc", "fg", "qt", "bsp", "bos"};
 
-inline bool comparePixelLowX(box *p1, box *p2)
+inline bool compareLowX(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->low[0] < p2->low[0]);
+    return (p1->getMBB()->low[0] < p2->getMBB()->low[0]);
 }
 
-inline bool comparePixelLowY(box *p1, box *p2)
+inline bool compareLowY(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->low[1] < p2->low[1]);
+    return (p1->getMBB()->low[1] < p2->getMBB()->low[1]);
 }
 
-inline bool comparePixelHighX(box *p1, box *p2)
+inline bool compareHighX(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->low[0] < p2->low[0]);
+    return (p1->getMBB()->low[0] < p2->getMBB()->low[0]);
 }
 
-inline bool comparePixelHighY(box *p1, box *p2)
+inline bool compareHighY(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->low[1] < p2->low[1]);
+    return (p1->getMBB()->low[1] < p2->getMBB()->low[1]);
 }
 
-inline bool comparePixelCentX(box *p1, box *p2)
+inline bool compareCentX(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->centroid().x < p2->centroid().x);
+    return (p1->getMBB()->centroid().x < p2->getMBB()->centroid().x);
 }
 
-inline bool comparePixelCentY(box *p1, box *p2)
+inline bool compareCentY(MyPolygon *p1, MyPolygon *p2)
 {
-    return (p1->centroid().y < p2->centroid().y);
+    return (p1->getMBB()->centroid().y < p2->getMBB()->centroid().y);
 }
 
+inline bool compareHC(MyPolygon *p1, MyPolygon *p2)
+{
+    return (p1->hc_id < p2->hc_id);
+}
 
-inline box profileSpace(vector<box *> &geometries){
-	box space;
-	for(box *p:geometries){
-		space.update(*p);
-	}
-	return space;
+inline box profileSpace(vector<MyPolygon *> &geometries){
+
+	return box(-180,-90,180,90);
+//	box space;
+//	int nt = 2*get_num_threads()-1;
+//	box subspaces[nt];
+//#pragma omp parallel for num_threads(nt)
+//	for(size_t i=0;i<geometries.size();i++){
+//		int tid = omp_get_thread_num();
+//		subspaces[tid].update(*(geometries[i]->getMBB()));
+//	}
+//	for(int i=0;i<nt;i++){
+//		space.update(subspaces[i]);
+//	}
+//	return space;
 }
 
 class BTNode:public box{
@@ -71,8 +85,8 @@ class BTNode:public box{
 public:
 
 	bool isleaf = true;
-	BTNode *children[2];
-	vector<box *> objects;
+	BTNode *children[2] = {NULL, NULL};
+	vector<MyPolygon *> objects;
 
 	BTNode(double low_x, double low_y, double high_x, double high_y){
 		isleaf = true;
@@ -83,24 +97,27 @@ public:
 	}
 	BTNode(box m){
 		isleaf = true;
-		*this = m;
+		low[0] = m.low[0];
+		low[1] = m.low[1];
+		high[0] = m.high[0];
+		high[1] = m.high[1];
 	}
 	void split(){
 		isleaf = false;
 		// horizontally split
 		if((high[0]-low[0])>(high[1]-low[1])){
-			boost::sort::block_indirect_sort(objects.begin(),objects.end(),comparePixelLowX);
+			boost::sort::block_indirect_sort(objects.begin(),objects.end(),compareCentX);
 			size_t half_index = objects.size()/2;
-			double mid = objects[half_index]->low[0];
+			double mid = objects[half_index]->getMBB()->low[0];
 			children[0] = new BTNode(low[0], low[1], mid, high[1]);
 			children[1] = new BTNode(mid, low[1], high[0],high[1]);
 			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
 			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
 		}else{
 			// vertically split
-			boost::sort::block_indirect_sort(objects.begin(),objects.end(),comparePixelLowY);
+			boost::sort::block_indirect_sort(objects.begin(),objects.end(),compareCentY);
 			size_t half_index = objects.size()/2;
-			double mid = objects[half_index]->low[1];
+			double mid = objects[half_index]->getMBB()->low[1];
 			children[0] = new BTNode(low[0], low[1], high[0], mid);
 			children[1] = new BTNode(low[0], mid, high[0],high[1]);
 			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
@@ -108,7 +125,6 @@ public:
 		}
 	}
 	void split_to(const size_t threshold){
-
 		if(objects.size()<=threshold){
 			return;
 		}
@@ -139,7 +155,29 @@ public:
 	}
 };
 
-vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
+vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality){
+	vector<Tile *> schema;
+	struct timeval start = get_cur_time();
+	size_t num = geometries.size();
+	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
+	size_t schema_num = (num+cardinality-1)/cardinality;
+	schema.resize(schema_num);
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<schema_num;i++){
+		size_t bg = i*cardinality;
+		size_t ed = std::min((i+1)*cardinality, num);
+		assert(ed>bg);
+		Tile *b = new Tile();
+		for(size_t t = bg;t<ed; t++){
+			b->insert(geometries[t]);
+		}
+		schema[i] = b;
+	}
+	return schema;
+}
+
+
+vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality){
 	size_t part_num = geometries.size()/cardinality+1;
 
 	size_t dimx = sqrt(part_num);
@@ -147,102 +185,76 @@ vector<Tile *> genschema_str(vector<box *> &geometries, size_t cardinality){
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
-	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), comparePixelLowX);
-
+	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
+	schema.resize(dimx*dimy);
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t x=0;x<dimx;x++){
 		size_t begin = (num/dimx)*x;
-		size_t end = (x+1)*(num/dimx);
-		if(x==dimx-1){
-			end = num;
-		}
-		boost::sort::block_indirect_sort(geometries.begin()+begin, geometries.begin()+end, comparePixelLowY);
+		size_t end = std::min((x+1)*(num/dimx), num);
+		boost::sort::block_indirect_sort(geometries.begin()+begin, geometries.begin()+end, compareCentY);
 
-		size_t cur = begin;
-		while(cur<end){
+		size_t cn = end-begin;
+		size_t cd = cn/dimy;
+		for(size_t y=0;y<dimy;y++){
+			size_t bg = y*cd;
+			size_t ed = std::min((y+1)*cd, num);
+			assert(ed>bg);
 			Tile *b = new Tile();
-			for(size_t t = 0;t<cardinality && cur<end; t++, cur++){
-				box *obj = geometries[cur];
-				b->insert(obj, (void *)obj);
+			for(size_t t = bg;t<ed; t++){
+				b->insert(geometries[t]);
 			}
-			schema.push_back(b);
+			schema[y*dimx+x] = b;
 		}
 	}
 	return schema;
 }
 
-vector<Tile *> genschema_slc(vector<box *> &geometries, size_t cardinality){
 
-	vector<Tile *> schema;
-	struct timeval start = get_cur_time();
-	size_t num = geometries.size();
-	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), comparePixelLowX);
-
-	size_t cur = 0;
-	while(cur<num){
-		Tile *b = new Tile();
-		for(size_t t = 0;t<cardinality && cur<num; t++, cur++){
-			box *obj = geometries[cur];
-			b->insert(obj, (void *)obj);
-		}
-		schema.push_back(b);
-	}
-	return schema;
-}
-
-vector<Tile *> genschema_hc(vector<box *> &geometries, size_t cardinality){
+vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality){
 	assert(geometries.size()>0);
-
-	size_t part_num = geometries.size()/cardinality+1;
-
 	vector<Tile *> schema;
+	size_t num = geometries.size();
 
-	size_t hcnum = geometries.size()/10;
+	// make it precise enough
+	size_t hcnum = geometries.size()*10;
 	size_t hindex = log2(hcnum);
 	hindex += (1+(hindex%2==0));
 	hcnum = pow(2,hindex);
 	size_t dimx = pow(2,hindex/2);
 	size_t dimy = pow(2,hindex/2);
 
-	vector<Tile *> cells;
-	cells.reserve(hcnum);
-	for(size_t i=0;i<hcnum;i++){
-		cells[i] = new Tile();
-	}
-
 	box space = profileSpace(geometries);
 
 	double sx = (space.high[0]-space.low[0])/dimx;
 	double sy = (space.high[1]-space.low[1])/dimx;
 
-	for(box *p:geometries){
-		size_t x = (p->low[0]-space.low[0])/sx;
-		size_t y = (p->low[1]-space.low[1])/sy;
-		size_t hc = xy2d(hindex,x,y);
-		assert(hc<hcnum);
-		cells[hc]->insert(p, (void *)p);
+	struct timeval start = get_cur_time();
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<geometries.size();i++){
+		MyPolygon *p = geometries[i];
+		size_t x = (p->getMBB()->centroid().x-space.low[0])/sx;
+		size_t y = (p->getMBB()->centroid().y-space.low[1])/sy;
+		p->hc_id = xy2d(hindex,x,y);
+		assert(p->hc_id<hcnum);
 	}
-
-	Tile *pix = new Tile();
-	for(size_t i=0;i<hcnum;i++){
-		pix->merge(cells[i]);
-		if(pix->objects.size()>=cardinality){
-			schema.push_back(pix);
-			pix = new Tile();
+	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareHC);
+	size_t schema_num = (num+cardinality-1)/cardinality;
+	schema.resize(schema_num);
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<schema_num;i++){
+		size_t bg = i*cardinality;
+		size_t ed = std::min((i+1)*cardinality, num);
+		assert(ed>bg);
+		Tile *b = new Tile();
+		for(size_t t = bg;t<ed; t++){
+			b->insert(geometries[t]);
 		}
-		delete cells[i];
+		schema[i] = b;
 	}
-	cells.clear();
-
-	if(pix->objects.size()>0){
-		schema.push_back(pix);
-	}else{
-		delete pix;
-	}
-
 	return schema;
 }
 
-vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
+vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality){
 
 	size_t part_num = geometries.size()/cardinality+1;
 	size_t dimx = sqrt(part_num);
@@ -251,7 +263,6 @@ vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
 	box space = profileSpace(geometries);
 	double sx = (space.high[0]-space.low[0])/dimx;
 	double sy = (space.high[1]-space.low[1])/dimx;
-
 	for(size_t x=0;x<dimx;x++){
 		for(size_t y=0;y<dimy;y++){
 			Tile *t = new Tile();
@@ -262,49 +273,103 @@ vector<Tile *> genschema_fg(vector<box *> &geometries, size_t cardinality){
 			schema.push_back(t);
 		}
 	}
-
 	return schema;
 }
 
-vector<Tile *> genschema_qt(vector<box *> &geometries, size_t cardinality){
+vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality){
 
 	size_t part_num = geometries.size()/cardinality+1;
+	struct timeval start = get_cur_time();
 
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 	QTNode *qtree = new QTNode(space);
-
 	size_t pnum = std::min(part_num*100, geometries.size());
 	size_t max_level = (log2(pnum)/log2(4)+1);
-
 	qtree->split_to(max_level);
-	for(box *g:geometries){
-		Point ct = g->centroid();
+
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<geometries.size();i++){
+		Point ct = geometries[i]->getMBB()->centroid();
 		qtree->touch(ct);
 	}
+	qtree->merge_objnum();
 	qtree->converge(3*cardinality);
 
 	vector<box *> leafs;
 	qtree->get_leafs(leafs);
-
 	for(box *b:leafs){
 		schema.push_back(new Tile(*b));
 		delete b;
 	}
 	leafs.clear();
-
 	delete qtree;
 	return schema;
 }
 
-vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality){
+int active_thread = 0;
+queue<BTNode *> btnodes;
+void *bsp_unit(void *arg){
+	size_t threshold = *((size_t *)arg);
+	while(true){
+		BTNode *node = NULL;
+		bool has_active = false;
+		lock();
+		if(!btnodes.empty()){
+			node = btnodes.front();
+			btnodes.pop();
+			active_thread++;
+		}
+		has_active = (active_thread>0);
+		unlock();
+		if(node){
+			// should split
+			if(node->objects.size()>threshold){
+				node->split();
+				lock();
+				if(node->children[0]->objects.size()>threshold){
+					btnodes.push(node->children[0]);
+				}
+				if(node->children[1]->objects.size()>threshold){
+					btnodes.push(node->children[1]);
+				}
+				active_thread--;
+				unlock();
+			}
+			// this thread done with this node
+			lock();
+			active_thread--;
+			unlock();
+		}else{
+			// all done
+			if(!has_active){
+				break;
+			}
+			// some other threads are busy, waiting for new nodes
+			usleep(1);
+		}
+	}
+	return NULL;
+}
 
+vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality){
+
+	struct timeval start = get_cur_time();
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 
 	BTNode *btree = new BTNode(space);
 	btree->objects.insert(btree->objects.end(), geometries.begin(), geometries.end());
-	btree->split_to(cardinality);
+	btnodes.push(btree);
+
+	pthread_t threads[get_num_threads()];
+	for(int i=0;i<::get_num_threads();i++){
+		pthread_create(&threads[i], NULL, bsp_unit, (void *)&cardinality);
+	}
+	for(int i = 0; i < get_num_threads(); i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
 
 	vector<box *> leafs;
 	btree->get_leafs(leafs);
@@ -319,7 +384,7 @@ vector<Tile *> genschema_bsp(vector<box *> &geometries, size_t cardinality){
 	return schema;
 }
 
-vector<Tile *> genschema(vector<box *> &geometries, size_t cardinality, PARTITION_TYPE type){
+vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type){
 	switch(type){
 	case BSP:
 		return genschema_bsp(geometries, cardinality);
@@ -405,17 +470,17 @@ void Tile::merge(Tile *n){
 	unlock();
 }
 
-bool Tile::insert(box *b, void *obj, bool update_box){
+bool Tile::insert(MyPolygon *obj, bool update_box){
 	lock();
 	if(update_box){
-		update(*b);
+		update(*obj->getMBB());
 	}
-	objects.push_back(pair<box *, void *>(b, obj));
+	objects.push_back(obj);
 	unlock();
 	return true;
 }
 
-bool Tile::insert_target(void *tgt){
+bool Tile::insert_target(Point *tgt){
 	lock();
 	targets.push_back(tgt);
 	unlock();
@@ -424,26 +489,26 @@ bool Tile::insert_target(void *tgt){
 
 void Tile::build_index(){
 	lock();
-	for(pair<box *, void *> &p:objects){
-		tree.Insert(p.first->low, p.first->high, p.second);
+	for(MyPolygon *p:objects){
+		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	unlock();
 }
 
-bool Tile::lookup_tree(void *obj, void *arg){
-	vector<void *> *results = (vector<void *> *)arg;
+bool Tile::lookup_tree(MyPolygon *obj, void *arg){
+	vector<MyPolygon *> *results = (vector<MyPolygon *> *)arg;
 	results->push_back(obj);
 	return true;
 }
 
-vector<void *> Tile::lookup(box *b){
-	vector<void *> results;
+vector<MyPolygon *> Tile::lookup(box *b){
+	vector<MyPolygon *> results;
 	tree.Search(b->low, b->high, lookup_tree, (void *)&results);
 	return results;
 }
 
-vector<void *> Tile::lookup(Point *p){
-	vector<void *> results;
+vector<MyPolygon *> Tile::lookup(Point *p){
+	vector<MyPolygon *> results;
 	tree.Search((double *)p, (double *)p, lookup_tree, (void *)&results);
 	return results;
 }

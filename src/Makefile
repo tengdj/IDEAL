@@ -7,7 +7,7 @@ OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 INCLUDES	= -I /usr/include -I include
 LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos -fopenmp
-CPPFLAGS	= -g -std=c++14 -Wno-cpp 
+CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
 
 CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
 
@@ -75,7 +75,7 @@ debug_distance:	test/debug_distance.o $(GEOMETRY_OBJS)
 debug_contain:	test/debug_contain.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-test:	test/within_polygon.o $(GEOMETRY_OBJS)
+test:	test/test.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 	
 	
 # micro tests

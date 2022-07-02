@@ -86,33 +86,33 @@ int main(int argc, char** argv) {
 	}
 	po::notify(vm);
 	struct timeval start = get_cur_time();
-	vector<box *> all_objects;
-	box *boxes;
-	size_t box_num = 0;
-
+	vector<MyPolygon *> all_objects;
 	if(vm.count("is_points")){
 		Point *points = NULL;
-		box_num = load_points_from_path(data_path.c_str(), &points);
-		box *boxes = new box[box_num];
+		size_t box_num = load_points_from_path(data_path.c_str(), &points);
 		for(size_t i=0;i<box_num;i++){
-			boxes[i].low[0] = points[i].x;
-			boxes[i].low[1] = points[i].y;
-			boxes[i].high[0] = points[i].x;
-			boxes[i].high[1] = points[i].y;
+			box b;
+			b.low[0] = points[i].x;
+			b.low[1] = points[i].y;
+			b.high[0] = points[i].x;
+			b.high[1] = points[i].y;
+			all_objects.push_back(MyPolygon::gen_box(b));
 		}
 		delete []points;
 	}else{
-		box_num = load_mbr_from_file(data_path.c_str(), &boxes);
-		for(size_t i=0;i<box_num;i++){
-			all_objects.push_back(boxes+i);
-		}
+		query_context ctx;
+		all_objects = load_binary_file(data_path.c_str(), ctx);
 	}
 
-	logt("%ld objects are loaded",start, box_num);
-
+	logt("%ld objects are loaded",start, all_objects.size());
+	vector<MyPolygon *> objects;
 	// sampling data
-	vector<box *> objects = sample<box>(all_objects, sample_rate);
-	logt("%ld objects are sampled",start, objects.size());
+	if(sample_rate >= 1.0){
+		objects.insert(objects.end(), all_objects.begin(), all_objects.end());
+	}else{
+		objects = sample<MyPolygon>(all_objects, sample_rate);
+		logt("%ld objects are sampled",start, objects.size());
+	}
 
 	PARTITION_TYPE start_type = STR;
 	PARTITION_TYPE end_type = BSP;
@@ -135,7 +135,9 @@ int main(int argc, char** argv) {
 		tiles.clear();
 	}
 
+	for(MyPolygon *p:all_objects){
+		delete p;
+	}
 	objects.clear();
-	delete []boxes;
 	return 0;
 }
