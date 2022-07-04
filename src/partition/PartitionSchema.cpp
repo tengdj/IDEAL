@@ -81,12 +81,12 @@ inline box profileSpace(vector<MyPolygon *> &geometries){
 }
 
 class BTNode:public box{
+public:
 	bool isleaf(){
 		return children[0]==NULL;
 	}
 	vector<MyPolygon *> objects;
 
-public:
 	BTNode *children[2] = {NULL, NULL};
 
 	BTNode(double low_x, double low_y, double high_x, double high_y){
@@ -134,9 +134,9 @@ public:
 		}
 	}
 
-	void get_leafs(vector<box *> &leafs){
+	void get_leafs(vector<BTNode *> &leafs){
 		if(isleaf()){
-			leafs.push_back(new box(*this));
+			leafs.push_back(this);
 		}else{
 			for(int i=0;i<2;i++){
 				children[i]->get_leafs(leafs);
@@ -462,12 +462,22 @@ vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality
 		pthread_join(threads[i], &status);
 	}
 
-	vector<box *> leafs;
+	vector<BTNode *> leafs;
 	btree->get_leafs(leafs);
 
-	for(box *b:leafs){
-		schema.push_back(new Tile(*b));
-		delete b;
+	for(BTNode *b:leafs){
+		if(data_oriented){
+			if(b->objects.size()>0){
+				Tile *t = new Tile();
+				for(void *obj:b->objects){
+					t->insert((MyPolygon *)obj, true);
+				}
+				schema.push_back(t);
+			}
+		}else{
+			Tile *t = new Tile(*b);
+			schema.push_back(t);
+		}
 	}
 	leafs.clear();
 
