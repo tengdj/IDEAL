@@ -65,45 +65,43 @@ inline bool compareHC(MyPolygon *p1, MyPolygon *p2)
 
 inline box profileSpace(vector<MyPolygon *> &geometries){
 
-	return box(-180,-90,180,90);
-//	box space;
-//	int nt = 2*get_num_threads()-1;
-//	box subspaces[nt];
-//#pragma omp parallel for num_threads(nt)
-//	for(size_t i=0;i<geometries.size();i++){
-//		int tid = omp_get_thread_num();
-//		subspaces[tid].update(*(geometries[i]->getMBB()));
-//	}
-//	for(int i=0;i<nt;i++){
-//		space.update(subspaces[i]);
-//	}
-//	return space;
+	//return box(-180,-90,180,90);
+	box space;
+	int nt = 2*get_num_threads()-1;
+	box subspaces[nt];
+#pragma omp parallel for num_threads(nt)
+	for(size_t i=0;i<geometries.size();i++){
+		int tid = omp_get_thread_num();
+		subspaces[tid].update(*(geometries[i]->getMBB()));
+	}
+	for(int i=0;i<nt;i++){
+		space.update(subspaces[i]);
+	}
+	return space;
 }
 
 class BTNode:public box{
-
-public:
-
-	bool isleaf = true;
-	BTNode *children[2] = {NULL, NULL};
+	bool isleaf(){
+		return children[0]==NULL;
+	}
 	vector<MyPolygon *> objects;
 
+public:
+	BTNode *children[2] = {NULL, NULL};
+
 	BTNode(double low_x, double low_y, double high_x, double high_y){
-		isleaf = true;
 		low[0] = low_x;
 		low[1] = low_y;
 		high[0] = high_x;
 		high[1] = high_y;
 	}
 	BTNode(box m){
-		isleaf = true;
 		low[0] = m.low[0];
 		low[1] = m.low[1];
 		high[0] = m.high[0];
 		high[1] = m.high[1];
 	}
 	void split(){
-		isleaf = false;
 		// horizontally split
 		if((high[0]-low[0])>(high[1]-low[1])){
 			boost::sort::block_indirect_sort(objects.begin(),objects.end(),compareCentX);
@@ -128,7 +126,7 @@ public:
 		if(objects.size()<=threshold){
 			return;
 		}
-		if(isleaf){
+		if(isleaf()){
 			split();
 		}
 		for(int i=0;i<2;i++){
@@ -137,7 +135,7 @@ public:
 	}
 
 	void get_leafs(vector<box *> &leafs){
-		if(isleaf){
+		if(isleaf()){
 			leafs.push_back(new box(*this));
 		}else{
 			for(int i=0;i<2;i++){
@@ -146,30 +144,56 @@ public:
 		}
 	}
 	~BTNode(){
-		if(!isleaf){
+		if(!isleaf()){
 			for(int i=0;i<2;i++){
 				delete children[i];
 			}
 		}
 		objects.clear();
 	}
+	void insert(MyPolygon *p){
+		objects.push_back(p);
+	}
+	void insert(vector<MyPolygon *> &geometries){
+		objects.insert(objects.end(), geometries.begin(), geometries.end());
+	}
+	size_t num_objects(){
+		return objects.size();
+	}
+
 };
 
-vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality){
+vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
 	size_t schema_num = (num+cardinality-1)/cardinality;
 	schema.resize(schema_num);
+	box space = profileSpace(geometries);
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t i=0;i<schema_num;i++){
-		size_t bg = i*cardinality;
-		size_t ed = std::min((i+1)*cardinality, num);
+		const size_t bg = i*cardinality;
+		const size_t ed = std::min((i+1)*cardinality, num);
 		assert(ed>bg);
 		Tile *b = new Tile();
-		for(size_t t = bg;t<ed; t++){
-			b->insert(geometries[t]);
+		if(data_oriented){
+			for(size_t t = bg;t<ed; t++){
+				b->insert(geometries[t], true);
+			}
+		}else{
+			b->low[1] = space.low[1];
+			b->high[1] = space.high[1];
+			if(i==0){
+				b->low[0] = space.low[0];
+			}else{
+				b->low[0] = geometries[bg]->getMBB()->centroid().x;
+			}
+			if(i==schema_num-1){
+				b->high[0] = space.high[0];
+			}else{
+				b->high[0] = geometries[ed]->getMBB()->centroid().x;
+			}
 		}
 		schema[i] = b;
 	}
@@ -177,7 +201,7 @@ vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality
 }
 
 
-vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality){
+vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 	size_t part_num = geometries.size()/cardinality+1;
 
 	size_t dimx = sqrt(part_num);
@@ -187,30 +211,67 @@ vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality
 	size_t num = geometries.size();
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
 	schema.resize(dimx*dimy);
+	box space = profileSpace(geometries);
+	size_t sx = num/dimx+1;
+	box *slice_boxes = new box[dimx];
+	for(size_t x=0;x<dimx;x++){
+		size_t bg_x = sx*x;
+		size_t ed_x = std::min((x+1)*sx, num);
+		slice_boxes[x].low[1] = space.low[1];
+		slice_boxes[x].high[1] = space.high[1];
+		if(x==0){
+			slice_boxes[x].low[0] = space.low[0];
+		}else{
+			slice_boxes[x].low[0] = geometries[bg_x]->getMBB()->centroid().x;
+		}
+		if(x==dimx-1){
+			slice_boxes[x].high[0] = space.high[0];
+		}else{
+			slice_boxes[x].high[0] = geometries[ed_x]->getMBB()->centroid().x;
+		}
+		slice_boxes[x].print();
+	}
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t x=0;x<dimx;x++){
-		size_t begin = (num/dimx)*x;
-		size_t end = std::min((x+1)*(num/dimx), num);
-		boost::sort::block_indirect_sort(geometries.begin()+begin, geometries.begin()+end, compareCentY);
+		size_t bg_x = sx*x;
+		size_t ed_x = std::min((x+1)*sx, num);
 
-		size_t cn = end-begin;
-		size_t cd = cn/dimy;
+		//log("%d %d",bg_x,ed_x);
+		boost::sort::block_indirect_sort(geometries.begin()+bg_x, geometries.begin()+ed_x, compareCentY);
+
+		size_t sy = (ed_x-bg_x)/dimy+1;
 		for(size_t y=0;y<dimy;y++){
-			size_t bg = y*cd;
-			size_t ed = std::min((y+1)*cd, num);
+			size_t bg = y*sy+bg_x;
+			size_t ed = std::min((y+1)*sy+bg_x, ed_x);
 			assert(ed>bg);
 			Tile *b = new Tile();
-			for(size_t t = bg;t<ed; t++){
-				b->insert(geometries[t]);
+			if(data_oriented){
+				for(size_t t = bg;t<ed; t++){
+					b->insert(geometries[t], true);
+				}
+			}else{
+				b->low[0] = slice_boxes[x].low[0];
+				b->high[0] = slice_boxes[x].high[0];
+				if(y==0){
+					b->low[1] = slice_boxes[x].low[1];
+				}else{
+					b->low[1] = geometries[bg]->getMBB()->centroid().y;
+				}
+				if(y==dimy-1){
+					b->high[1] = slice_boxes[x].high[1];
+				}else{
+					b->high[1] = geometries[ed]->getMBB()->centroid().y;
+				}
 			}
 			schema[y*dimx+x] = b;
 		}
 	}
+	delete []slice_boxes;
 	return schema;
 }
 
 
-vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality){
+vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 	assert(geometries.size()>0);
 	vector<Tile *> schema;
 	size_t num = geometries.size();
@@ -254,7 +315,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality)
 	return schema;
 }
 
-vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality){
+vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 
 	size_t part_num = geometries.size()/cardinality+1;
 	size_t dimx = sqrt(part_num);
@@ -263,20 +324,44 @@ vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality)
 	box space = profileSpace(geometries);
 	double sx = (space.high[0]-space.low[0])/dimx;
 	double sy = (space.high[1]-space.low[1])/dimx;
+	schema.resize(dimx*dimy);
+	size_t cont = 0;
 	for(size_t x=0;x<dimx;x++){
 		for(size_t y=0;y<dimy;y++){
 			Tile *t = new Tile();
-			t->low[0] = space.low[0]+x*sx;
-			t->high[0] = space.low[0]+(x+1)*sx;
-			t->low[1] = space.low[1]+y*sy;
-			t->high[1] = space.low[1]+(y+1)*sy;
-			schema.push_back(t);
+			if(!data_oriented){
+				t->low[0] = space.low[0]+x*sx;
+				t->high[0] = space.low[0]+(x+1)*sx;
+				t->low[1] = space.low[1]+y*sy;
+				t->high[1] = space.low[1]+(y+1)*sy;
+			}
+			schema[y*dimx+x] = t;
 		}
 	}
+
+	if(data_oriented){
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+		for(size_t i=0;i<geometries.size();i++){
+			Point cent = geometries[i]->getMBB()->centroid();
+			size_t x = (cent.x - space.low[0])/sx;
+			size_t y = (cent.y - space.low[1])/sy;
+			schema[y*dimx+x]->insert(geometries[i], true);
+		}
+		vector<Tile *>::iterator it = schema.begin();
+		while(it!=schema.end()){
+			if((*it)->objects.size()==0){
+				it = schema.erase(it);
+			}else{
+				it++;
+			}
+		}
+	}
+
 	return schema;
 }
 
-vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality){
+
+vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 
 	size_t part_num = geometries.size()/cardinality+1;
 	struct timeval start = get_cur_time();
@@ -291,18 +376,28 @@ vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality)
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t i=0;i<geometries.size();i++){
 		Point ct = geometries[i]->getMBB()->centroid();
-		qtree->touch(ct);
+		qtree->touch(ct, data_oriented?geometries[i]:NULL);
 	}
 	qtree->merge_objnum();
 	qtree->converge(3*cardinality);
 
-	vector<box *> leafs;
-	qtree->get_leafs(leafs);
-	for(box *b:leafs){
-		schema.push_back(new Tile(*b));
-		delete b;
+	vector<QTNode *> qnodes;
+	qtree->get_leafs(qnodes);
+	for(QTNode *qn:qnodes){
+		if(data_oriented){
+			if(qn->objects.size()>0){
+				Tile *t = new Tile();
+				for(void *obj:qn->objects){
+					t->insert((MyPolygon *)obj, true);
+				}
+				schema.push_back(t);
+			}
+		}else{
+			Tile *t = new Tile(qn->mbr);
+			schema.push_back(t);
+		}
 	}
-	leafs.clear();
+	qnodes.clear();
 	delete qtree;
 	return schema;
 }
@@ -324,15 +419,11 @@ void *bsp_unit(void *arg){
 		unlock();
 		if(node){
 			// should split
-			if(node->objects.size()>threshold){
+			if(node->num_objects()>threshold){
 				node->split();
 				lock();
-				if(node->children[0]->objects.size()>threshold){
-					btnodes.push(node->children[0]);
-				}
-				if(node->children[1]->objects.size()>threshold){
-					btnodes.push(node->children[1]);
-				}
+				btnodes.push(node->children[0]);
+				btnodes.push(node->children[1]);
 				active_thread--;
 				unlock();
 			}
@@ -352,14 +443,14 @@ void *bsp_unit(void *arg){
 	return NULL;
 }
 
-vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality){
+vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented){
 
 	struct timeval start = get_cur_time();
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 
 	BTNode *btree = new BTNode(space);
-	btree->objects.insert(btree->objects.end(), geometries.begin(), geometries.end());
+	btree->insert(geometries);
 	btnodes.push(btree);
 
 	pthread_t threads[get_num_threads()];
@@ -384,20 +475,20 @@ vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality
 	return schema;
 }
 
-vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type){
+vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented){
 	switch(type){
 	case BSP:
-		return genschema_bsp(geometries, cardinality);
+		return genschema_bsp(geometries, cardinality, data_oriented);
 	case QT:
-		return genschema_qt(geometries, cardinality);
+		return genschema_qt(geometries, cardinality, data_oriented);
 	case HC:
-		return genschema_hc(geometries, cardinality);
+		return genschema_hc(geometries, cardinality, data_oriented);
 	case SLC:
-		return genschema_slc(geometries, cardinality);
+		return genschema_slc(geometries, cardinality, data_oriented);
 	case STR:
-		return genschema_str(geometries, cardinality);
+		return genschema_str(geometries, cardinality, data_oriented);
 	case FG:
-		return genschema_fg(geometries, cardinality);
+		return genschema_fg(geometries, cardinality, data_oriented);
 	default:
 		assert(false && "wrong partitioning type");
 	}
@@ -429,142 +520,4 @@ bool is_data_oriented(PARTITION_TYPE pt){
 		assert(false && "wrong partitioning type");
 		return false;
 	}
-}
-
-Tile::Tile(){
-	pthread_mutex_init(&lk, NULL);
-	id = 0;
-}
-
-Tile::Tile(box b){
-	pthread_mutex_init(&lk, NULL);
-	id = 0;
-	low[0] = b.low[0];
-	low[1] = b.low[1];
-	high[0] = b.high[0];
-	high[1] = b.high[1];
-
-}
-
-Tile::~Tile(){
-	targets.clear();
-	objects.clear();
-}
-
-void Tile::lock(){
-	pthread_mutex_lock(&lk);
-}
-
-void Tile::unlock(){
-	pthread_mutex_unlock(&lk);
-}
-
-void Tile::merge(Tile *n){
-	if(n->objects.size()==0&&n->targets.size()==0){
-		return;
-	}
-	lock();
-	update(*n);
-	objects.insert(objects.end(),n->objects.begin(), n->objects.end());
-	targets.insert(targets.end(),n->targets.begin(), n->targets.end());
-	unlock();
-}
-
-bool Tile::insert(MyPolygon *obj, bool update_box){
-	lock();
-	if(update_box){
-		update(*obj->getMBB());
-	}
-	objects.push_back(obj);
-	unlock();
-	return true;
-}
-
-bool Tile::insert_target(Point *tgt){
-	lock();
-	targets.push_back(tgt);
-	unlock();
-	return true;
-}
-
-void Tile::build_index(){
-	lock();
-	for(MyPolygon *p:objects){
-		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
-	}
-	unlock();
-}
-
-bool Tile::lookup_tree(MyPolygon *obj, void *arg){
-	vector<MyPolygon *> *results = (vector<MyPolygon *> *)arg;
-	results->push_back(obj);
-	return true;
-}
-
-vector<MyPolygon *> Tile::lookup(box *b){
-	vector<MyPolygon *> results;
-	tree.Search(b->low, b->high, lookup_tree, (void *)&results);
-	return results;
-}
-
-vector<MyPolygon *> Tile::lookup(Point *p){
-	vector<MyPolygon *> results;
-	tree.Search((double *)p, (double *)p, lookup_tree, (void *)&results);
-	return results;
-}
-
-void print_tiles(vector<Tile *> &boxes){
-	MyMultiPolygon *cboxes = new MyMultiPolygon();
-	for(Tile *p:boxes){
-		MyPolygon *m = MyPolygon::gen_box(*p);
-		cboxes->insert_polygon(m);
-	}
-	cboxes->print();
-	delete cboxes;
-}
-
-double skewstdevratio(vector<Tile *> &tiles, int tag){
-	if(tiles.size()==0){
-		return 0;
-	}
-	size_t total = 0;
-	for(Tile *t:tiles){
-		size_t obj_num = 0;
-		switch(tag){
-		case 0:
-			obj_num += t->objects.size();
-			break;
-		case 1:
-			obj_num += t->targets.size();
-			break;
-		case 2:
-			obj_num += t->objects.size();
-			obj_num += t->targets.size();
-			break;
-		default:
-			assert(false&&"can only be 0 1 2");
-		}
-		total += obj_num;
-	}
-	double avg = 1.0*total/tiles.size();
-	double st = 0.0;
-	for(Tile *t:tiles){
-		size_t obj_num = 0;
-		switch(tag){
-		case 0:
-			obj_num += t->objects.size();
-			break;
-		case 1:
-			obj_num += t->targets.size();
-			break;
-		case 2:
-			obj_num += t->objects.size();
-			obj_num += t->targets.size();
-			break;
-		default:
-			assert(false&&"can only be 0 1 2");
-		}
-		st += (obj_num-avg)*(obj_num-avg)/tiles.size();
-	}
-	return sqrt(st)/avg;
 }

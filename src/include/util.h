@@ -316,7 +316,7 @@ inline bool get_rand_sample(int rate){
 }
 
 inline bool tryluck(float possibility){
-	assert(possibility<=1&&possibility>=0);
+	assert(possibility>=0);
 	return possibility>=1.0||(rand()*1.0)/RAND_MAX<possibility;
 }
 

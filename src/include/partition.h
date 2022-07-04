@@ -44,15 +44,15 @@ public:
 	vector<MyPolygon *> lookup(Point *p);
 };
 
-vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality);
-vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality);
-vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
+vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
+vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
 
-vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality);
-vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality);
-vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality);
+vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
+vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
+vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented=false);
 
-vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type);
+vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented=false);
 void print_tiles(vector<Tile *> &tiles);
 double skewstdevratio(vector<Tile *> &tiles, int tag = 0);
 PARTITION_TYPE parse_partition_type(const char *type);

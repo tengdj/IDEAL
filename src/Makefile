@@ -95,7 +95,10 @@ load:	datagen/loadwkt.o $(GEOMETRY_OBJS)
 
 loadpoint:	datagen/loadwkt_point.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
+
+loadpais:	datagen/loadwkt_pais.o $(GEOMETRY_OBJS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+		
 geninsert:	datagen/geninsert.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
@@ -110,7 +113,10 @@ partition_analysis:	test/partition_analysis.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 genschema:	test/generate_partition.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
-printpoints:	test/print_points.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+print:	test/print.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+printspace:	test/print_spaces.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 sample:	test/sample.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)

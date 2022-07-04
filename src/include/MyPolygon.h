@@ -376,6 +376,8 @@ void preprocess(query_context *gctx);
 
 void print_boxes(vector<box *> boxes);
 
+
+// storage related functions
 size_t load_points_from_path(const char *path, Point **points);
 size_t load_mbr_from_file(const char *path, box **);
 size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta);
@@ -383,5 +385,7 @@ size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta);
 void dump_to_file(const char *path, char *data, size_t size);
 void dump_polygons_to_file(vector<MyPolygon *> polygons, const char *path);
 vector<MyPolygon *> load_binary_file(const char *path, query_context &ctx);
+size_t number_of_objects(const char *path);
+box universe_space(const char *path);
 
 #endif /* SRC_MYPOLYGON_H_ */

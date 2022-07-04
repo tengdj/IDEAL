@@ -131,6 +131,51 @@ typedef struct{
 }load_holder;
 
 
+
+
+box universe_space(const char *path){
+	if(!file_exist(path)){
+		log("%s does not exist",path);
+		exit(0);
+	}
+	struct timeval start = get_cur_time();
+
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t num_polygons_infile = 0;
+	infile.seekg(0, infile.end);
+	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
+	infile.read((char *)&num_polygons_infile, sizeof(size_t));
+	assert(num_polygons_infile>0 && "the file should contain at least one polygon");
+
+	PolygonMeta *pmeta = new PolygonMeta[num_polygons_infile];
+	infile.seekg(-sizeof(size_t)-sizeof(PolygonMeta)*num_polygons_infile, infile.end);
+	infile.read((char *)pmeta, sizeof(PolygonMeta)*num_polygons_infile);
+
+	box universe;
+	for(size_t i=0;i<num_polygons_infile;i++){
+		universe.update(pmeta[i].mbr);
+	}
+
+	return universe;
+}
+
+size_t number_of_objects(const char *path){
+	if(!file_exist(path)){
+		log("%s does not exist",path);
+		exit(0);
+	}
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t num_polygons_infile = 0;
+	infile.seekg(0, infile.end);
+	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
+	infile.read((char *)&num_polygons_infile, sizeof(size_t));
+	return num_polygons_infile;
+}
+
 const size_t buffer_size = 10*1024*1024;
 
 void *load_unit(void *arg){
@@ -166,7 +211,6 @@ void *load_unit(void *arg){
 	polygons.clear();
 	return NULL;
 }
-
 vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx){
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){

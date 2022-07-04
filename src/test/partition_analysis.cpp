@@ -249,7 +249,6 @@ size_t query(vector<Tile *> &tiles){
 }
 
 typedef struct{
-	int sample_rounds = 0;
 	double sample_rate = 1.0;
 	size_t cardinality = 1;
 	PARTITION_TYPE ptype;
@@ -269,38 +268,49 @@ typedef struct{
 	double total_time = 0.0;
 
 	void print(){
-		printf("setup,%d,%f,%s,%ld,%ld,"
+		printf("setup,%f,%s,%ld,%ld,"
 				"stddev,%f,%f,%f,"
 				"stats,%f,%f,%f,"
 				"time,%f,%f,%f,%f,%f\n",
-				sample_rounds,sample_rate,partition_type_names[ptype], cardinality, tile_num,
+				sample_rate,partition_type_names[ptype], cardinality, tile_num,
 				stddev_r, stddev_t, stddev_a,
 				boundary_rate, target_boundary_rate, found_rate,
-				 genschema_time, partition_time, index_time, query_time, total_time);
+				genschema_time, partition_time, index_time, query_time, total_time);
 		fflush(stdout);
 	}
 }partition_stat;
 
-partition_stat process(vector<MyPolygon *> &objects, vector<Point *> &targets, size_t card, PARTITION_TYPE ptype){
+partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<Point *>> &target_sets, size_t card, PARTITION_TYPE ptype){
 
+	assert(object_sets.size()==target_sets.size());
 	partition_stat stat;
+	struct timeval entire_start = get_cur_time();
 	struct timeval start = get_cur_time();
 	// generate schema
-	vector<Tile *> tiles = genschema(objects, card, ptype);
+	vector<Tile *> tiles;
+	vector<RTree<Tile *, double, 2, double> *> global_trees;
 
-	RTree<Tile *, double, 2, double> global_tree;
-	for(Tile *t:tiles){
-		global_tree.Insert(t->low, t->high, t);
+	for(vector<MyPolygon *> &objects:object_sets){
+		vector<Tile *> tl = genschema(objects, card, ptype);
+		RTree<Tile *, double, 2, double> *global_tree = new RTree<Tile *, double, 2, double>();
+		for(Tile *t:tl){
+			global_tree->Insert(t->low, t->high, t);
+		}
+		global_trees.push_back(global_tree);
+		tiles.insert(tiles.end(), tl.begin(), tl.end());
+		tl.clear();
 	}
 	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
-	struct timeval entire_start = get_cur_time();
-
 	// partitioning data
 	if(!is_data_oriented(ptype)){
-		partition(objects, global_tree, ptype);
+		for(size_t i=0;i<object_sets.size();i++){
+			partition(object_sets[i], *global_trees[i], ptype);
+		}
 	}
-	partition_target(targets, global_tree);
+	for(size_t i=0;i<target_sets.size();i++){
+		partition_target(target_sets[i], *global_trees[i]);
+	}
 	stat.partition_time = logt("partitioning data",start);
 
 	// local indexing
@@ -325,9 +335,17 @@ partition_stat process(vector<MyPolygon *> &objects, vector<Point *> &targets, s
 	stat.stddev_t = skewstdevratio(tiles, 1);
 	stat.stddev_a = skewstdevratio(tiles, 2);
 
-	stat.boundary_rate = 1.0*total_num/objects.size();
-	stat.target_boundary_rate = 1.0*total_target_num/targets.size();
-	stat.found_rate = 1.0*found/targets.size();
+	size_t objnum = 0;
+	size_t tgtnum = 0;
+	for(vector<MyPolygon *> &objects:object_sets){
+		objnum += objects.size();
+	}
+	for(vector<Point *> &targets:target_sets){
+		tgtnum += targets.size();
+	}
+	stat.boundary_rate = 1.0*total_num/objnum;
+	stat.target_boundary_rate = 1.0*total_target_num/tgtnum;
+	stat.found_rate = 1.0*found/tgtnum;
 	log("%ld",found);
 	stat.tile_num = tiles.size();
 
@@ -336,6 +354,10 @@ partition_stat process(vector<MyPolygon *> &objects, vector<Point *> &targets, s
 		delete tile;
 	}
 	tiles.clear();
+
+	for(size_t i=0;i<target_sets.size();i++){
+		delete global_trees[i];
+	}
 
 	return stat;
 }
@@ -351,8 +373,6 @@ int main(int argc, char** argv) {
 
 	double min_sample_rate = 0.01;
 	double max_sample_rate = 0.01;
-
-	int sample_rounds = 1;
 
 	string ptype_str = "str";
 
@@ -370,8 +390,6 @@ int main(int argc, char** argv) {
 
 		("cardinality,c", po::value<size_t>(&min_cardinality), "the base number of objects per partition contain (2000 by default)")
 		("max_cardinality", po::value<size_t>(&max_cardinality), "the max number of objects per partition contain (2000 by default)")
-
-		("sample_rounds", po::value<int>(&sample_rounds), "the number of rounds the tests should be repeated")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -381,10 +399,10 @@ int main(int argc, char** argv) {
 	}
 	po::notify(vm);
 
-	if(max_sample_rate<min_sample_rate){
+	if(max_sample_rate<min_sample_rate||!vm.count("max_sample_rate")){
 		max_sample_rate = min_sample_rate;
 	}
-	if(max_cardinality<min_cardinality){
+	if(max_cardinality<min_cardinality || !vm.count("max_cardinality")){
 		max_cardinality = min_cardinality;
 	}
 	fixed_cardinality = vm.count("fixed_cardinality");
@@ -397,93 +415,138 @@ int main(int argc, char** argv) {
 		end_type = ptype;
 	}
 
+	vector<vector<MyPolygon *>> object_sets;
+	vector<vector<Point *>> target_sets;
+	vector<Point *> raw_points;
+
+	vector<string> objfiles;
+	list_files(mbr_path.c_str(), objfiles);
+
 	struct timeval start = get_cur_time();
-	query_context ctx;
-	vector<MyPolygon *> polygons = load_binary_file(mbr_path.c_str(), ctx);
-	logt("%ld objects are loaded",start, polygons.size());
-
-	Point *points;
-	size_t points_num = 0;
+	size_t numobj = 0;
+	size_t numtgt = 0;
 	if(vm.count("target")){
-		points_num = load_points_from_path(point_path.c_str(), &points);
-	}else{
-		points = new Point[polygons.size()];
-		points_num = polygons.size();
-		for(size_t i=0;i<polygons.size();i++){
-			points[i] = polygons[i]->getMBB()->centroid();
-		}
-	}
-	vector<Point *> point_vec;
-	point_vec.resize(points_num);
-	for(size_t i=0;i<points_num;i++){
-		point_vec[i] = points+i;
-	}
-	logt("%ld points are loaded", start, points_num);
+		assert(objfiles.size()==1);
+		query_context ctx;
+		ctx.sample_rate = max_sample_rate;
+		vector<MyPolygon *> polygons = load_binary_file(objfiles[0].c_str(), ctx);
+		numobj += polygons.size();
+		object_sets.push_back(polygons);
 
-	// repeat several rounds for a better estimation
-	for(int sr=0;sr<sample_rounds;sr++){
-		start = get_cur_time();
-		vector<MyPolygon *> objects = sample<MyPolygon>(polygons, max_sample_rate);
-		logt("%ld objects are sampled with sample rate %f",start, objects.size(),max_sample_rate);
+		Point *points;
+		size_t points_num = load_points_from_path(point_path.c_str(), &points);
+
+		vector<Point *> point_vec;
+		point_vec.resize(points_num);
+		for(size_t i=0;i<points_num;i++){
+			point_vec[i] = points+i;
+		}
 		vector<Point *> targets = sample<Point>(point_vec, max_sample_rate);
-		logt("%ld targets are sampled with sample rate %f",start, targets.size(),max_sample_rate);
-		// iterate the sampling rate
-		for(double sample_rate = max_sample_rate;sample_rate*1.5>=min_sample_rate; sample_rate /= 2){
-			vector<MyPolygon *> cur_sampled_objects;
-			vector<Point *> cur_sampled_points;
+		raw_points.push_back(points);
+		target_sets.push_back(targets);
+		numtgt += targets.size();
+	}else{
+		for(string s:objfiles){
+			query_context ctx;
+			ctx.sample_rate = max_sample_rate;
+			vector<MyPolygon *> polygons = load_binary_file(s.c_str(), ctx);
+			numobj += polygons.size();
+			object_sets.push_back(polygons);
 
-			if(sample_rate == max_sample_rate){
-				cur_sampled_objects.insert(cur_sampled_objects.begin(), objects.begin(), objects.end());
-				cur_sampled_points.insert(cur_sampled_points.begin(), targets.begin(), targets.end());
-			}else{
-				cur_sampled_objects = sample<MyPolygon>(objects, sample_rate/max_sample_rate);
-				cur_sampled_points = sample<Point>(targets, sample_rate/max_sample_rate);
+			Point *points = new Point[polygons.size()];
+			vector<Point *> targets;
+			targets.resize(polygons.size());
+			for(size_t i=0;i<polygons.size();i++){
+				points[i] = polygons[i]->getMBB()->centroid();
+				targets[i] = &points[i];
 			}
-			logt("resampled %ld MBRs and %ld points with sample rate %f", start,cur_sampled_objects.size(),cur_sampled_points.size(), sample_rate);
-
-			for(int pt=(int)start_type;pt<=(int)end_type;pt++){
-				vector<double> num_tiles;
-				//vector<double> stddevs;
-				vector<double> boundary;
-				vector<double> found;
-				// varying the cardinality
-				for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
-					size_t real_card = std::max((int)(card*sample_rate), 1);
-					PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
-					log("processing %d\t%f\t%s\t%ld",sr,sample_rate,partition_type_names[ptype], real_card);
-					partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype);
-					stat.sample_rate = sample_rate,
-					stat.sample_rounds = sr;
-					stat.ptype = ptype;
-					stat.cardinality = real_card;
-					stat.print();
-					logt("complete",start);
-					num_tiles.push_back(stat.tile_num);
-					//stddevs.push_back(stat.stddev);
-					boundary.push_back(stat.boundary_rate);
-					found.push_back(stat.found_rate);
-				}
-				if(num_tiles.size()>1){
-					double a,b;
-					//linear_regression(num_tiles,stddevs,a,b);
-					//printf("%f,%.10f,%.10f",sample_rate,a,b);
-					linear_regression(num_tiles,boundary,a,b);
-					printf(",%.10f,%.10f",a,b);
-					linear_regression(num_tiles,found,a,b);
-					printf(",%.10f,%.10f\n",a,b);
-				}
-			}
-			cur_sampled_objects.clear();
-			cur_sampled_points.clear();
+			raw_points.push_back(points);
+			target_sets.push_back(targets);
+			numtgt += targets.size();
 		}
-		objects.clear();
-		targets.clear();
 	}
 
-	for(MyPolygon *p:polygons){
-		delete p;
+	logt("%ld objects and %ld targets are sampled from %ld files", start, numobj, numtgt, objfiles.size());
+	// iterate the sampling rate
+	for(double sample_rate = max_sample_rate;sample_rate*1.5>=min_sample_rate; sample_rate /= 2){
+		vector<vector<MyPolygon *>> cur_sampled_objects;
+		vector<vector<Point *>> cur_sampled_points;
+
+		size_t cobjnum = 0;
+		size_t ctgtnum = 0;
+		for(size_t i=0;i<objfiles.size();i++){
+			vector<MyPolygon *> cobj;
+			vector<Point *> ctgt;
+			if(sample_rate == max_sample_rate){
+				cobj.insert(cobj.begin(), object_sets[i].begin(), object_sets[i].end());
+				ctgt.insert(ctgt.begin(), target_sets[i].begin(), target_sets[i].end());
+			}else{
+				cobj = sample<MyPolygon>(object_sets[i], sample_rate/max_sample_rate);
+				ctgt = sample<Point>(target_sets[i], sample_rate/max_sample_rate);
+			}
+			cobjnum += cobj.size();
+			ctgtnum += ctgt.size();
+			cur_sampled_objects.push_back(cobj);
+			cur_sampled_points.push_back(ctgt);
+		}
+
+		logt("resampled %ld MBRs and %ld points with sample rate %f", start,cobjnum,ctgtnum, sample_rate);
+
+		for(int pt=(int)start_type;pt<=(int)end_type;pt++){
+			vector<double> num_tiles;
+			//vector<double> stddevs;
+			vector<double> boundary;
+			vector<double> found;
+			// varying the cardinality
+			for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
+				size_t real_card = std::max((int)(card*sample_rate), 1);
+				PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
+				log("processing %f\t%s\t%ld",sample_rate,partition_type_names[ptype],real_card);
+				partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype);
+				stat.sample_rate = sample_rate,
+				stat.ptype = ptype;
+				stat.cardinality = real_card;
+				stat.print();
+				logt("complete",start);
+				num_tiles.push_back(stat.tile_num);
+				//stddevs.push_back(stat.stddev);
+				boundary.push_back(stat.boundary_rate);
+				found.push_back(stat.found_rate);
+			}
+			if(num_tiles.size()>1){
+				double a,b;
+				//linear_regression(num_tiles,stddevs,a,b);
+				//printf("%f,%.10f,%.10f",sample_rate,a,b);
+				linear_regression(num_tiles,boundary,a,b);
+				printf(",%.10f,%.10f",a,b);
+				linear_regression(num_tiles,found,a,b);
+				printf(",%.10f,%.10f\n",a,b);
+			}
+		}
+		for(vector<MyPolygon *> &ps:cur_sampled_objects){
+			ps.clear();
+		}
+		for(vector<Point *> &ps:cur_sampled_points){
+			ps.clear();
+		}
+		cur_sampled_objects.clear();
+		cur_sampled_points.clear();
 	}
-	polygons.clear();
-	delete []points;
+
+	for(vector<MyPolygon *> &ps:object_sets){
+		for(MyPolygon *p:ps){
+			delete p;
+		}
+		ps.clear();
+	}
+	object_sets.clear();
+	for(vector<Point *> &ps:target_sets){
+		ps.clear();
+	}
+
+	for(Point *p:raw_points){
+		delete []p;
+	}
+	raw_points.clear();
 	return 0;
 }

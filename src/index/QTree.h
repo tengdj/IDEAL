@@ -55,7 +55,6 @@ class QTNode{
 		}else if(tmpd<dist){
 			dist = tmpd;
 		}
-
 	}
 
 public:
@@ -65,7 +64,6 @@ public:
 	bool interior = false;
 	bool exterior = false;
 	int level = 0;
-	size_t objnum = 0;
 	pthread_mutex_t lk;
 
 	QTNode(double low_x, double low_y, double high_x, double high_y){
@@ -170,48 +168,6 @@ public:
 			return children[offset]->retrieve(p);
 		}
 	}
-
-	void touch(Point &p){
-		if(!mbr.contain(p)){
-			return;
-		}
-		if(!isleaf()){
-			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
-			assert(offset<4 && offset>=0);
-			children[offset]->touch(p);
-		}else{
-			lock();
-			objnum++;
-			unlock();
-		}
-	}
-
-	size_t merge_objnum(){
-		if(!isleaf()){
-			//not merged
-			assert(objnum==0);
-			for(int i=0;i<4;i++){
-				objnum += children[i]->merge_objnum();
-			}
-		}
-		return objnum;
-	}
-	void converge(const size_t threshold){
-		if(!isleaf()){
-			if(objnum<=threshold){
-				// merge the children
-				for(int i=0;i<4;i++){
-					delete children[i];
-					children[i] = NULL;
-				}
-			}else{
-				for(int i=0;i<4;i++){
-					children[i]->converge(threshold);
-				}
-			}
-		}
-	}
-
 
 	double distance(Point &p,bool geography){
 		double dist = DBL_MAX;
@@ -331,6 +287,80 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+
+public:
+	vector<void *> objects;
+	size_t objnum = 0;
+
+	void touch(Point &p, void *obj){
+		if(!mbr.contain(p)){
+			return;
+		}
+		if(!isleaf()){
+			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
+			assert(offset<4 && offset>=0);
+			assert(children[offset]);
+			children[offset]->touch(p, obj);
+		}else{
+			lock();
+			objnum++;
+			if(obj){
+				objects.push_back(obj);
+			}
+			unlock();
+		}
+	}
+
+	size_t merge_objnum(){
+		if(!isleaf()){
+			//not merged
+			assert(objnum==0);
+			for(int i=0;i<4;i++){
+				objnum += children[i]->merge_objnum();
+			}
+		}
+		return objnum;
+	}
+
+	void get_all_objects(vector<void *> &objs){
+		if(isleaf()){
+			if(objects.size()>0){
+				objs.insert(objs.end(), objects.begin(), objects.end());
+			}
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->get_all_objects(objs);
+			}
+		}
+	}
+
+	void converge(const size_t threshold){
+		if(!isleaf()){
+			if(objnum<=threshold){
+				// merge the children
+				for(int i=0;i<4;i++){
+					children[i]->get_all_objects(objects);
+					delete children[i];
+					children[i] = NULL;
+				}
+			}else{
+				for(int i=0;i<4;i++){
+					children[i]->converge(threshold);
+				}
+			}
+		}
+	}
+
+	void get_leafs(vector<QTNode *> &leafs){
+		if(isleaf()){
+			leafs.push_back(this);
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->get_leafs(leafs);
+			}
+		}
 	}
 };
 
