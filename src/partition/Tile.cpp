@@ -67,10 +67,28 @@ bool Tile::insert_target(Point *tgt){
 
 void Tile::build_index(){
 	lock();
+	struct timeval start = get_cur_time();
 	for(MyPolygon *p:objects){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
+	indexing_latency = get_time_elapsed(start);
 	unlock();
+}
+
+size_t Tile::conduct_query(){
+	size_t found = 0;
+	lock();
+	struct timeval start = get_cur_time();
+	for(Point *p:targets){
+		vector<MyPolygon *> result = lookup(p);
+		for(MyPolygon *poly:result){
+			found += poly->contain(*p);
+		}
+		result.clear();
+	}
+	querying_latency = get_time_elapsed(start);
+	unlock();
+	return found;
 }
 
 bool Tile::lookup_tree(MyPolygon *obj, void *arg){

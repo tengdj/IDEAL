@@ -32,7 +32,8 @@ public:
 	vector<MyPolygon *> objects;
 	vector<Point *> targets;
 	RTree<MyPolygon *, double, 2, double> tree;
-
+	double indexing_latency = 0;
+	double querying_latency = 0;
 	Tile();
 	Tile(box b);
 	~Tile();
@@ -40,6 +41,7 @@ public:
 	bool insert(MyPolygon *obj, bool update_box = true);
 	bool insert_target(Point *obj);
 	void build_index();
+	size_t conduct_query();
 	vector<MyPolygon *> lookup(box *b);
 	vector<MyPolygon *> lookup(Point *p);
 };
