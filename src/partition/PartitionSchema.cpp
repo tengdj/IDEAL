@@ -167,8 +167,13 @@ vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
+	//boost::sort::sample_sort(geometries.begin(), geometries.end(), compareCentX);
+	//boost::sort::parallel_stable_sort(geometries.begin(), geometries.end(), compareCentX);
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
-	size_t schema_num = (num+cardinality-1)/cardinality;
+	//std::sort(geometries.begin(), geometries.end(), compareCentX);
+
+	logt("sorting",start);
+	size_t schema_num = std::max(num/cardinality, (size_t)1);
 	schema.resize(schema_num);
 	box space = profileSpace(geometries);
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
@@ -209,14 +214,18 @@ vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality
 	vector<Tile *> schema;
 	struct timeval start = get_cur_time();
 	size_t num = geometries.size();
-	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
+	boost::sort::parallel_stable_sort(geometries.begin(), geometries.end(), compareCentX);
 	schema.resize(dimx*dimy);
 	box space = profileSpace(geometries);
-	size_t sx = num/dimx+1;
+	size_t sx = num/dimx;
 	box *slice_boxes = new box[dimx];
 	for(size_t x=0;x<dimx;x++){
 		size_t bg_x = sx*x;
-		size_t ed_x = std::min((x+1)*sx, num);
+		size_t ed_x = (x+1)*sx;
+		if(x==dimx){
+			ed_x = num;
+		}
+		assert(ed_x>bg_x);
 		slice_boxes[x].low[1] = space.low[1];
 		slice_boxes[x].high[1] = space.high[1];
 		if(x==0){
@@ -229,7 +238,6 @@ vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality
 		}else{
 			slice_boxes[x].high[0] = geometries[ed_x]->getMBB()->centroid().x;
 		}
-		slice_boxes[x].print();
 	}
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t x=0;x<dimx;x++){
@@ -237,12 +245,15 @@ vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality
 		size_t ed_x = std::min((x+1)*sx, num);
 
 		//log("%d %d",bg_x,ed_x);
-		boost::sort::block_indirect_sort(geometries.begin()+bg_x, geometries.begin()+ed_x, compareCentY);
+		boost::sort::parallel_stable_sort(geometries.begin()+bg_x, geometries.begin()+ed_x, compareCentY);
 
-		size_t sy = (ed_x-bg_x)/dimy+1;
+		size_t sy = (ed_x-bg_x)/dimy;
 		for(size_t y=0;y<dimy;y++){
 			size_t bg = y*sy+bg_x;
-			size_t ed = std::min((y+1)*sy+bg_x, ed_x);
+			size_t ed = (y+1)*sy+bg_x;
+			if(y==dimy-1){
+				ed = ed_x;
+			}
 			assert(ed>bg);
 			Tile *b = new Tile();
 			if(data_oriented){
@@ -503,7 +514,7 @@ vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PA
 		assert(false && "wrong partitioning type");
 	}
 	// should never reach here
-	return genschema_qt(geometries, cardinality);
+	return genschema_qt(geometries, cardinality, data_oriented);
 }
 
 PARTITION_TYPE parse_partition_type(const char *type){
@@ -516,18 +527,3 @@ PARTITION_TYPE parse_partition_type(const char *type){
 	return QT;
 }
 
-bool is_data_oriented(PARTITION_TYPE pt){
-	switch(pt){
-	case STR:
-	case SLC:
-	case HC:
-		return true;
-	case FG:
-	case QT:
-	case BSP:
-		return false;
-	default:
-		assert(false && "wrong partitioning type");
-		return false;
-	}
-}

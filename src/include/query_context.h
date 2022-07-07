@@ -138,7 +138,6 @@ public:
 	Point *points = NULL;
 	void *target = NULL;
 	void *target2 = NULL;
-	bool data_oriented = false;
 	query_context *global_ctx = NULL;
 	size_t target_num = 0;
 

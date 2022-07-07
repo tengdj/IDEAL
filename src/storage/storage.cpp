@@ -204,7 +204,7 @@ void *load_unit(void *arg){
 			ctx->report_progress(1);
 		}
 	}
-	delete buffer;
+	delete []buffer;
 	ctx->global_ctx->lock();
 	global_polygons->insert(global_polygons->end(), polygons.begin(), polygons.end());
 	ctx->global_ctx->unlock();

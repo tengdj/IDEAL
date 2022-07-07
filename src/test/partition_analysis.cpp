@@ -8,7 +8,6 @@
 #include "partition.h"
 
 namespace po = boost::program_options;
-
 // functions for sampling
 template <class O>
 void *sample_unit(void *arg){
@@ -98,7 +97,6 @@ void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &g
 		ctx[i].global_ctx = &global_ctx;
 		ctx[i].target = (void *) &objects;
 		ctx[i].target2 = (void *) &global_tree;
-		ctx[i].data_oriented = is_data_oriented(ptype);
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
@@ -280,7 +278,7 @@ typedef struct{
 	}
 }partition_stat;
 
-partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<Point *>> &target_sets, size_t card, PARTITION_TYPE ptype){
+static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<Point *>> &target_sets, size_t card, PARTITION_TYPE ptype, bool data_oriented){
 
 	assert(object_sets.size()==target_sets.size());
 	partition_stat stat;
@@ -291,7 +289,7 @@ partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<P
 	vector<RTree<Tile *, double, 2, double> *> global_trees;
 
 	for(vector<MyPolygon *> &objects:object_sets){
-		vector<Tile *> tl = genschema(objects, card, ptype);
+		vector<Tile *> tl = genschema(objects, card, ptype, data_oriented);
 		RTree<Tile *, double, 2, double> *global_tree = new RTree<Tile *, double, 2, double>();
 		for(Tile *t:tl){
 			global_tree->Insert(t->low, t->high, t);
@@ -303,7 +301,7 @@ partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<P
 	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 	// partitioning data
-	if(!is_data_oriented(ptype)){
+	if(!data_oriented){
 		for(size_t i=0;i<object_sets.size();i++){
 			partition(object_sets[i], *global_trees[i], ptype);
 		}
@@ -346,7 +344,6 @@ partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<vector<P
 	stat.boundary_rate = 1.0*total_num/objnum;
 	stat.target_boundary_rate = 1.0*total_target_num/tgtnum;
 	stat.found_rate = 1.0*found/tgtnum;
-	log("%ld",found);
 	stat.tile_num = tiles.size();
 
 	// clear the partition schema for this round
@@ -370,6 +367,7 @@ int main(int argc, char** argv) {
 	size_t min_cardinality = 2000;
 	size_t max_cardinality = 2000;
 	bool fixed_cardinality = false;
+	bool data_oriented = false;
 
 	double min_sample_rate = 0.01;
 	double max_sample_rate = 0.01;
@@ -380,6 +378,7 @@ int main(int argc, char** argv) {
 	desc.add_options()
 		("help,h", "produce help message")
 		("fixed_cardinality,f", "fixed cardinality for all sampling rates")
+		("data_oriented,d", "data-oriented partitioning")
 		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
 		("target,t", po::value<string>(&point_path), "path to the target points")
 
@@ -406,6 +405,7 @@ int main(int argc, char** argv) {
 		max_cardinality = min_cardinality;
 	}
 	fixed_cardinality = vm.count("fixed_cardinality");
+	data_oriented = vm.count("data_oriented");
 
 	PARTITION_TYPE start_type = STR;
 	PARTITION_TYPE end_type = BSP;
@@ -502,7 +502,7 @@ int main(int argc, char** argv) {
 				size_t real_card = std::max((int)(card*sample_rate), 1);
 				PARTITION_TYPE ptype = (PARTITION_TYPE)pt;
 				log("processing %f\t%s\t%ld",sample_rate,partition_type_names[ptype],real_card);
-				partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype);
+				partition_stat stat = process(cur_sampled_objects, cur_sampled_points, real_card, ptype, data_oriented);
 				stat.sample_rate = sample_rate,
 				stat.ptype = ptype;
 				stat.cardinality = real_card;
