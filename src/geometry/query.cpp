@@ -6,10 +6,12 @@
  */
 
 
-#include "../include/MyPolygon.h"
 #include <float.h>
 #include <math.h>
+#include <utility>
+
 #include "../include/geometry_computation.h"
+#include "../include/MyPolygon.h"
 
 /*
  *
@@ -97,6 +99,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 		// checking the intersection edges in the target pixel
 		uint edge_count = 0;
 		for(edge_range &rg:target->edge_ranges){
+
 			for(int i = rg.vstart; i <= rg.vend; i++) {
 				int j = i+1;
 				if(((boundary->p[i].y >= p.y) != (boundary->p[j].y >= p.y))){
@@ -163,7 +166,6 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 			ctx->border_checked.counter++;
 			ctx->border_checked.execution_time += get_time_elapsed(start);
 		}
-
 
 		// qtree return
 		return contained;
@@ -463,6 +465,12 @@ double MyPolygon::distance_rtree(Point &start, Point &end, query_context *ctx){
 
 double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 
+#ifdef USE_GPU
+	if(ctx->gpu){
+		return point_to_segment_sequence_distance_gpu(p, boundary->p, boundary->num_vertices,ctx->geography);
+	}
+#endif
+
 	// distance is 0 if contained by the polygon
 	double mindist = getMBB()->max_distance(p, ctx->geography);
 
@@ -505,7 +513,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 				if(profile){
 					ctx->refine_count++;
 				}
-				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
+				return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
 			}
 			//if(profile)
 			{
@@ -588,7 +596,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 			if(profile){
 				ctx->edge_checked.counter += this->get_num_vertices();
 			}
-			return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
+			return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
 		}
 		return DBL_MAX;
 	}else{
@@ -616,7 +624,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 				if(profile){
 					ctx->edge_checked.counter += get_num_vertices();
 				}
-				return point_to_segment_distance_batch(p, boundary->p, boundary->num_vertices,ctx->geography);
+				return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
 			}
 		}else{
 			return DBL_MAX;
@@ -696,7 +704,7 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 													boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(),
 													ctx->within_distance, ctx->geography, ctx->edge_checked.counter);
 							}else{
-								dist = segment_to_segment_distance_batch(target->boundary->p+pix_er.vstart,
+								dist = segment_sequence_distance(target->boundary->p+pix_er.vstart,
 													boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(), ctx->geography);
 								if(profile){
 									ctx->edge_checked.counter += pix_er.size()*cur_er.size();
@@ -735,7 +743,7 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 				dist = segment_to_segment_within_batch(target->boundary->p+er.vstart,
 									boundary->p, er.size(), boundary->num_vertices, ctx->within_distance, ctx->geography, ctx->edge_checked.counter);
 			}else{
-				dist = segment_to_segment_distance_batch(target->boundary->p+er.vstart,
+				dist = segment_sequence_distance(target->boundary->p+er.vstart,
 									boundary->p, er.size(), boundary->num_vertices, ctx->geography);
 				if(profile){
 					ctx->edge_checked.counter += er.size()*boundary->num_vertices;
@@ -839,7 +847,7 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 			for(int i=0;i<target->boundary->num_vertices-1;i++){
 				// if any edge is within the distance after checking the QTree, get the exact distance from it to the source polygon
 				if(qtree->within(target->boundary->p[i], target->boundary->p[i+1], ctx->within_distance)){
-					double dist = segment_to_segment_distance_batch(boundary->p, target->boundary->p+i,
+					double dist = segment_sequence_distance(boundary->p, target->boundary->p+i,
 							boundary->num_vertices, 1,ctx->geography);
 					if(dist <= ctx->within_distance){
 						return dist;
@@ -849,12 +857,12 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 		}
 
 		// qtree do not support general distance calculation, do computation when failed filtering
-		return segment_to_segment_distance_batch(boundary->p, target->boundary->p,
+		return segment_sequence_distance(boundary->p, target->boundary->p,
 								boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
 	}else{
 		//checking convex for filtering
 		if(ctx->is_within_query() && convex_hull && target->convex_hull){
-			double dist = segment_to_segment_distance_batch(convex_hull->p, target->convex_hull->p,
+			double dist = segment_sequence_distance(convex_hull->p, target->convex_hull->p,
 					convex_hull->num_vertices, target->convex_hull->num_vertices, ctx->geography);
 			// the convex_hull is a conservative approximation of the original polygon,
 			// so the distance between the convex hulls of two polygon is smaller than
@@ -878,7 +886,7 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 			}
 			return mindist;
 		}else{
-			return segment_to_segment_distance_batch(boundary->p, target->boundary->p,
+			return segment_sequence_distance(boundary->p, target->boundary->p,
 									boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
 		}
 	}
@@ -886,13 +894,11 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 	// should never reach here
 }
 
-
 /*
  *
  * intersect
  *
  * */
-
 
 bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 

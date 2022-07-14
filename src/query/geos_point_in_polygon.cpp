@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 	/////////////////////////////////////////////////////////////////////////////
 	// load the source into polygon
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
 	/////////////////////////////////////////////////////////////////////////////
 	//loading sources as geometry

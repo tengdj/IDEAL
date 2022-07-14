@@ -6,10 +6,9 @@ SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 INCLUDES	= -I /usr/include -I include
-LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos -fopenmp
+LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos -lgeos_c -fopenmp
 CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
-
-CUDALIBS	= -L/usr/local/cuda/lib64 -lcuda -lcudart
+NVCCFLAGS	= -g -std=c++14 -DUSE_GPU
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_SRCS += $(wildcard geometry/triangulate/*.cpp)
@@ -23,8 +22,15 @@ PARTITION_OBJS := $(patsubst %.cpp,%.o,$(PARTITION_SRCS))
 CU_SRCS := $(wildcard cuda/*.cu)
 CU_OBJS := $(patsubst %.cu,%_cu.o,$(CU_SRCS))
 
-#%_cu.o: %.cu
-#	$(NVCC) -c $(CPPFLAGS) $(INCLUDES) -o $@ $<	
+ifdef USE_GPU
+	CPPFLAGS += -DUSE_GPU
+	LIBS  += -L/usr/local/cuda/lib64 -lcuda -lcudart
+	GEOMETRY_OBJS += ${CU_OBJS}
+endif
+
+
+%_cu.o: %.cu
+	$(NVCC) -c $(NVCCFLAGS) $(INCLUDES) -o $@ $<	
 	
 %.o:	%.cpp
 	$(CXX) -c $(CPPFLAGS) $(INCLUDES) -o $@ $<	
@@ -63,8 +69,8 @@ geos_polygon_polygon_within:	query/geos_polygon_polygon_within.o $(GEOMETRY_OBJS
 
 # utility
 
-distance:	test/distance.o $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+distance:	test/distance.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS)
 	
 lookup:	test/lookup.o $(GEOMETRY_OBJS) 
 	$(CXX) -o ../build/$@ $^ $(LIBS) 

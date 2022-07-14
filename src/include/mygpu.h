@@ -8,10 +8,14 @@
 #ifndef MYGPU_H_
 #define MYGPU_H_
 
-#include <pthread.h>
-#include <vector>
-using namespace std;
+//#ifdef USE_GPU
 
+#include <vector>
+#include <pthread.h>
+
+#include "util.h"
+
+using namespace std;
 
 class gpu_info{
 public:
@@ -28,7 +32,6 @@ public:
 	uint *offset_size = NULL;
 	size_t os_size = 0;
 
-
 	void init();
 	~gpu_info();
 	double *get_source(size_t ss);
@@ -40,6 +43,8 @@ public:
 
 vector<gpu_info *> get_gpus();
 void print_gpus();
+
+//#endif
 
 
 #endif /* MYGPU_H_ */

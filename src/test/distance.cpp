@@ -5,9 +5,10 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
 #include <fstream>
 #include <boost/program_options.hpp>
+
+#include "MyPolygon.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -20,12 +21,11 @@ int main(int argc, char **argv){
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
-		("partition,p", "use partition for distance calculating")
-		("vertices_per_raster,n", po::value<int>(&vpr), "number of vertices per raster")
+		("gpu,g", "run with gpu")
+		("vertices_per_raster,v", po::value<int>(&vpr), "number of vertices per raster")
 		("source_path,s", po::value<string>(&input_path)->required(), "path to the source polygons")
 		("longitude,x", po::value<double>(&x), "longitude of query point")
 		("latitude,y", po::value<double>(&y), "latitude of query point")
-
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -36,26 +36,33 @@ int main(int argc, char **argv){
 	po::notify(vm);
 	timeval start = get_cur_time();
 	query_context ctx;
+	ctx.gpu = vm.count("gpu");
 	vector<MyPolygon *> polys = load_binary_file(input_path.c_str(), ctx);
 	logt("read polygons", start);
-	for(MyPolygon *p:polys){
-		p->rasterization(vpr);
-	}
-	logt("partitioning polygons", start);
+
 	Point target(x,y);
-	query_context ctx;
-	ctx.use_grid = false;
+
+	start = get_cur_time();
 	for(MyPolygon *p:polys){
+		start = get_cur_time();
 		double dist = p->distance(target,&ctx);
-		//printf("%f\n",dist);
+		logt("%f\t%d",start, dist, p->get_num_vertices());
+		break;
 	}
 	logt("querying without rasterization", start);
 
-	ctx.use_grid = true;
-	for(MyPolygon *p:polys){
-		p->distance(target,&ctx);
+	if(vm.count("vertices_per_raster")){
+		for(MyPolygon *p:polys){
+			p->rasterization(vpr);
+		}
+		logt("rasterizing polygons", start);
+
+		ctx.use_grid = true;
+		for(MyPolygon *p:polys){
+			p->distance(target,&ctx);
+		}
+		logt("querying with rasterization", start);
 	}
-	logt("querying with rasterization", start);
 
 	for(MyPolygon *p:polys){
 		delete p;

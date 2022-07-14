@@ -58,7 +58,7 @@ int main(int argc, char** argv) {
 	timeval start = get_cur_time();
 	/////////////////////////////////////////////////////////////////////////////
 	// load the source into polygon
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 	logt("loaded %ld polygons", start, global_ctx.source_polygons.size());
 
 	/////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ int main(int argc, char** argv) {
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// read all the polygons
-	global_ctx.target_polygons = MyPolygon::load_binary_file(global_ctx.target_path.c_str(),global_ctx,true);
+	global_ctx.target_polygons = load_binary_file(global_ctx.target_path.c_str(),global_ctx);
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	////////////////////////////////////////////////////////////////////////////////////
 	//loading the polygons into geometry

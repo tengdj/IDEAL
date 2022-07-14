@@ -277,7 +277,7 @@ public:
 		return true;
 	}
 
-	bool determine_contain(box &p, bool isin){
+	bool determine_contain(box &p, bool &isin){
 		assert(this->level==0);
 		bool has_in = false;
 		bool has_out = false;

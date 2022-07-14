@@ -36,6 +36,7 @@ data/
 *.dat
 *.mbr
 *.idl
+*.autotools
 build/
 
 .cproject

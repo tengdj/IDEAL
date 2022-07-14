@@ -15,14 +15,14 @@
 #include <geos/geom/Point.h>
 #include <geos/io/WKTReader.h>
 #include <geos/io/WKTWriter.h>
-#include <geos/opBuffer.h>
+//#include <geos/opBuffer.h>
 #include "MyPolygon.h"
 
 
 using namespace geos;
 using namespace geos::io;
 using namespace geos::geom;
-using namespace geos::operation::buffer;
+//using namespace geos::operation::buffer;
 using namespace geos::operation::distance;
 
 

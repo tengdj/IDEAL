@@ -1,17 +1,17 @@
 /*
- * cuda_util.h
+ * cuda_util.cuh
  *
- *  Created on: Jun 1, 2020
+ *  Created on: Jul 14, 2022
  *      Author: teng
  */
 
-#ifndef CUDA_UTIL_H_
-#define CUDA_UTIL_H_
+#ifndef SRC_CUDA_CUDA_UTIL_CUH_
+#define SRC_CUDA_CUDA_UTIL_CUH_
 
 #include <cuda.h>
-#include "../include/util.h"
+#include "mygpu.h"
 
-
+void check_execution();
 
 #define CUDA_SAFE_CALL(call) 										  	  \
 	do {																  \
@@ -23,7 +23,6 @@
 		}																  \
 	} while (0);
 
-
 inline void check_execution(){
 	cudaError_t err = cudaGetLastError();
 	if (err != cudaSuccess){
@@ -31,4 +30,4 @@ inline void check_execution(){
 	}
 }
 
-#endif /* CUDA_UTIL_H_ */
+#endif /* SRC_CUDA_CUDA_UTIL_CUH_ */

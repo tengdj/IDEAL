@@ -4,13 +4,10 @@
  * */
 
 #include <cuda.h>
-#include "mygpu.h"
-#include "cuda_util.h"
-#include "../include/util.h"
+#include "cuda_util.cuh"
+#include "util.h"
 
 using namespace std;
-
-
 
 vector<gpu_info *> get_gpus(){
 	vector<gpu_info *> gpus;

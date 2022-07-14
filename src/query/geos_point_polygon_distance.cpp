@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
 
 	WKTReader *wkt_reader = new WKTReader();
 
-	global_ctx.source_polygons = MyPolygon::load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
 
 	global_ctx.target_num = global_ctx.source_polygons.size();
 	process_geometries(&global_ctx, sources);

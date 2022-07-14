@@ -236,6 +236,9 @@ public:
 	bool intersect(MyPolygon *target, query_context *ctx);
 	bool intersect_segment(box *target);
 	bool contain(MyPolygon *target, query_context *ctx);
+
+	double distance_gpu(Point &p, query_context *ctx, bool profile = true);
+
 	double distance(Point &p, query_context *ctx, bool profile = true);
 	double distance(MyPolygon *target, query_context *ctx);
 	double distance(MyPolygon *target, Pixel *pix, query_context *ctx, bool profile = true);
