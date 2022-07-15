@@ -75,9 +75,19 @@ void contain_cuda(const double *poly1, const double *poly2, const uint *offset_s
 //	//logt("copy data out", start);
 //}
 
+__device__
+double cuda_degree_per_kilometer_longitude(double latitude, double *degree_per_kilometer){
+	double absla = abs(latitude);
+	assert(absla<=90);
+	if(absla==90){
+		absla = 89.9;
+	}
+	return degree_per_kilometer[(int)(absla*10)];
+}
+
 
 __device__
-double cuda_point_to_segment_distance(const Point &p, const Point &p1, const Point &p2) {
+double cuda_point_to_segment_distance(const Point &p, const Point &p1, const Point &p2, double *degree_per_kilometer) {
 
   double A = p.x - p1.x;
   double B = p.y - p1.y;
@@ -105,6 +115,9 @@ double cuda_point_to_segment_distance(const Point &p, const Point &p1, const Poi
 
   double dx = p.x - xx;
   double dy = p.y - yy;
+  dx = dx/cuda_degree_per_kilometer_longitude(p.y, degree_per_kilometer);
+  dy = dy/degree_per_kilometer_latitude;
+
   return sqrt(dx * dx + dy * dy);
 }
 
@@ -121,32 +134,32 @@ void atomicMin_double(double* address, double val)
 }
 
 __global__
-void cuda_distance(double *dist, const Point p, const Point *vs, size_t vs_length){
+void cuda_distance(double *dist, const Point p, const Point *vs, size_t vs_length,double *degree_per_kilometer){
 
 	// which polygon-polygon pair
 	int pair_id = blockIdx.x*blockDim.x+threadIdx.x;
 	if(pair_id>=vs_length){
 		return;
 	}
-	double d = cuda_point_to_segment_distance(p, vs[pair_id], vs[pair_id+1]);
-	if(d>0.00001){
+	double d = cuda_point_to_segment_distance(p, vs[pair_id], vs[pair_id+1],degree_per_kilometer);
+	//if(d>0.00001)
+	{
 		atomicMin_double(dist, d);
-
 	}
 }
 
 double point_to_segment_sequence_distance_gpu(Point &p, Point *vs, size_t seq_len, bool geography){
-	vector<gpu_info *> gpus = get_gpus();
+	assert(gpus.size()>0);
 	gpu_info *gpu = gpus[0];
-	Point *vs_d = (Point *)gpu->get_source((seq_len) * sizeof(Point));
-	double *dist_d = (double *)gpu->get_data(sizeof(double));
+	Point *vs_d = (Point *)gpu->allocate(seq_len* sizeof(Point));
+	double *dist_d = (double *)gpu->allocate(sizeof(double));
 	double dist = DBL_MAX;
 	CUDA_SAFE_CALL(cudaMemcpy((char *)dist_d, (char *)&dist, sizeof(double),cudaMemcpyHostToDevice));
 	CUDA_SAFE_CALL(cudaMemcpy((char *)vs_d, (char *)vs, seq_len*sizeof(Point),cudaMemcpyHostToDevice));
-	cuda_distance<<<seq_len/1024+1, 1024>>>(dist_d, p, vs_d, seq_len);
+	cuda_distance<<<seq_len/1024+1, 1024>>>(dist_d, p, vs_d, seq_len,gpu->degree_per_kilometer);
 	CUDA_SAFE_CALL(cudaMemcpy(&dist, dist_d, sizeof(double), cudaMemcpyDeviceToHost));
-
-	delete gpu;
+	gpu->free((char *)dist_d, sizeof(double));
+	gpu->free((char *)vs_d, seq_len* sizeof(Point));
 	return dist;
 }
 

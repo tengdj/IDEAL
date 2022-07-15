@@ -7,9 +7,9 @@
 
 #ifndef SRC_GEOMETRY_PIXEL_H_
 #define SRC_GEOMETRY_PIXEL_H_
+#include <float.h>
 
 #include "Point.h"
-#include <float.h>
 #include "geometry_computation.h"
 
 const static char *direction_str = "lrtb";

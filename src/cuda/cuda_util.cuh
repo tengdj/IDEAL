@@ -11,6 +11,8 @@
 #include <cuda.h>
 #include "mygpu.h"
 
+
+
 void check_execution();
 
 #define CUDA_SAFE_CALL(call) 										  	  \

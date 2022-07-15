@@ -10,6 +10,7 @@
 
 #include <math.h>
 #include "Pixel.h"
+#include "util.h"
 
 /*
  *

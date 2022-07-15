@@ -9,6 +9,7 @@
 #include <boost/program_options.hpp>
 
 #include "MyPolygon.h"
+#include "mygpu.h"
 
 namespace po = boost::program_options;
 using namespace std;
@@ -42,14 +43,26 @@ int main(int argc, char **argv){
 
 	Point target(x,y);
 
+	init_gpus();
+
+	double tdist = 0;
 	start = get_cur_time();
+	ctx.gpu = false;
 	for(MyPolygon *p:polys){
-		start = get_cur_time();
 		double dist = p->distance(target,&ctx);
-		logt("%f\t%d",start, dist, p->get_num_vertices());
-		break;
+		tdist += dist;
+		//logt("%f\t%d",start, dist, p->get_num_vertices());
+		//break;
 	}
-	logt("querying without rasterization", start);
+	logt("querying without gpu %f", start,tdist);
+	ctx.gpu = true;
+	for(MyPolygon *p:polys){
+		double dist = p->distance(target,&ctx);
+		tdist += dist;
+		//logt("%f\t%d",start, dist, p->get_num_vertices());
+		//break;
+	}
+	logt("querying with gpu %f", start, tdist);
 
 	if(vm.count("vertices_per_raster")){
 		for(MyPolygon *p:polys){
@@ -67,6 +80,7 @@ int main(int argc, char **argv){
 	for(MyPolygon *p:polys){
 		delete p;
 	}
+	release_gpus();
 	return 0;
 }
 
