@@ -288,7 +288,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 	size_t num = geometries.size();
 
 	// make it precise enough
-	size_t hcnum = geometries.size()*10;
+	size_t hcnum = geometries.size()*100;
 	size_t hindex = log2(hcnum);
 	hindex += (1+(hindex%2==0));
 	hcnum = pow(2,hindex);
@@ -311,17 +311,38 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 	}
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareHC);
 	size_t schema_num = (num+cardinality-1)/cardinality;
-	schema.resize(schema_num);
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t i=0;i<schema_num;i++){
 		size_t bg = i*cardinality;
 		size_t ed = std::min((i+1)*cardinality, num);
 		assert(ed>bg);
+
+		if(bg>0){
+			// skip someone that may share the same HC value with the previous tile
+			size_t prev = geometries[bg-1]->hc_id;
+			while(bg<ed && geometries[bg]->hc_id==prev){
+				bg++;
+			}
+			if(bg>=ed){
+				continue;
+			}
+		}
+
 		Tile *b = new Tile();
 		for(size_t t = bg;t<ed; t++){
 			b->insert(geometries[t]);
 		}
-		schema[i] = b;
+		// also insert some in next cell with the same HC value
+		if(ed!=geometries.size()){
+			size_t cur = geometries[ed-1]->hc_id;
+			while(ed<geometries.size() && geometries[ed]->hc_id==cur){
+				b->insert(geometries[ed]);
+				ed++;
+			}
+		}
+#pragma omp critical
+		schema.push_back(b);
+
 	}
 	return schema;
 }
@@ -387,10 +408,9 @@ vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality,
 #pragma omp parallel for num_threads(2*get_num_threads()-1)
 	for(size_t i=0;i<geometries.size();i++){
 		Point ct = geometries[i]->getMBB()->centroid();
-		qtree->touch(ct, data_oriented?geometries[i]:NULL);
+		qtree->touch(ct, geometries[i]);
 	}
-	qtree->merge_objnum();
-	qtree->converge(3*cardinality);
+	qtree->adjust(cardinality);
 
 	vector<QTNode *> qnodes;
 	qtree->get_leafs(qnodes);
@@ -398,8 +418,8 @@ vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality,
 		if(data_oriented){
 			if(qn->objects.size()>0){
 				Tile *t = new Tile();
-				for(void *obj:qn->objects){
-					t->insert((MyPolygon *)obj, true);
+				for(MyPolygon *obj:qn->objects){
+					t->insert(obj, true);
 				}
 				schema.push_back(t);
 			}
@@ -409,6 +429,11 @@ vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality,
 		}
 	}
 	qnodes.clear();
+
+	double len = 0;
+	qtree->get_grid_line_length(len);
+	log("%f",len);
+
 	delete qtree;
 	return schema;
 }

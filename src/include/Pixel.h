@@ -40,7 +40,10 @@ public:
 	void update(Point &p);
 	void update(box &b);
 
+	double height();
+	double width();
 	double area();
+
 	bool intersect(Point &start, Point &end);
 	bool intersect(box &target);
 	bool contain(box &target);

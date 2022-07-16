@@ -282,8 +282,9 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 
 	assert(object_sets.size()==target_sets.size());
 	partition_stat stat;
-	struct timeval entire_start = get_cur_time();
 	struct timeval start = get_cur_time();
+	struct timeval entire_start = get_cur_time();
+
 	// generate schema
 	vector<Tile *> tiles;
 	vector<RTree<Tile *, double, 2, double> *> global_trees;
@@ -301,7 +302,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 	// partitioning data
-	if(!data_oriented){
+	if(!data_oriented && ptype!=HC){
 		for(size_t i=0;i<object_sets.size();i++){
 			partition(object_sets[i], *global_trees[i], ptype);
 		}
@@ -346,6 +347,17 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	stat.found_rate = 1.0*found/tgtnum;
 	stat.tile_num = tiles.size();
 
+	size_t x_crossed = 0;
+	size_t y_crossed = 0;
+	for(Tile *tile:tiles){
+		for(MyPolygon *p:tile->objects){
+			x_crossed += (p->getMBB()->high[0]>tile->high[0]||p->getMBB()->low[0]<tile->low[0]);
+			y_crossed += (p->getMBB()->high[1]>tile->high[1]||p->getMBB()->low[1]<tile->low[1]);
+		}
+	}
+	log("%ld,%ld",x_crossed,y_crossed);
+
+
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
 		delete tile;
@@ -382,7 +394,7 @@ int main(int argc, char** argv) {
 		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
 		("target,t", po::value<string>(&point_path), "path to the target points")
 
-		("partition_type,p", po::value<string>(&ptype_str), "partition type should be one of: str|slc|bos|qt|bsp|hc|fg, if not set, all the algorithms will be tested")
+		("partition_type,p", po::value<string>(&ptype_str), "partition type should be one of: str|slc|qt|bsp|hc|fg, if not set, all the algorithms will be tested")
 
 		("sample_rate,r", po::value<double>(&min_sample_rate), "the maximum sample rate (0.01 by default)")
 		("max_sample_rate", po::value<double>(&max_sample_rate), "the maximum sample rate (0.01 by default)")

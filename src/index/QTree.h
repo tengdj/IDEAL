@@ -7,9 +7,9 @@
 
 #ifndef SRC_INDEX_QTREE_H_
 #define SRC_INDEX_QTREE_H_
-
-#include "../include/Pixel.h"
 #include <boost/sort/sort.hpp>
+
+#include "Pixel.h"
 
 enum QT_Direction{
 	bottom_left = 0,
@@ -18,45 +18,9 @@ enum QT_Direction{
 	top_right = 3
 };
 
-class QTNode{
+class MyPolygon;
 
-	void internal_leaf_count(int &count){
-		if(isleaf()){
-			count++;
-		}else{
-			for(int i=0;i<4;i++){
-				children[i]->internal_leaf_count(count);
-			}
-		}
-	}
-
-	void internal_border_leaf_count(int &count){
-		if(isleaf()){
-			if(!interior&&!exterior){
-				count++;
-			}
-		}else{
-			for(int i=0;i<4;i++){
-				children[i]->internal_leaf_count(count);
-			}
-		}
-	}
-
-	void internal_distance(Point &p, double &dist, bool geography){
-		if(interior || exterior){
-			return;
-		}
-		double tmpd = mbr.distance(p, geography);
-
-		if(!isleaf()){
-			for(QTNode *c:children){
-				c->internal_distance(p, dist, geography);
-			}
-		}else if(tmpd<dist){
-			dist = tmpd;
-		}
-	}
-
+class QTNode: public box{
 public:
 
 	QTNode *children[4] = {NULL, NULL, NULL, NULL};
@@ -65,6 +29,8 @@ public:
 	bool exterior = false;
 	int level = 0;
 	pthread_mutex_t lk;
+
+	vector<MyPolygon *> objects;
 
 	QTNode(double low_x, double low_y, double high_x, double high_y){
 		pthread_mutex_init(&lk, NULL);
@@ -87,17 +53,12 @@ public:
 		return children[0]==NULL;
 	}
 
-	void split(){
-		double mid_x = (mbr.high[0]+mbr.low[0])/2;
-		double mid_y = (mbr.high[1]+mbr.low[1])/2;
-		children[bottom_left] = new QTNode(mbr.low[0],mbr.low[1],mid_x,mid_y);
-		children[bottom_right] = new QTNode(mid_x,mbr.low[1],mbr.high[0],mid_y);
-		children[top_left] = new QTNode(mbr.low[0],mid_y,mid_x,mbr.high[1]);
-		children[top_right] = new QTNode(mid_x,mid_y,mbr.high[0],mbr.high[1]);
-		for(int i=0;i<4;i++){
-			children[i]->level = level+1;
-		}
-	}
+	void split();
+	void merge();
+	void touch(Point &p, MyPolygon *obj);
+	void adjust(const size_t threshold);
+
+
 	void split_to(const size_t target_level){
 		if(level==target_level){
 			return;
@@ -147,6 +108,42 @@ public:
 		bits = bits*4+2;
 		return (lfc*bits+7)/8;
 	}
+	void internal_leaf_count(int &count){
+		if(isleaf()){
+			count++;
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->internal_leaf_count(count);
+			}
+		}
+	}
+
+	void internal_border_leaf_count(int &count){
+		if(isleaf()){
+			if(!interior&&!exterior){
+				count++;
+			}
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->internal_leaf_count(count);
+			}
+		}
+	}
+
+	void internal_distance(Point &p, double &dist, bool geography){
+		if(interior || exterior){
+			return;
+		}
+		double tmpd = mbr.distance(p, geography);
+
+		if(!isleaf()){
+			for(QTNode *c:children){
+				c->internal_distance(p, dist, geography);
+			}
+		}else if(tmpd<dist){
+			dist = tmpd;
+		}
+	}
 	int leaf_count(){
 		int count = 0;
 		internal_leaf_count(count);
@@ -156,6 +153,25 @@ public:
 		int count = 0;
 		internal_border_leaf_count(count);
 		return count;
+	}
+
+	void get_leafs(vector<QTNode *> &leafs){
+		if(isleaf()){
+			leafs.push_back(this);
+		}else{
+			for(int i=0;i<4;i++){
+				children[i]->get_leafs(leafs);
+			}
+		}
+	}
+
+	void get_grid_line_length(double &len){
+		if(!isleaf()){
+			len += mbr.height()+mbr.width();
+			for(int i=0;i<4;i++){
+				children[i]->get_grid_line_length(len);
+			}
+		}
 	}
 
 //  for queries
@@ -289,79 +305,6 @@ public:
 		return false;
 	}
 
-
-public:
-	vector<void *> objects;
-	size_t objnum = 0;
-
-	void touch(Point &p, void *obj){
-		if(!mbr.contain(p)){
-			return;
-		}
-		if(!isleaf()){
-			int offset =  2*(p.y>(mbr.low[1]+mbr.high[1])/2)+(p.x>(mbr.low[0]+mbr.high[0])/2);
-			assert(offset<4 && offset>=0);
-			assert(children[offset]);
-			children[offset]->touch(p, obj);
-		}else{
-			lock();
-			objnum++;
-			if(obj){
-				objects.push_back(obj);
-			}
-			unlock();
-		}
-	}
-
-	size_t merge_objnum(){
-		if(!isleaf()){
-			//not merged
-			assert(objnum==0);
-			for(int i=0;i<4;i++){
-				objnum += children[i]->merge_objnum();
-			}
-		}
-		return objnum;
-	}
-
-	void get_all_objects(vector<void *> &objs){
-		if(isleaf()){
-			if(objects.size()>0){
-				objs.insert(objs.end(), objects.begin(), objects.end());
-			}
-		}else{
-			for(int i=0;i<4;i++){
-				children[i]->get_all_objects(objs);
-			}
-		}
-	}
-
-	void converge(const size_t threshold){
-		if(!isleaf()){
-			if(objnum<=threshold){
-				// merge the children
-				for(int i=0;i<4;i++){
-					children[i]->get_all_objects(objects);
-					delete children[i];
-					children[i] = NULL;
-				}
-			}else{
-				for(int i=0;i<4;i++){
-					children[i]->converge(threshold);
-				}
-			}
-		}
-	}
-
-	void get_leafs(vector<QTNode *> &leafs){
-		if(isleaf()){
-			leafs.push_back(this);
-		}else{
-			for(int i=0;i<4;i++){
-				children[i]->get_leafs(leafs);
-			}
-		}
-	}
 };
 
 #endif /* SRC_INDEX_QTREE_H_ */

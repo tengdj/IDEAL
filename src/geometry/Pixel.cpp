@@ -67,6 +67,15 @@ double box::area(){
 	return (high[0]-low[0])*(high[1]-low[1]);
 }
 
+double box::height(){
+	return (high[1]-low[1]);
+}
+
+double box::width(){
+	return (high[0]-low[0]);
+}
+
+
 /*
  * distance related functions
  * */

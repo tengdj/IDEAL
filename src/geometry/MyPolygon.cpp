@@ -830,3 +830,6 @@ size_t MyPolygon::partition_size(){
 	int numc = raster->get_num_crosses();
 	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;
 }
+
+
+
