@@ -79,7 +79,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 
 	struct timeval start = get_cur_time();
 	// todo adjust the lower bound of pixel number when the raster model is usable
-	if(raster && this->get_num_pixels()>5){
+	if(raster && get_num_pixels()>5){
 		start = get_cur_time();
 		Pixel *target = raster->get_pixel(p);
 		if(profile){
@@ -99,7 +99,6 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 		// checking the intersection edges in the target pixel
 		uint edge_count = 0;
 		for(edge_range &rg:target->edge_ranges){
-
 			for(int i = rg.vstart; i <= rg.vend; i++) {
 				int j = i+1;
 				if(((boundary->p[i].y >= p.y) != (boundary->p[j].y >= p.y))){
@@ -184,7 +183,9 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 		start = get_cur_time();
 		bool contained = false;
 
-		if(ctx->perform_refine){
+		// todo for test only, remove in released version
+		if(ctx->perform_refine)
+		{
 			if(rtree){
 				contained = contain_rtree(rtree,p,ctx);
 			}else{

@@ -77,8 +77,8 @@ void Tile::build_index(){
 
 size_t Tile::conduct_query(){
 	size_t found = 0;
-	lock();
 	struct timeval start = get_cur_time();
+	lock();
 	for(Point *p:targets){
 		vector<MyPolygon *> result = lookup(p);
 		for(MyPolygon *poly:result){
@@ -162,5 +162,5 @@ double skewstdevratio(vector<Tile *> &tiles, int tag){
 		}
 		st += (obj_num-avg)*(obj_num-avg)/tiles.size();
 	}
-	return sqrt(st)/avg;
+	return sqrt(st);
 }

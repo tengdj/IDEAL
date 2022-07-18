@@ -288,7 +288,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 	size_t num = geometries.size();
 
 	// make it precise enough
-	size_t hcnum = geometries.size()*100;
+	size_t hcnum = geometries.size()*10;
 	size_t hindex = log2(hcnum);
 	hindex += (1+(hindex%2==0));
 	hcnum = pow(2,hindex);
@@ -320,7 +320,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 		if(bg>0){
 			// skip someone that may share the same HC value with the previous tile
 			size_t prev = geometries[bg-1]->hc_id;
-			while(bg<ed && geometries[bg]->hc_id==prev){
+			while(geometries[bg]->hc_id==prev){
 				bg++;
 			}
 			if(bg>=ed){
@@ -332,7 +332,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 		for(size_t t = bg;t<ed; t++){
 			b->insert(geometries[t]);
 		}
-		// also insert some in next cell with the same HC value
+		// also insert some in next tile with the same
 		if(ed!=geometries.size()){
 			size_t cur = geometries[ed-1]->hc_id;
 			while(ed<geometries.size() && geometries[ed]->hc_id==cur){
@@ -342,7 +342,6 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 		}
 #pragma omp critical
 		schema.push_back(b);
-
 	}
 	return schema;
 }

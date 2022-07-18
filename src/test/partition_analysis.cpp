@@ -246,10 +246,51 @@ size_t query(vector<Tile *> &tiles){
 	return global_ctx.found;
 }
 
+// functions for the query phase
+void *local_unit(void *arg){
+	query_context *ctx = (query_context *)arg;
+	vector<Tile *> *tiles = (vector<Tile *> *)(ctx->target);
+	for(size_t i=ctx->thread_id; i<ctx->target_num; i+= ctx->num_threads){
+		Tile *tile = (*tiles)[i];
+		tile->build_index();
+		ctx->found += tile->conduct_query();
+		ctx->next_batch(1);
+		ctx->report_progress();
+	}
+	ctx->merge_global();
+	return NULL;
+}
+
+size_t local(vector<Tile *> &tiles){
+
+	query_context global_ctx;
+	pthread_t threads[global_ctx.num_threads];
+	query_context ctx[global_ctx.num_threads];
+	global_ctx.target_num = tiles.size();
+	global_ctx.report_prefix = "querying";
+
+	for(int i=0;i<global_ctx.num_threads;i++){
+		ctx[i] = global_ctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = &global_ctx;
+		ctx[i].target = (void *) &tiles;
+	}
+	for(int i=0;i<global_ctx.num_threads;i++){
+		pthread_create(&threads[i], NULL, local_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < global_ctx.num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+	return global_ctx.found;
+}
+
 typedef struct{
 	double sample_rate = 1.0;
 	size_t cardinality = 1;
 	PARTITION_TYPE ptype;
+	bool is_data_oriented = false;
 
 	double stddev_r = 0; // for reference
 	double stddev_t = 0; // for target
@@ -266,11 +307,11 @@ typedef struct{
 	double total_time = 0.0;
 
 	void print(){
-		printf("setup,%f,%s,%ld,%ld,"
+		printf("setup,%s, %f,%s,%ld,%ld,"
 				"stddev,%f,%f,%f,"
 				"stats,%f,%f,%f,"
 				"time,%f,%f,%f,%f,%f\n",
-				sample_rate,partition_type_names[ptype], cardinality, tile_num,
+				is_data_oriented?"data":"space", sample_rate,partition_type_names[ptype], cardinality, tile_num,
 				stddev_r, stddev_t, stddev_a,
 				boundary_rate, target_boundary_rate, found_rate,
 				genschema_time, partition_time, index_time, query_time, total_time);
@@ -282,6 +323,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 
 	assert(object_sets.size()==target_sets.size());
 	partition_stat stat;
+	stat.is_data_oriented = data_oriented;
 	struct timeval start = get_cur_time();
 	struct timeval entire_start = get_cur_time();
 
@@ -312,15 +354,9 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	}
 	stat.partition_time = logt("partitioning data",start);
 
-	// local indexing
-	indexing(tiles);
-	stat.index_time = logt("building local index", start);
-
-	// conduct query
-	size_t found = query(tiles);
-	double query_time = get_time_elapsed(start);
-	stat.query_time = logt("querying data",start);
-
+	// local processing
+	size_t found = local(tiles);
+	stat.query_time = logt("local processing get %ld pairs",start,found);
 	stat.total_time = logt("entire process", entire_start);
 
 	size_t total_num = 0;
@@ -342,6 +378,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	for(vector<Point *> &targets:target_sets){
 		tgtnum += targets.size();
 	}
+	log("%ld\t%ld", total_num, objnum);
 	stat.boundary_rate = 1.0*total_num/objnum;
 	stat.target_boundary_rate = 1.0*total_target_num/tgtnum;
 	stat.found_rate = 1.0*found/tgtnum;
@@ -356,7 +393,6 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 		}
 	}
 	log("%ld,%ld",x_crossed,y_crossed);
-
 
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){

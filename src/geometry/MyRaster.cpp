@@ -129,12 +129,13 @@ void MyRaster::evaluate_edges(){
 		if(cur_endy==dimy+1){
 			cur_endy--;
 		}
-		// should not happen for normal cases
+		// todo should not happen for normal cases
 		if(cur_startx>dimx||cur_endx>dimx||cur_starty>dimy||cur_endy>dimy){
 			cout<<"xrange\t"<<cur_startx<<" "<<cur_endx<<endl;
 			cout<<"yrange\t"<<cur_starty<<" "<<cur_endy<<endl;
 			printf("xrange_val\t%f %f\n",(x1-start_x)/step_x, (x2-start_x)/step_x);
 			printf("yrange_val\t%f %f\n",(y1-start_y)/step_y, (y2-start_y)/step_y);
+			assert(false);
 		}
 		assert(cur_startx<=dimx);
 		assert(cur_endx<=dimx);
