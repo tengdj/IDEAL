@@ -82,15 +82,6 @@ int main(int argc, char** argv) {
 	global_ctx.target_num = global_ctx.target_polygons.size();
 	start = get_cur_time();
 
-//	MyPolygon *s = global_ctx.source_polygons[4648];
-//	MyPolygon *t = global_ctx.target_polygons[315];
-//	s->rasterization(10);
-//	t->rasterization(10);
-//	s->print(false, false);
-//	t->print(false, false);
-//	log("%d",s->contain(t, &global_ctx));
-//	return 0;
-
 	global_ctx.reset_stats();
 
 	preprocess(&global_ctx);

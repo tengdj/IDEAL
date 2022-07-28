@@ -14,6 +14,54 @@
  *
  * */
 
+void *geos_unit(void *args){
+	query_context *ctx = (query_context *)args;
+	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)ctx->target;
+	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
+	while(ctx->next_batch(10)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			polygons[i]->convert_to_geos(wkt_reader);
+			ctx->report_progress();
+		}
+	}
+	delete wkt_reader;
+	return NULL;
+}
+
+
+void process_geos(query_context *gctx){
+	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
+	assert(polygons.size()>0);
+	gctx->index = 0;
+	size_t former = gctx->target_num;
+	gctx->target_num = polygons.size();
+
+	struct timeval start = get_cur_time();
+	pthread_t threads[gctx->num_threads];
+	query_context ctx[gctx->num_threads];
+	for(int i=0;i<gctx->num_threads;i++){
+		ctx[i] = *gctx;
+		ctx[i].thread_id = i;
+		ctx[i].global_ctx = gctx;
+	}
+
+	for(int i=0;i<gctx->num_threads;i++){
+		pthread_create(&threads[i], NULL, geos_unit, (void *)&ctx[i]);
+	}
+
+	for(int i = 0; i < gctx->num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+
+	//collect convex hull status
+	logt("loaded %ld GEOS objects", start, polygons.size());
+	gctx->index = 0;
+	gctx->query_count = 0;
+	gctx->target_num = former;
+}
+
+
 void *convex_hull_unit(void *args){
 
 	query_context *ctx = (query_context *)args;
@@ -375,6 +423,11 @@ void preprocess(query_context *gctx){
 		target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
 		process_internal_rtree(gctx);
 	}
+
+	if(gctx->use_geos){
+		process_geos(gctx);
+	}
+
 	target_polygons.clear();
 	gctx->target = NULL;
 }

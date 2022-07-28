@@ -30,7 +30,6 @@ bool VertexSequence::contain(Point &point) {
 }
 
 bool MyPolygon::contain(Point &p){
-
     return boundary->contain(p);
 }
 
@@ -210,6 +209,11 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 	}
 	ctx->object_checked.counter++;
 	struct timeval start = get_cur_time();
+
+	if(ctx->use_geos){
+		assert(geos_geom && target->geos_geom);
+		return geos_geom->covers(target->geos_geom.get());
+	}
 
 	if(raster){
 		vector<Pixel *> pxs = raster->retrieve_pixels(target->getMBB());
@@ -766,6 +770,11 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 
 	ctx->object_checked.counter++;
 
+	if(ctx->use_geos){
+		assert(geos_geom && target->geos_geom);
+		return geos_geom->distance(target->geos_geom.get());
+	}
+
 	if(raster){
 		// both polygons are rasterized and the pixel of the target is larger
 		// then swap the role of source and target, and use the target as the host one
@@ -908,6 +917,12 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	if(!a->intersect(*b)){
 		return false;
 	}
+
+	if(ctx->use_geos){
+		assert(geos_geom && target->geos_geom);
+		return geos_geom->intersects(target->geos_geom.get());
+	}
+
 	if(raster){
 		// test all the pixels
 		vector<Pixel *> covered = raster->get_intersect_pixels(b);
@@ -941,7 +956,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	return false;
 }
 
-bool MyPolygon::intersect_segment(box *target){
+bool MyPolygon::intersect_box(box *target){
 	for (int i = 0; i < get_num_vertices()-1; i++) {
 		// segment i->j intersect with segment
 		double x1 = target->low[0];
@@ -987,4 +1002,20 @@ bool MyPolygon::intersect_segment(box *target){
 
 
 
+/*
+ * geos library wrappers
+ * */
 
+bool MyPolygon::contain(geos::geom::Geometry *g){
+	assert(geos_geom);
+	return geos_geom->contains(g);
+}
+bool MyPolygon::intersect(geos::geom::Geometry *g){
+	assert(geos_geom);
+	return geos_geom->intersects(g);
+}
+
+double MyPolygon::distance(geos::geom::Geometry *g){
+	assert(geos_geom);
+	return geos_geom->distance(g);
+}

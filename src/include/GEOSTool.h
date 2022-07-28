@@ -20,15 +20,14 @@
 
 
 using namespace geos;
-using namespace geos::io;
-using namespace geos::geom;
-//using namespace geos::operation::buffer;
-using namespace geos::operation::distance;
+//using namespace geos::io;
+//using namespace geos::geom;
+//using namespace geos::operation::distance;
 
 
 using namespace std;
-void process_geometries(query_context *ctx, vector<unique_ptr<Geometry>> &dest, bool procee_target = false);
-void process_points(query_context *ctx, vector<unique_ptr<Geometry>> &dest);
+void process_geometries(query_context *ctx, vector<unique_ptr<geos::geom::Geometry>> &dest, bool procee_target = false);
+void process_points(query_context *ctx, vector<unique_ptr<geos::geom::Geometry>> &dest);
 
 
 #endif /* SRC_GEOMETRY_GEOSTOOL_H_ */

@@ -23,6 +23,7 @@
 #include "Pixel.h"
 #include "Point.h"
 #include "query_context.h"
+#include "GEOSTool.h"
 
 using namespace std;
 using namespace p2t;
@@ -158,6 +159,8 @@ class MyPolygon{
 
 	RTNode *rtree = NULL;
 
+	unique_ptr<geos::geom::Geometry> geos_geom;
+
 	pthread_mutex_t ideal_partition_lock;
 	pthread_mutex_t qtree_partition_lock;
 
@@ -173,6 +176,7 @@ public:
 	    pthread_mutex_init(&qtree_partition_lock, NULL);
 	}
 	~MyPolygon();
+	void clear();
 	MyPolygon *clone();
 	MyRaster *get_rastor(){
 		return raster;
@@ -231,10 +235,16 @@ public:
 	static MyPolygon *gen_box(box &pix);
 	static MyPolygon *read_one_polygon();
 
+	/*
+	 * some query functions
+	 * */
 	bool contain(Point &p);// brute-forcely check containment
 	bool contain(Point &p, query_context *ctx, bool profile = true);
+	bool contain(geos::geom::Geometry *geom);
 	bool intersect(MyPolygon *target, query_context *ctx);
-	bool intersect_segment(box *target);
+	bool intersect_box(box *target);
+	bool intersect(geos::geom::Geometry *geom);
+
 	bool contain(MyPolygon *target, query_context *ctx);
 
 	double distance_gpu(Point &p, query_context *ctx, bool profile = true);
@@ -242,26 +252,31 @@ public:
 	double distance(Point &p, query_context *ctx, bool profile = true);
 	double distance(MyPolygon *target, query_context *ctx);
 	double distance(MyPolygon *target, Pixel *pix, query_context *ctx, bool profile = true);
+	double distance(geos::geom::Geometry *geom);
 
 	double distance_rtree(Point &p, query_context *ctx);
 	double distance_rtree(Point &start, Point &end, query_context *ctx);
 	bool intersect_rtree(Point &start, Point &end, query_context *ctx);
 
-
+	/*
+	 * some utility functions
+	 * */
 	void print_without_head(bool print_hole = false, bool complete_ring = false);
 	void print(bool print_id=true, bool print_hole=false);
 	void print_triangles();
 	void print_without_return(bool print_hole=false, bool complete_ring=false);
 	string to_string(bool clockwise = false, bool complete_ring=false);
+
+	bool convert_to_geos(geos::io::WKTReader *reader);
+
+	/*
+	 * for filtering
+	 * */
 	box *getMBB();
 	box *getMER(query_context *ctx=NULL);
-
 	VertexSequence *get_convex_hull();
-
-	size_t partition_size();
-
+	size_t raster_size();
 	void rasterization(int vertex_per_raster);
-
 	QTNode *partition_qtree(const int vpr);
 	QTNode *get_qtree(){
 		return qtree;
@@ -304,18 +319,8 @@ public:
 	vector<MyPolygon *> generate_test_polygons(int num);
 
 	double area(){
-		double area_buffer = 0;
 		assert(boundary);
-		double sum = boundary->area();
-		//assert(sum>=0);
-//		for(VertexSequence *vs:internal_polygons){
-//			double a = vs->area();
-//			//assert(a<=0);
-//			sum += a;
-//		}
-		//assert(sum>=0);
-		area_buffer = sum;
-		return area_buffer/2;
+		return boundary->area();
 	}
 
 	void print_partition(query_context qc);

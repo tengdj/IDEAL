@@ -22,7 +22,13 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 
 	struct timeval start = get_cur_time();
-	ctx->found += poly->contain(*(Point *)ctx->target, ctx);
+	if(ctx->use_geos){
+		geos::geom::Geometry *gm = (geos::geom::Geometry *)(ctx->target);
+		ctx->found += poly->contain(gm);
+	}else{
+		ctx->found += poly->contain(*(Point *)ctx->target, ctx);
+	}
+
 	double timepassed = get_time_elapsed(start);
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
@@ -38,6 +44,9 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	//log("thread %d is started",ctx->thread_id);
+	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
+	char point_buffer[200];
+
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(ctx->sample_rate)){
@@ -45,14 +54,22 @@ void *query(void *args){
 				continue;
 			}
 			struct timeval start = get_cur_time();
-			ctx->target = (void *)&gctx->points[i];
-			tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
+			if(gctx->use_geos){
+				sprintf(point_buffer,"POINT(%f %f)",gctx->points[i].x,gctx->points[i].y);
+				unique_ptr<geos::geom::Geometry> gm = wkt_reader->read(point_buffer);
+				ctx->target = (geos::geom::Geometry *)(gm.get());
+				tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
+			}else{
+				ctx->target = (void *)&gctx->points[i];
+				tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
+			}
 			ctx->object_checked.execution_time += ::get_time_elapsed(start);
 			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
 
+	delete wkt_reader;
 	return NULL;
 }
 

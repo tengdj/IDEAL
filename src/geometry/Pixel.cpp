@@ -10,6 +10,19 @@
 
 bool print_debug = false;
 
+box::box(box *b){
+	low[0] = b->low[0];
+	high[0] = b->high[0];
+	low[1] = b->low[1];
+	high[1] = b->high[1];
+}
+box::box (double lowx, double lowy, double highx, double highy){
+	low[0] = lowx;
+	low[1] = lowy;
+	high[0] = highx;
+	high[1] = highy;
+}
+
 bool box::valid(){
 	return low[0] <= high[0] && low[1] <= high[1];
 
@@ -28,6 +41,19 @@ void box::update(box &b){
 	high[0] = max(high[0], b.high[0]);
 	high[1] = max(high[1], b.high[1]);
 }
+
+box box::get_intersection(box &b){
+	assert(this->intersect(b));
+	return box(max(low[0],b.low[0]), max(low[1], b.low[1]), min(high[0],b.high[0]), min(high[1], b.high[1]));;
+}
+
+box box::get_union(box &b){
+	box unioned = *this;
+	unioned.update(b);
+	return unioned;
+}
+
+
 
 bool box::intersect(Point &start, Point &end){
 	if(segment_intersect(start, end, Point(low[0], low[1]), Point(high[0], low[1]))){

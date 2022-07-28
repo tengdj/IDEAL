@@ -169,7 +169,7 @@ vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality
 	size_t num = geometries.size();
 	//boost::sort::sample_sort(geometries.begin(), geometries.end(), compareCentX);
 	//boost::sort::parallel_stable_sort(geometries.begin(), geometries.end(), compareCentX);
-	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareCentX);
+	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareLowX);
 	//std::sort(geometries.begin(), geometries.end(), compareCentX);
 
 	logt("sorting",start);
@@ -192,16 +192,39 @@ vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality
 			if(i==0){
 				b->low[0] = space.low[0];
 			}else{
-				b->low[0] = geometries[bg]->getMBB()->centroid().x;
+				b->low[0] = geometries[bg]->getMBB()->low[0];
 			}
 			if(i==schema_num-1){
 				b->high[0] = space.high[0];
 			}else{
-				b->high[0] = geometries[ed]->getMBB()->centroid().x;
+				b->high[0] = geometries[ed]->getMBB()->low[0];
 			}
 		}
 		schema[i] = b;
 	}
+
+//	if(data_oriented){
+//		vector<Tile *> merged;
+//		for(int i=0;i<schema.size();i++){
+//			Tile *t = schema[i];
+//			if(merged.size()==0){
+//				merged.push_back(t);
+//				continue;
+//			}
+//			Tile *prev = merged[merged.size()-1];
+//			if(t->intersect(*prev)){
+//				box it = t->get_intersection(*prev);
+//				// their is no need to maintain
+//				if(it.area()/t->area()>0.9){
+//
+//				}
+//			}
+//			Ti
+//		}
+//
+//		schema.clear();
+//		return merged;
+//	}
 	return schema;
 }
 
@@ -309,40 +332,66 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 		p->hc_id = xy2d(hindex,x,y);
 		assert(p->hc_id<hcnum);
 	}
+	//logt("generate hilbert curve id", start);
 	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareHC);
-	size_t schema_num = (num+cardinality-1)/cardinality;
-#pragma omp parallel for num_threads(2*get_num_threads()-1)
-	for(size_t i=0;i<schema_num;i++){
-		size_t bg = i*cardinality;
-		size_t ed = std::min((i+1)*cardinality, num);
-		assert(ed>bg);
+	//logt("sorting with hilbert curve id", start);
+//	if(!data_oriented){
+//		size_t cur = 0;
+//		Tile *b = new Tile();
+//		for(size_t h=0;h<hcnum;h++){
+//			size_t x = 0;
+//			size_t y = 0;
+//			d2xy(hindex, h, x, y);
+//			while(cur!=geometries.size()&&
+//					geometries[cur]->hc_id==h){
+//				b->insert(geometries[cur++], false);
+//			}
+//			if(b->objects.size()>=cardinality){
+//				schema.push_back(b);
+//				b = new Tile();
+//			}
+//			box tb(x*space.width()/dimx,y*space.height()/dimy,(x+1)*space.width()/dimx,(y+1)*space.height()/dimy);
+//			b->update(tb);
+//		}
+//		schema.push_back(b);
+//	}else
+	{
+		size_t schema_num = (num+cardinality-1)/cardinality;
+	#pragma omp parallel for num_threads(2*get_num_threads()-1)
+		for(size_t i=0;i<schema_num;i++){
+			size_t bg = i*cardinality;
+			size_t ed = std::min((i+1)*cardinality, num);
+			assert(ed>bg);
 
-		if(bg>0){
-			// skip someone that may share the same HC value with the previous tile
-			size_t prev = geometries[bg-1]->hc_id;
-			while(geometries[bg]->hc_id==prev){
-				bg++;
+			if(bg>0){
+				// skip someone that may share the same HC value with the previous tile
+				size_t prev = geometries[bg-1]->hc_id;
+				while(geometries[bg]->hc_id==prev){
+					bg++;
+				}
+				if(bg>=ed){
+					continue;
+				}
 			}
-			if(bg>=ed){
-				continue;
-			}
-		}
 
-		Tile *b = new Tile();
-		for(size_t t = bg;t<ed; t++){
-			b->insert(geometries[t]);
-		}
-		// also insert some in next tile with the same
-		if(ed!=geometries.size()){
-			size_t cur = geometries[ed-1]->hc_id;
-			while(ed<geometries.size() && geometries[ed]->hc_id==cur){
-				b->insert(geometries[ed]);
-				ed++;
+			Tile *b = new Tile();
+			for(size_t t = bg;t<ed; t++){
+				b->insert(geometries[t]);
 			}
+			// also insert some in next tile with the same
+			if(ed!=geometries.size()){
+				size_t cur = geometries[ed-1]->hc_id;
+				while(ed<geometries.size() && geometries[ed]->hc_id==cur){
+					b->insert(geometries[ed]);
+					ed++;
+				}
+			}
+	#pragma omp critical
+			schema.push_back(b);
 		}
-#pragma omp critical
-		schema.push_back(b);
 	}
+	//logt("generate tiles", start);
+
 	return schema;
 }
 

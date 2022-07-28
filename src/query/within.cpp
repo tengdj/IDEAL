@@ -29,7 +29,12 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 	}
 
 	timeval start = get_cur_time();
-	ctx->distance = poly->distance(*p,ctx);
+	if(ctx->use_geos){
+		geos::geom::Geometry *gm = (geos::geom::Geometry *)ctx->target;
+		ctx->distance = poly->distance(gm);
+	}else{
+		ctx->distance = poly->distance(*p,ctx);
+	}
 	ctx->found += ctx->distance <= ctx->within_distance;
 	if(ctx->collect_latency){
 		int nv = poly->get_num_vertices();
@@ -50,27 +55,39 @@ void *query(void *args){
 	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
-
+	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
+	char point_buffer[200];
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(gctx->sample_rate)){
 				ctx->report_progress();
 				continue;
 			}
-			struct timeval query_start = get_cur_time();
-			ctx->target = (void *)&gctx->points[i];
 			double shiftx = degree_per_kilometer_longitude(gctx->points[i].y)*gctx->within_distance;
 			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
 			buffer_low[0] = gctx->points[i].x-shiftx;
 			buffer_low[1] = gctx->points[i].y-shifty;
 			buffer_high[0] = gctx->points[i].x+shiftx;
 			buffer_high[1] = gctx->points[i].y+shifty;
-			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+
+			struct timeval query_start = get_cur_time();
+			if(gctx->use_geos){
+				sprintf(point_buffer,"POINT(%f %f)",gctx->points[i].x,gctx->points[i].y);
+				unique_ptr<geos::geom::Geometry> gm = wkt_reader->read(point_buffer);
+				ctx->target = (geos::geom::Geometry *)gm.get();
+				tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+			}else{
+				ctx->target = (void *)&gctx->points[i];
+				tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+			}
+
+
 			ctx->object_checked.execution_time += get_time_elapsed(query_start);
 			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
+	delete wkt_reader;
 	return NULL;
 }
 

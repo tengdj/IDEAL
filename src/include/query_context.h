@@ -84,6 +84,7 @@ public:
 	int num_threads = 0;
 
 	int vpr = 10;
+	bool use_geos = false;
 	bool use_grid = false;
 	bool use_qtree = false;
 	bool use_vector = false;

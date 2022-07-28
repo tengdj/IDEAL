@@ -221,7 +221,7 @@ double VertexSequence::area(){
 	for(int i=0;i<num_vertices;i++){
 		sum += (p[i].x-p[(i+1)%num_vertices].x)*(p[(i+1)%num_vertices].y+p[i].y);
 	}
-	return sum;
+	return sum/2;
 }
 
 bool VertexSequence::clockwise(){
@@ -375,7 +375,10 @@ MyPolygon *MyPolygon::read_polygon(const char *wkt, size_t &offset){
 }
 
 MyPolygon::~MyPolygon(){
-	if(this->boundary){
+	clear();
+}
+void MyPolygon::clear(){
+	if(boundary){
 		delete boundary;
 	}
 	for(VertexSequence *p:holes){
@@ -498,6 +501,24 @@ vector<MyPolygon *> MyPolygon::generate_test_polygons(int num){
 	}
 
 	return polys;
+}
+
+bool MyPolygon::convert_to_geos(geos::io::WKTReader *wkt_reader){
+	try{
+		//log("processing %d", ctx->source_polygons[i]->getid());
+		geos_geom = wkt_reader->read(to_string(false, true));
+		geos_geom->normalize();
+		//log("%.10f",geos_geom->getArea());
+	}catch(...){
+		log("failed to parse polygon %ld", getid());
+		print();
+		geos_geom = NULL;
+		return false;
+	}
+	delete boundary;
+	boundary = NULL;
+
+	return true;
 }
 
 
@@ -802,7 +823,7 @@ char *MyPolygon::encode_raster(vector<vector<Pixel>> partitions){
 	return data;
 }
 
-size_t MyPolygon::partition_size(){
+size_t MyPolygon::raster_size(){
 	size_t size = 0;
 	const int nump = raster->get_num_pixels();
 
@@ -823,9 +844,6 @@ size_t MyPolygon::partition_size(){
 	}
 
 	bits_v = bits_v*2;
-
-//	bits_b = (2+bits_b+7)/8*8;
-//	bits_v = (2*bits_v+7)/8*8;
 
 	int numc = raster->get_num_crosses();
 	return (bits_b*nump + bits_v*nump_border + numc*64+7)/8;

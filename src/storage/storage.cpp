@@ -195,8 +195,9 @@ void *load_unit(void *arg){
 			while(off<poly_size){
 				MyPolygon *poly = new MyPolygon();
 				off += poly->decode(buffer+off);
-				if(tryluck(ctx->sample_rate)){
+				if(poly->get_num_vertices() >= 3 && tryluck(ctx->sample_rate)){
 					polygons.push_back(poly);
+					poly->getMBB();
 				}else{
 					delete poly;
 				}
@@ -204,6 +205,7 @@ void *load_unit(void *arg){
 			ctx->report_progress(1);
 		}
 	}
+
 	delete []buffer;
 	ctx->global_ctx->lock();
 	global_polygons->insert(global_polygons->end(), polygons.begin(), polygons.end());

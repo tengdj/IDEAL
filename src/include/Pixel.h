@@ -23,19 +23,13 @@ public:
 
 	box(){}
 
-	box(box *b){
-		low[0] = b->low[0];
-		high[0] = b->high[0];
-		low[1] = b->low[1];
-		high[1] = b->high[1];
-	}
-	box (double lowx, double lowy, double highx, double highy){
-		low[0] = lowx;
-		low[1] = lowy;
-		high[0] = highx;
-		high[1] = highy;
-	}
+	box(box *b);
+	box (double lowx, double lowy, double highx, double highy);
 	bool valid();
+
+	box get_union(box &b);
+	box get_intersection(box &b);
+
 
 	void update(Point &p);
 	void update(box &b);

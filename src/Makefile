@@ -53,19 +53,6 @@ within:	query/within.o $(GEOMETRY_OBJS)
 	
 contain:	query/contain.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-
-geos_polygon_in_polygon:	query/geos_polygon_in_polygon.o $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-geos_point_polygon_distance:	query/geos_point_polygon_distance.o $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-geos_point_in_polygon:	query/geos_point_in_polygon.o $(GEOMETRY_OBJS) 
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
-geos_polygon_polygon_within:	query/geos_polygon_polygon_within.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
 
@@ -130,6 +117,8 @@ sample:	test/sample.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 
 subset:	test/subset.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
-	
+partition_stats:	test/partition_stats.o $(GEOMETRY_OBJS) $(PARTITION_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+
 clean:
 	rm -fr ../build/* $(OBJS) $(CU_OBJS)
