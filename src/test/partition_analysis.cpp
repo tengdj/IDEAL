@@ -8,6 +8,7 @@
 #include "partition.h"
 
 namespace po = boost::program_options;
+bool dry_run = false;
 // functions for sampling
 template <class O>
 void *sample_unit(void *arg){
@@ -167,7 +168,7 @@ void *local_unit(void *arg){
 	for(size_t i=ctx->thread_id; i<ctx->target_num; i+= ctx->num_threads){
 		Tile *tile = (*tiles)[i];
 		tile->build_index();
-		ctx->found += tile->conduct_query();
+		ctx->found += tile->conduct_query(dry_run);
 		ctx->next_batch(1);
 		ctx->report_progress();
 	}
@@ -345,6 +346,7 @@ int main(int argc, char** argv) {
 		("help,h", "produce help message")
 		("fixed_cardinality,f", "fixed cardinality for all sampling rates")
 		("data_oriented,d", "data-oriented partitioning")
+		("dry_run,", "do not conduct refinement")
 		("source,s", po::value<string>(&mbr_path)->required(), "path to the source mbrs")
 		("target,t", po::value<string>(&point_path), "path to the target points")
 
@@ -364,6 +366,7 @@ int main(int argc, char** argv) {
 	}
 	po::notify(vm);
 
+	dry_run = vm.count("dry_run");
 	if(max_sample_rate<min_sample_rate||!vm.count("max_sample_rate")){
 		max_sample_rate = min_sample_rate;
 	}

@@ -41,7 +41,7 @@ public:
 	bool insert(MyPolygon *obj, bool update_box = true);
 	bool insert_target(Point *obj);
 	void build_index();
-	size_t conduct_query();
+	size_t conduct_query(bool dry_run = false);
 	vector<MyPolygon *> lookup(box *b);
 	vector<MyPolygon *> lookup(Point *p);
 };

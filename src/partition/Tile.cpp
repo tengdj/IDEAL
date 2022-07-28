@@ -75,14 +75,18 @@ void Tile::build_index(){
 	unlock();
 }
 
-size_t Tile::conduct_query(){
+size_t Tile::conduct_query(bool dry_run){
 	size_t found = 0;
 	struct timeval start = get_cur_time();
 	lock();
 	for(Point *p:targets){
 		vector<MyPolygon *> result = lookup(p);
 		for(MyPolygon *poly:result){
-			found += poly->contain(*p);
+			if(dry_run){
+				found += poly->getMBB()->contain(*p);
+			}else{
+				found += poly->contain(*p);
+			}
 		}
 		result.clear();
 	}
