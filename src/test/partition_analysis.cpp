@@ -63,10 +63,10 @@ vector<O *> sample(vector<O *> &original, double sample_rate){
 	return result;
 }
 
-
 // functions for partitioning
 bool assign(Tile *tile, void *arg){
-	tile->insert((MyPolygon *)arg, false);
+	vector<size_t> *belonged = (vector<size_t> *)arg;
+	belonged->push_back(tile->id);
 	return true;
 }
 
@@ -74,18 +74,29 @@ void *partition_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<MyPolygon *> *objects = (vector<MyPolygon *> *)(ctx->target);
 	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
+	vector<pair<size_t, MyPolygon *>> *global_output = (vector<pair<size_t, MyPolygon *>> *)(ctx->target3);
+	vector<size_t> belongs;
+	vector<pair<size_t, MyPolygon *>> output;
 	while(ctx->next_batch(100)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
-			global_tree->Search((*objects)[i]->getMBB()->low, (*objects)[i]->getMBB()->high, assign, (void *)((*objects)[i]));
+			global_tree->Search((*objects)[i]->getMBB()->low, (*objects)[i]->getMBB()->high, assign, (void *)(&belongs));
+			for(size_t t:belongs){
+				output.push_back(pair<size_t, MyPolygon *>(t, (*objects)[i]));
+			}
+			belongs.clear();
 			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
+	ctx->global_ctx->lock();
+	global_output->insert(global_output->end(), output.begin(), output.end());
+	ctx->global_ctx->unlock();
 	return NULL;
 }
 
-void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &global_tree, PARTITION_TYPE ptype){
+void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &global_tree, vector<pair<size_t, MyPolygon *>> &output){
 
+	struct timeval start = get_cur_time();
 	query_context global_ctx;
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
@@ -98,6 +109,7 @@ void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &g
 		ctx[i].global_ctx = &global_ctx;
 		ctx[i].target = (void *) &objects;
 		ctx[i].target2 = (void *) &global_tree;
+		ctx[i].target3 = (void *) &output;
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_unit, (void *)&ctx[i]);
@@ -110,31 +122,72 @@ void partition(vector<MyPolygon *> &objects, RTree<Tile *, double, 2, double> &g
 
 }
 
-bool assign_target(Tile *tile, void *arg){
-	query_context *ctx = (query_context *)arg;
-	tile->insert_target((Point *)ctx->target);
-	return true;
+
+inline bool compareTileID(pair<size_t, MyPolygon *> a, pair<size_t, MyPolygon *> b)
+{
+    return a.first>b.first;
+}
+
+void shuffle(vector<pair<size_t, MyPolygon *>> &output, vector<Tile *> &tiles){
+	boost::sort::block_indirect_sort(output.begin(), output.end(), compareTileID);
+	vector<size_t> tile_sep;
+	size_t prev = 0;
+	for(size_t i=0;i<output.size();i++){
+		// next tile
+		if(i==0||prev!=output[i].first){
+			prev = output[i].first;
+			tile_sep.push_back(i);
+		}
+	}
+
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<tile_sep.size();i++){
+		size_t st = tile_sep[i];
+		size_t ed = 0;
+		if(i==tile_sep.size()-1){
+			ed = output.size();
+		}else{
+			ed = tile_sep[i+1];
+		}
+		size_t tid = output[st].first;
+		for(size_t j=st;j<ed;j++){
+			tiles[tid]->objects.push_back(output[j].second);
+		}
+	}
 }
 
 void *partition_target_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<Point *> *objects = (vector<Point *> *)(ctx->target);
 	RTree<Tile *, double, 2, double> *global_tree = (RTree<Tile *, double, 2, double> *)(ctx->target2);
+	vector<pair<size_t, Point *>> *global_output = (vector<pair<size_t, Point *>> *)(ctx->target3);
+	vector<size_t> belongs;
+	vector<pair<size_t, Point *>> output;
+
 	while(ctx->next_batch(10)){
 		for(size_t i=ctx->index;i<ctx->index_end;i++){
 			Point *p = (*objects)[i];
-			vector<Tile *> belongs;
 			query_context tmpctx;
 			tmpctx.target = (void *)p;
-			global_tree->Search((double *)p, (double *)p, assign_target, (void *)&tmpctx);
+			global_tree->Search((double *)p, (double *)p, assign, (void *)&belongs);
+			for(size_t t:belongs){
+				output.push_back(pair<size_t, Point *>(t, p));
+			}
+			belongs.clear();
 			ctx->report_progress();
 		}
 	}
+
+	ctx->global_ctx->lock();
+	global_output->insert(global_output->end(), output.begin(), output.end());
+	ctx->global_ctx->unlock();
+
 	ctx->merge_global();
 	return NULL;
 }
 
-void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double> &global_tree){
+void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double> &global_tree, vector<pair<size_t, Point *>> &output){
+	struct timeval start = get_cur_time();
 
 	query_context global_ctx;
 	//global_ctx.num_threads = 1;
@@ -142,13 +195,13 @@ void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double>
 	query_context ctx[global_ctx.num_threads];
 	global_ctx.target_num = targets.size();
 	global_ctx.report_prefix = "partitioning";
-
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 		ctx[i].target = (void *) &targets;
 		ctx[i].target2 = (void *) &global_tree;
+		ctx[i].target3 = (void *) &output;
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, partition_target_unit, (void *)&ctx[i]);
@@ -158,8 +211,41 @@ void partition_target(vector<Point *> &targets, RTree<Tile *, double, 2, double>
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-
 }
+
+inline bool compareTargetTileID(pair<size_t, Point *> a, pair<size_t, Point *> b)
+{
+    return a.first>b.first;
+}
+
+void shuffle_target(vector<pair<size_t, Point *>> &output, vector<Tile *> &tiles){
+	boost::sort::block_indirect_sort(output.begin(), output.end(), compareTargetTileID);
+
+	vector<size_t> tile_sep;
+	size_t prev = 0;
+	for(size_t i=0;i<output.size();i++){
+		// next tile
+		if(i==0||prev!=output[i].first){
+			prev = output[i].first;
+			tile_sep.push_back(i);
+		}
+	}
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+	for(size_t i=0;i<tile_sep.size();i++){
+		size_t st = tile_sep[i];
+		size_t ed = 0;
+		if(i==tile_sep.size()-1){
+			ed = output.size();
+		}else{
+			ed = tile_sep[i+1];
+		}
+		size_t tid = output[st].first;
+		for(size_t j=st;j<ed;j++){
+			tiles[tid]->targets.push_back(output[j].second);
+		}
+	}
+}
+
 
 // functions for the query phase
 void *local_unit(void *arg){
@@ -218,6 +304,7 @@ typedef struct partition_stat_{
 	size_t tile_num = 0;
 	double genschema_time = 0.0;
 	double partition_time = 0.0;
+	double shuffle_time = 0.0;
 	double query_time = 0;
 	double total_time = 0.0;
 
@@ -225,11 +312,11 @@ typedef struct partition_stat_{
 		printf("setup,%s, %f,%s,%ld,%ld,"
 				"stddev,%f,%f,%f,"
 				"stats,%f,%f,%f,"
-				"time,%f,%f,%f,%f\n",
+				"time,%f,%f,%f,%f,%f\n",
 				is_data_oriented?"data":"space", sample_rate,partition_type_names[ptype], cardinality, tile_num,
 				stddev_r, stddev_t, stddev_a,
 				boundary_rate, target_boundary_rate, found_rate,
-				genschema_time, partition_time, query_time, total_time);
+				genschema_time, partition_time, shuffle_time, query_time, partition_time+shuffle_time+query_time);
 		fflush(stdout);
 	}
 }partition_stat;
@@ -246,6 +333,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	vector<Tile *> tiles;
 	vector<RTree<Tile *, double, 2, double> *> global_trees;
 
+	size_t tile_id = 0;
 	for(vector<MyPolygon *> &objects:object_sets){
 		struct timeval cst = get_cur_time();
 		vector<Tile *> tl = genschema(objects, card, ptype, data_oriented);
@@ -253,6 +341,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 		RTree<Tile *, double, 2, double> *global_tree = new RTree<Tile *, double, 2, double>();
 		for(Tile *t:tl){
 			global_tree->Insert(t->low, t->high, t);
+			t->id = tile_id++;
 		}
 		logt("build global tree", cst);
 		global_trees.push_back(global_tree);
@@ -264,13 +353,23 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	// partitioning data
 	if(!data_oriented && ptype!=HC){
 		for(size_t i=0;i<object_sets.size();i++){
-			partition(object_sets[i], *global_trees[i], ptype);
+			struct timeval st = get_cur_time();
+			vector<pair<size_t, MyPolygon *>> output;
+			partition(object_sets[i], *global_trees[i], output);
+			stat.partition_time += get_time_elapsed(st, true);
+			shuffle(output, tiles);
+			stat.shuffle_time += get_time_elapsed(st, true);
 		}
 	}
 	for(size_t i=0;i<target_sets.size();i++){
-		partition_target(target_sets[i], *global_trees[i]);
+		struct timeval st = get_cur_time();
+		vector<pair<size_t, Point *>> output;
+		partition_target(target_sets[i], *global_trees[i], output);
+		stat.partition_time += get_time_elapsed(st, true);
+		shuffle_target(output, tiles);
+		stat.shuffle_time += get_time_elapsed(st, true);
 	}
-	stat.partition_time = logt("partitioning data",start);
+	logt("partitioning data",start);
 
 	// local processing
 	size_t found = local(tiles);
@@ -302,16 +401,6 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	stat.target_boundary_rate = 1.0*total_target_num/tgtnum;
 	stat.found_rate = 1.0*found/tgtnum;
 	stat.tile_num = tiles.size();
-
-//	size_t x_crossed = 0;
-//	size_t y_crossed = 0;
-//	for(Tile *tile:tiles){
-//		for(MyPolygon *p:tile->objects){
-//			x_crossed += (p->getMBB()->high[0]>tile->high[0]||p->getMBB()->low[0]<tile->low[0]);
-//			y_crossed += (p->getMBB()->high[1]>tile->high[1]||p->getMBB()->low[1]<tile->low[1]);
-//		}
-//	}
-//	log("%ld,%ld",x_crossed,y_crossed);
 
 	// clear the partition schema for this round
 	for(Tile *tile:tiles){
@@ -481,15 +570,6 @@ int main(int argc, char** argv) {
 				//stddevs.push_back(stat.stddev);
 				boundary.push_back(stat.boundary_rate);
 				found.push_back(stat.found_rate);
-			}
-			if(num_tiles.size()>1){
-				double a,b;
-				//linear_regression(num_tiles,stddevs,a,b);
-				//printf("%f,%.10f,%.10f",sample_rate,a,b);
-				linear_regression(num_tiles,boundary,a,b);
-				printf(",%.10f,%.10f",a,b);
-				linear_regression(num_tiles,found,a,b);
-				printf(",%.10f,%.10f\n",a,b);
 			}
 		}
 		for(vector<MyPolygon *> &ps:cur_sampled_objects){

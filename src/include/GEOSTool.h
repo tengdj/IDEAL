@@ -26,7 +26,6 @@ using namespace geos;
 
 
 using namespace std;
-void process_geometries(query_context *ctx, vector<unique_ptr<geos::geom::Geometry>> &dest, bool procee_target = false);
 void process_points(query_context *ctx, vector<unique_ptr<geos::geom::Geometry>> &dest);
 
 

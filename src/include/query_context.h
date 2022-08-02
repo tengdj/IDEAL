@@ -139,6 +139,7 @@ public:
 	Point *points = NULL;
 	void *target = NULL;
 	void *target2 = NULL;
+	void *target3 = NULL;
 	query_context *global_ctx = NULL;
 	size_t target_num = 0;
 

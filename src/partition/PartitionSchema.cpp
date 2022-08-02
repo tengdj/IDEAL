@@ -477,11 +477,6 @@ vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality,
 		}
 	}
 	qnodes.clear();
-
-	double len = 0;
-	qtree->get_grid_line_length(len);
-	log("%f",len);
-
 	delete qtree;
 	return schema;
 }
