@@ -254,7 +254,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 						return false;
 					}
 					// evaluate the state
-					if(p->is_boundary() && p->is_boundary()){
+					if(p->is_boundary() && p2->is_boundary()){
 						candidates.push_back(pair<Pixel *, Pixel *>(p, p2));
 					}
 				}

@@ -351,7 +351,7 @@ static partition_stat process(vector<vector<MyPolygon *>> &object_sets, vector<v
 	stat.genschema_time = logt("%ld tiles are generated with %s partitioning algorithm",start, tiles.size(), partition_type_names[ptype]);
 
 	// partitioning data
-	if(!data_oriented && ptype!=HC){
+	if(!data_oriented){
 		for(size_t i=0;i<object_sets.size();i++){
 			struct timeval st = get_cur_time();
 			vector<pair<size_t, MyPolygon *>> output;

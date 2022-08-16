@@ -311,7 +311,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 	size_t num = geometries.size();
 
 	// make it precise enough
-	size_t hcnum = geometries.size()*10;
+	size_t hcnum = geometries.size()*2;
 	size_t hindex = log2(hcnum);
 	hindex += (1+(hindex%2==0));
 	hcnum = pow(2,hindex);
@@ -332,32 +332,57 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 		p->hc_id = xy2d(hindex,x,y);
 		assert(p->hc_id<hcnum);
 	}
-	//logt("generate hilbert curve id", start);
-	boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareHC);
-	//logt("sorting with hilbert curve id", start);
-//	if(!data_oriented){
-//		size_t cur = 0;
-//		Tile *b = new Tile();
-//		for(size_t h=0;h<hcnum;h++){
-//			size_t x = 0;
-//			size_t y = 0;
-//			d2xy(hindex, h, x, y);
-//			while(cur!=geometries.size()&&
-//					geometries[cur]->hc_id==h){
-//				b->insert(geometries[cur++], false);
-//			}
-//			if(b->objects.size()>=cardinality){
-//				schema.push_back(b);
-//				b = new Tile();
-//			}
-//			box tb(x*space.width()/dimx,y*space.height()/dimy,(x+1)*space.width()/dimx,(y+1)*space.height()/dimy);
-//			b->update(tb);
-//		}
-//		schema.push_back(b);
-//	}else
-	{
+	logt("calculating the hilbert curve id", start);
+	if(!data_oriented){
+		pthread_mutex_t hlocks[100];
+		for(int i=0;i<100;i++){
+			pthread_mutex_init(&hlocks[i],NULL);
+		}
+		uint *hccount = new uint[hcnum];
+		memset((void *)hccount, 0, sizeof(uint)*hcnum);
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
+		for(size_t i=0;i<geometries.size();i++){
+			pthread_mutex_lock(&hlocks[geometries[i]->hc_id%100]);
+			hccount[geometries[i]->hc_id]++;
+			pthread_mutex_unlock(&hlocks[geometries[i]->hc_id%100]);
+		}
+		logt("assign to unit tiles", start);
+
+		size_t thread_num = get_num_threads();
+#pragma omp parallel for num_threads(thread_num)
+		for(size_t i=0;i<thread_num;i++){
+			size_t cur = 0;
+			Tile *b = new Tile();
+			uint cur_count = 0;
+			size_t st = i*hcnum/thread_num;
+			size_t ed = min(hcnum, (i+1)*hcnum/thread_num);
+			for(size_t h=st;h<ed;h++){
+				size_t x = 0;
+				size_t y = 0;
+				d2xy(hindex, h, x, y);
+				box tb(x*space.width()/dimx+space.low[0],y*space.height()/dimy+space.low[1],(x+1)*space.width()/dimx+space.low[0],(y+1)*space.height()/dimy+space.low[1]);
+				cur_count += hccount[h];
+				b->update(tb);
+				if(cur_count>cardinality){
+#pragma omp critical
+					schema.push_back(b);
+					b = new Tile();
+					cur_count = 0;
+				}
+			}
+			if(cur_count>0){
+#pragma omp critical
+				schema.push_back(b);
+			}
+		}
+		logt("merge adjacent tiles", start);
+		delete []hccount;
+	}else{
+		//logt("generate hilbert curve id", start);
+		boost::sort::block_indirect_sort(geometries.begin(), geometries.end(), compareHC);
 		size_t schema_num = (num+cardinality-1)/cardinality;
-	#pragma omp parallel for num_threads(2*get_num_threads()-1)
+
+#pragma omp parallel for num_threads(2*get_num_threads()-1)
 		for(size_t i=0;i<schema_num;i++){
 			size_t bg = i*cardinality;
 			size_t ed = std::min((i+1)*cardinality, num);
@@ -386,7 +411,7 @@ vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality,
 					ed++;
 				}
 			}
-	#pragma omp critical
+#pragma omp critical
 			schema.push_back(b);
 		}
 	}
