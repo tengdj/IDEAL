@@ -38,12 +38,21 @@ public:
 	Tile(box b);
 	~Tile();
 	void merge(Tile *n);
-	bool insert(MyPolygon *obj, bool update_box = true);
+	bool insert(MyPolygon *obj, bool update_box = true, bool thread_safe = true);
 	bool insert_target(Point *obj);
 	void build_index();
 	size_t conduct_query(bool dry_run = false);
 	vector<MyPolygon *> lookup(box *b);
 	vector<MyPolygon *> lookup(Point *p);
+};
+
+class Grid: public box{
+public:
+	size_t dimx;
+	size_t dimy;
+	vector<vector<Tile *>> grid;
+	Grid(box space, size_t dx, size_t dy);
+	~Grid();
 };
 
 vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);

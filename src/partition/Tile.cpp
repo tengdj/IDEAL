@@ -48,13 +48,17 @@ void Tile::merge(Tile *n){
 	unlock();
 }
 
-bool Tile::insert(MyPolygon *obj, bool update_box){
-	lock();
+bool Tile::insert(MyPolygon *obj, bool update_box, bool thread_safe){
+	if(thread_safe){
+		lock();
+	}
 	if(update_box){
 		update(*obj->getMBB());
 	}
 	objects.push_back(obj);
-	unlock();
+	if(thread_safe){
+		unlock();
+	}
 	return true;
 }
 

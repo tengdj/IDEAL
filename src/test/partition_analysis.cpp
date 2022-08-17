@@ -551,10 +551,6 @@ int main(int argc, char** argv) {
 		logt("resampled %ld MBRs and %ld points with sample rate %f", start,cobjnum,ctgtnum, sample_rate);
 
 		for(int pt=(int)start_type;pt<=(int)end_type;pt++){
-			vector<double> num_tiles;
-			//vector<double> stddevs;
-			vector<double> boundary;
-			vector<double> found;
 			// varying the cardinality
 			for(size_t card=min_cardinality; (card/1.5)<=max_cardinality;card*=2){
 				size_t real_card = std::max((int)(card*sample_rate), 1);
@@ -566,10 +562,6 @@ int main(int argc, char** argv) {
 				stat.cardinality = real_card;
 				stat.print();
 				logt("complete",start);
-				num_tiles.push_back(stat.tile_num);
-				//stddevs.push_back(stat.stddev);
-				boundary.push_back(stat.boundary_rate);
-				found.push_back(stat.found_rate);
 			}
 		}
 		for(vector<MyPolygon *> &ps:cur_sampled_objects){
