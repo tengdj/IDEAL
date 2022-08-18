@@ -55,17 +55,18 @@ public:
 	~Grid();
 };
 
-vector<Tile *> genschema_str(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-vector<Tile *> genschema_slc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-vector<Tile *> genschema_hc(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-
-vector<Tile *> genschema_fg(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-vector<Tile *> genschema_qt(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-vector<Tile *> genschema_bsp(vector<MyPolygon *> &geometries, size_t cardinality, bool data_oriented);
-
 vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented);
 void print_tiles(vector<Tile *> &tiles);
 double skewstdevratio(vector<Tile *> &tiles, int tag = 0);
-PARTITION_TYPE parse_partition_type(const char *type);
+
+inline PARTITION_TYPE parse_partition_type(const char *type){
+	for(int i=0;i<7;i++){
+		if(strcasecmp(type,partition_type_names[i])==0){
+			return (PARTITION_TYPE)i;
+		}
+	}
+	assert(false && "wrong partition type");
+	return QT;
+}
 
 #endif /* SRC_PARTITION_PARTITION_HPP_ */
