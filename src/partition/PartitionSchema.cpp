@@ -781,7 +781,7 @@ vector<Tile *> genschema_str_st(vector<MyPolygon *> &geometries, size_t cardinal
 
 		while(cur_slice<dimx*ampli){
 
-			log("%ld %ld %ld",i, cur_slice, dimx*ampli);
+			//log("%ld %ld %ld",i, cur_slice, dimx*ampli);
 			// total number of objects in this slice
 			size_t ct = 0;
 			for(size_t j=0;j<ampli*dimy;j++){
@@ -904,7 +904,7 @@ public:
 		return children[0]==NULL;
 	}
 	vector<vector<Tile *>> tinytiles;
-	vector<MyPolygon *> objects;
+	size_t objnum = 0;
 
 	BTNode_ST *children[2] = {NULL, NULL};
 
@@ -922,27 +922,134 @@ public:
 	}
 	void split(){
 		// horizontally split
-		if((high[0]-low[0])>(high[1]-low[1])){
-			boost::sort::block_indirect_sort(objects.begin(),objects.end(),compareCentX);
-			size_t half_index = objects.size()/2;
-			double mid = objects[half_index]->getMBB()->low[0];
-			children[0] = new BTNode(low[0], low[1], mid, high[1]);
-			children[1] = new BTNode(mid, low[1], high[0],high[1]);
-			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
-			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
+		if(width()>height()){
+			size_t half_index = objnum/2;
+			size_t col = 0;
+			size_t cur_count= 0;
+			while(col<tinytiles.size()){
+				size_t col_size = 0;
+				for(size_t r=0;r<tinytiles[col].size();r++){
+					col_size += tinytiles[col][r]->objects.size();
+				}
+				// split in this column
+				if(cur_count + col_size >= half_index){
+					break;
+				}
+				cur_count += col_size;
+				col++;
+			}
+
+			vector<MyPolygon *> objects;
+			for(size_t r=0;r<tinytiles[col].size();r++){
+				objects.insert(objects.end(), tinytiles[col][r]->objects.begin(), tinytiles[col][r]->objects.end());
+				tinytiles[col][r]->objects.clear();
+			}
+			sort(objects.begin(), objects.end(), compareLowX);
+
+			double mid = objects[half_index-cur_count-1]->getMBB()->low[0];
+			children[0] = new BTNode_ST(low[0], low[1], mid, high[1]);
+			children[1] = new BTNode_ST(mid, low[1], high[0],high[1]);
+
+			// assign the objects to the left half
+			for(size_t o=0;o<half_index-cur_count;o++){
+				size_t r = (objects[o]->getMBB()->low[1]-tinytiles[0][0]->low[1])/tinytiles[0][0]->height();
+				assert(r>=0&&r<tinytiles[col].size());
+				tinytiles[col][r]->objects.push_back(objects[o]);
+			}
+			children[0]->objnum = objnum/2;
+			for(size_t c=0;c<=col;c++){
+				children[0]->tinytiles.push_back(tinytiles[c]);
+			}
+
+			vector<Tile *> right_half;
+			for(size_t r=0;r<tinytiles[col].size();r++){
+				Tile *t = new Tile();
+				t->low[0] = tinytiles[col][r]->low[0];
+				t->low[1] = tinytiles[col][r]->low[1];
+				t->high[0] = tinytiles[col][r]->high[0];
+				t->high[1] = tinytiles[col][r]->high[1];
+				right_half.push_back(t);
+			}
+
+			for(size_t o=half_index-cur_count;o<objects.size();o++){
+				size_t y = (objects[o]->getMBB()->low[1]-tinytiles[0][0]->low[1])/tinytiles[0][0]->height();
+				right_half[y]->objects.push_back(objects[o]);
+			}
+			children[1]->tinytiles.push_back(right_half);
+			for(size_t c=col+1;c<tinytiles.size();c++){
+				children[1]->tinytiles.push_back(tinytiles[c]);
+			}
+			children[1]->objnum = objnum - objnum/2;
+			tinytiles.clear();
 		}else{
 			// vertically split
-			boost::sort::block_indirect_sort(objects.begin(),objects.end(),compareCentY);
-			size_t half_index = objects.size()/2;
-			double mid = objects[half_index]->getMBB()->low[1];
-			children[0] = new BTNode(low[0], low[1], high[0], mid);
-			children[1] = new BTNode(low[0], mid, high[0],high[1]);
-			children[0]->objects.insert(children[0]->objects.end(), objects.begin(), objects.begin()+half_index);
-			children[1]->objects.insert(children[1]->objects.end(), objects.begin()+half_index, objects.end());
+			size_t half_index = objnum/2;
+			size_t row = 0;
+			size_t cur_count= 0;
+			while(row<tinytiles[0].size()){
+				size_t row_size = 0;
+				for(size_t c=0;c<tinytiles.size();c++){
+					row_size += tinytiles[c][row]->objects.size();
+				}
+				if(cur_count + row_size >= half_index){
+					break;
+				}
+				cur_count += row_size;
+				row++;
+			}
+			vector<MyPolygon *> objects;
+			for(size_t c=0;c<tinytiles.size();c++){
+				objects.insert(objects.end(), tinytiles[c][row]->objects.begin(), tinytiles[c][row]->objects.end());
+				tinytiles[c][row]->objects.clear();
+			}
+			sort(objects.begin(), objects.end(), compareLowY);
+
+			double mid = objects[half_index-cur_count-1]->getMBB()->low[1];
+			children[0] = new BTNode_ST(low[0], low[1], high[0], mid);
+			children[1] = new BTNode_ST(low[0], mid, high[0],high[1]);
+
+			vector<Tile *> top_half;
+			for(size_t c=0;c<tinytiles.size();c++){
+				Tile *t = new Tile();
+				t->low[0] = tinytiles[c][row]->low[0];
+				t->low[1] = tinytiles[c][row]->low[1];
+				t->high[0] = tinytiles[c][row]->high[0];
+				t->high[1] = tinytiles[c][row]->high[1];
+				top_half.push_back(t);
+			}
+
+			// the lower half
+			for(size_t o=0;o<half_index-cur_count;o++){
+				size_t c = (objects[o]->getMBB()->low[0]-tinytiles[0][0]->low[0])/tinytiles[0][0]->width();
+				tinytiles[c][row]->objects.push_back(objects[o]);
+			}
+			// the top half
+			for(size_t o=half_index-cur_count;o<objects.size();o++){
+				size_t c = (objects[o]->getMBB()->low[0]-tinytiles[0][0]->low[0])/tinytiles[0][0]->width();
+				top_half[c]->objects.push_back(objects[o]);
+			}
+
+			children[0]->objnum = objnum/2;
+			for(size_t c=0;c<tinytiles.size();c++){
+				vector<Tile *> column;
+				column.insert(column.end(), tinytiles[c].begin(), tinytiles[c].begin()+row+1);
+				children[0]->tinytiles.push_back(column);
+			}
+			children[1]->objnum = objnum - objnum/2;
+			for(size_t c=0;c<tinytiles.size();c++){
+				vector<Tile *> column;
+				column.push_back(top_half[c]);
+				column.insert(column.end(), tinytiles[c].begin()+row+1, tinytiles[c].end());
+				children[1]->tinytiles.push_back(column);
+			}
+			for(vector<Tile *> &cols:tinytiles){
+				cols.clear();
+			}
+			tinytiles.clear();
 		}
 	}
 	void split_to(const size_t threshold){
-		if(objects.size()<=threshold){
+		if(objnum<=threshold){
 			return;
 		}
 		if(isleaf()){
@@ -968,16 +1075,50 @@ public:
 				delete children[i];
 			}
 		}
-		objects.clear();
+		for(vector<Tile *> &cols:tinytiles){
+			for(Tile *t:cols){
+				delete t;
+			}
+			cols.clear();
+		}
 	}
-	void insert(MyPolygon *p){
-		objects.push_back(p);
-	}
-	void insert(vector<MyPolygon *> &geometries){
-		objects.insert(objects.end(), geometries.begin(), geometries.end());
+	void insert(vector<MyPolygon *> &geometries, size_t cardinality){
+		const size_t ampli = 100;
+
+		size_t part_num = geometries.size()/cardinality+1;
+		const size_t dimx = sqrt(part_num);
+		const size_t dimy = dimx;
+		box space = profileSpace(geometries);
+		low[0] = space.low[0];
+		high[0] = space.high[0];
+		low[1] = space.low[1];
+		high[1] = space.high[1];
+
+		for(size_t i=0;i<dimx*ampli;i++){
+			vector<Tile *> column;
+			for(size_t j=0;j<dimy*ampli;j++){
+				Tile *t = new Tile();
+				t->low[0] = i*space.width()/(dimx*ampli)+space.low[0];
+				t->low[1] = j*space.height()/(dimy*ampli)+space.low[0];
+				t->high[0] = (i+1)*space.width()/(dimx*ampli)+space.low[1];
+				t->high[1] = (j+1)*space.height()/(dimy*ampli)+space.low[1];
+				column.push_back(t);
+			}
+			tinytiles.push_back(column);
+		}
+		double step_x = space.width()/(dimx*ampli);
+		double step_y = space.height()/(dimy*ampli);
+		for(MyPolygon *p:geometries){
+			size_t x = (p->getMBB()->low[0] - space.low[0])/step_x;
+			size_t y = (p->getMBB()->low[1] - space.low[1])/step_y;
+			assert(x>=0&&x<dimx*ampli);
+			assert(y>=0&&y<dimy*ampli);
+			tinytiles[x][y]->insert(p, false, false);
+		}
+		objnum = geometries.size();
 	}
 	size_t num_objects(){
-		return objects.size();
+		return objnum;
 	}
 
 };
@@ -988,13 +1129,14 @@ vector<Tile *> genschema_bsp_st(vector<MyPolygon *> &geometries, size_t cardinal
 	vector<Tile *> schema;
 	box space = profileSpace(geometries);
 
-	BTNode *btree = new BTNode(space);
+	BTNode_ST *btree = new BTNode_ST(space);
 	btree->insert(geometries, cardinality);
+	btree->split_to(cardinality);
 
-	vector<BTNode *> leafs;
+	vector<BTNode_ST *> leafs;
 	btree->get_leafs(leafs);
 
-	for(BTNode *b:leafs){
+	for(BTNode_ST *b:leafs){
 		Tile *t = new Tile(*b);
 		schema.push_back(t);
 	}
@@ -1005,31 +1147,31 @@ vector<Tile *> genschema_bsp_st(vector<MyPolygon *> &geometries, size_t cardinal
 }
 
 
-//vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented){
-//	switch(type){
-//	case BSP:
-//		return genschema_bsp(geometries, cardinality, data_oriented);
-//	case QT:
-//		return genschema_qt(geometries, cardinality, data_oriented);
-//	case HC:
-//		return genschema_hc(geometries, cardinality, data_oriented);
-//	case SLC:
-//		return genschema_slc(geometries, cardinality, data_oriented);
-//	case STR:
-//		return genschema_str(geometries, cardinality, data_oriented);
-//	case FG:
-//		return genschema_fg(geometries, cardinality, data_oriented);
-//	default:
-//		assert(false && "wrong partitioning type");
-//	}
-//	// should never reach here
-//	return genschema_qt(geometries, cardinality, data_oriented);
-//}
-
 vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented){
 	switch(type){
 	case BSP:
 		return genschema_bsp(geometries, cardinality, data_oriented);
+	case QT:
+		return genschema_qt(geometries, cardinality, data_oriented);
+	case HC:
+		return genschema_hc(geometries, cardinality, data_oriented);
+	case SLC:
+		return genschema_slc(geometries, cardinality, data_oriented);
+	case STR:
+		return genschema_str(geometries, cardinality, data_oriented);
+	case FG:
+		return genschema_fg(geometries, cardinality, data_oriented);
+	default:
+		assert(false && "wrong partitioning type");
+	}
+	// should never reach here
+	return genschema_qt(geometries, cardinality, data_oriented);
+}
+
+vector<Tile *> genschema_st(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented){
+	switch(type){
+	case BSP:
+		return genschema_bsp_st(geometries, cardinality, data_oriented);
 	case QT:
 		return genschema_qt_st(geometries, cardinality, data_oriented);
 	case HC:
@@ -1044,5 +1186,5 @@ vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PA
 		assert(false && "wrong partitioning type");
 	}
 	// should never reach here
-	return genschema_qt(geometries, cardinality, data_oriented);
+	return genschema_qt_st(geometries, cardinality, data_oriented);
 }

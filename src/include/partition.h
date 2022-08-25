@@ -56,6 +56,8 @@ public:
 };
 
 vector<Tile *> genschema(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented);
+vector<Tile *> genschema_st(vector<MyPolygon *> &geometries, size_t cardinality, PARTITION_TYPE type, bool data_oriented);
+
 void print_tiles(vector<Tile *> &tiles);
 double skewstdevratio(vector<Tile *> &tiles, int tag = 0);
 

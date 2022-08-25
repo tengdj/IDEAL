@@ -78,6 +78,7 @@ int main(int argc, char** argv) {
 		("print,p", "print the generated schema")
 		("is_points", "the input is points")
 		("data_oriented,d", "data oriented partitioning")
+		("bottom_up", "generate the schema with bottom up method")
 		;
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -124,7 +125,12 @@ int main(int argc, char** argv) {
 		end_type = ptype;
 	}
 	for(int pt=start_type;pt<=end_type;pt++){
-		vector<Tile *> tiles = genschema(objects, std::max(1, (int)(sample_rate*cardinality)), (PARTITION_TYPE)pt, vm.count("data_oriented"));
+		vector<Tile *> tiles;
+		if(!vm.count("bottom_up")){
+			tiles = genschema(objects, std::max(1, (int)(sample_rate*cardinality)), (PARTITION_TYPE)pt, vm.count("data_oriented"));
+		}else{
+			tiles = genschema_st(objects, std::max(1, (int)(sample_rate*cardinality)), (PARTITION_TYPE)pt, vm.count("data_oriented"));
+		}
 		if(vm.count("print")){
 			print_tiles(tiles);
 		}
