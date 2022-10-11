@@ -17,14 +17,17 @@ int main(int argc, char** argv) {
 
 	string data_path;
 	size_t max_objects_number = 10000;
+	int min_num_vertex = INT_MAX;
 
 	po::options_description desc("query usage");
 	desc.add_options()
 		("help,h", "produce help message")
 		("source,s", po::value<string>(&data_path)->required(), "path to the source")
-		("number,n", po::value<size_t>(&max_objects_number), "max number of points")
+		("number,n", po::value<size_t>(&max_objects_number), "max number of objects")
+		("min_num_vertex,n", po::value<int>(&min_num_vertex), "print the first one with at least this number of vertexes")
 		("is_points,p", "the input data are points")
 		;
+
 	po::variables_map vm;
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	if (vm.count("help")) {
@@ -48,7 +51,13 @@ int main(int argc, char** argv) {
 		ctx.sample_rate = 1.0*max_objects_number/num_objects;
 		vector<MyPolygon *> polygons = load_binary_file(data_path.c_str(), ctx);
 		for(MyPolygon *p:polygons){
+			if(vm.count("min_num_vertex") && p->get_num_vertices()>=min_num_vertex){
+				p->print(false);
+				break;
+			}
 			p->print(false);
+		}
+		for(MyPolygon *p:polygons){
 			delete p;
 		}
 		logt("%ld polygons are loaded",start, polygons.size());

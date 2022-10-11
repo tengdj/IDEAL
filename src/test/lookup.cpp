@@ -63,7 +63,6 @@ int main(int argc, char** argv) {
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree", start);
-	query_context ctx;
 	ctx.use_grid = true;
 	Point p(point[0],point[1]);
 	ctx.target = (void *)&p;
