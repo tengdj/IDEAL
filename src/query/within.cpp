@@ -49,9 +49,7 @@ bool MySearchCallback(MyPolygon *poly, void* arg){
 void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
-	gctx->lock();
 	log("thread %d is started",ctx->thread_id);
-	gctx->unlock();
 	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
