@@ -6,7 +6,8 @@ SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 INCLUDES	= -I /usr/include -I include
-LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -lgeos -lgeos_c -fopenmp
+#-lgeos_c  
+LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -fopenmp -lgeos  
 CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
 NVCCFLAGS	= -g -std=c++14 -DUSE_GPU
 

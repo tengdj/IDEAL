@@ -17,7 +17,8 @@
 void *geos_unit(void *args){
 	query_context *ctx = (query_context *)args;
 	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)ctx->target;
-	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
+	geos::geom::GeometryFactory::Ptr factory = geos::geom::GeometryFactory::create();
+	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader(*factory);
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->convert_to_geos(wkt_reader);
