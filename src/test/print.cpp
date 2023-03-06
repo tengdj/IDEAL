@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 		("help,h", "produce help message")
 		("source,s", po::value<string>(&data_path)->required(), "path to the source")
 		("number,n", po::value<size_t>(&max_objects_number), "max number of objects")
-		("min_num_vertex,n", po::value<int>(&min_num_vertex), "print the first one with at least this number of vertexes")
+		("min_num_vertex,m", po::value<int>(&min_num_vertex), "print the first one with at least this number of vertexes")
 		("is_points,p", "the input data are points")
 		;
 

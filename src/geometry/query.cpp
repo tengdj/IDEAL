@@ -560,9 +560,8 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 							mindist = min(mindist, dist);
 							if(ctx->within(mindist)){
 								ctx->edge_checked.execution_time += get_time_elapsed(start);
-								return dist;
+								return mindist;
 							}
-
 						}
 					}
 					ctx->edge_checked.execution_time += get_time_elapsed(start);

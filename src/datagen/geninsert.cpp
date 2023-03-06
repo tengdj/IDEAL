@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 		("delimiter,d", po::value<string>(&del), "delimiter")
 		("table_name,t", po::value<string>(&table_name), "table name")
 		("sql","generate insert sql script")
-		("sample_rate,r", po::value<float>(&ctx.sample_rate), "max number of points inserted")
+		("sample_rate,r", po::value<float>(&ctx.sample_rate), "sampling rates for data")
 		("point","the source is point")
 		;
 	po::variables_map vm;

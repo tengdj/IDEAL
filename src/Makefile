@@ -5,9 +5,9 @@ NVCC = nvcc
 SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
-INCLUDES	= -I /usr/include -I include
+INCLUDES	= -I /usr/include -I include -I /usr/local/include
 #-lgeos_c  
-LIBS		= -L/usr/lib/x86_64-linux-gnu -lboost_program_options -lpthread -fopenmp -lgeos  
+LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -fopenmp -lgeos  
 CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
 NVCCFLAGS	= -g -std=c++14 -DUSE_GPU
 
@@ -36,9 +36,7 @@ endif
 %.o:	%.cpp
 	$(CXX) -c $(CPPFLAGS) $(INCLUDES) -o $@ $<	
 
-all:	polygon_in_polygon point_polygon_distance point_in_polygon resque_polygon_in_polygon resque_point_polygon_distance resque_point_in_polygon \
-		partition flatness pixeldensity distance lookup \
-		load geninsert geninsert_point loadpoint
+all:	contain_polygon within_polygon
 
 
 # for macro queries
@@ -53,6 +51,9 @@ within:	query/within.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 contain:	query/contain.o $(GEOMETRY_OBJS)
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	
+print_raster:	test/print_raster.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
 
 # utility
