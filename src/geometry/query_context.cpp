@@ -179,7 +179,7 @@ void query_context::print_stats(){
 	}
 
 	if(border_checked.counter>0){
-		log("border-eval:\t%.7f",(double)border_evaluated.counter/border_checked.counter);
+		log("border-eval:\t%.7f",(double)border_evaluated.counter/object_checked.counter);
 		log("border-checked:\t%.7f",(double)border_checked.counter/object_checked.counter);
 		log("border-edges:\t%.7f",(double)edge_checked.counter/border_checked.counter);
 		log("border-node:\t%.7f",(double)intersection_checked.counter/border_checked.counter);
