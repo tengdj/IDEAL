@@ -331,12 +331,75 @@ Pixel *MyRaster::get_pixel(Point &p){
 	return pixels[xoff][yoff];
 }
 
+// similar to the expand_radius function, get the possible minimum distance between point p and
+// the target pixels which will be evaluated in this step, will be used as a stop sign
+double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geography){
+	int core_x_low = center->id[0];
+	int core_x_high = center->id[0];
+	int core_y_low = center->id[1];
+	int core_y_high = center->id[1];
+	vector<Pixel *> needprocess;
+
+	int ymin = max(0,core_y_low-step);
+	int ymax = min(get_dimy(),core_y_high+step);
+
+	double mindist = DBL_MAX;
+	//left scan
+	if(core_x_low-step>=0){
+		double x = get(core_x_low-step,ymin)->high[0];
+		double y1 = get(core_x_low-step,ymin)->low[1];
+		double y2 = get(core_x_low-step,ymax)->high[1];
+
+		Point p1 = Point(x, y1);
+		Point p2 = Point(x, y2);
+		double dist = point_to_segment_distance(p, p1, p2, geography);
+		mindist = min(dist, mindist);
+	}
+	//right scan
+	if(core_x_high+step<=get_dimx()){
+		double x = get(core_x_high+step,ymin)->low[0];
+		double y1 = get(core_x_high+step,ymin)->low[1];
+		double y2 = get(core_x_high+step,ymax)->high[1];
+		Point p1 = Point(x, y1);
+		Point p2 = Point(x, y2);
+		double dist = point_to_segment_distance(p, p1, p2, geography);
+		mindist = min(dist, mindist);
+	}
+
+	// skip the first if there is left scan
+	int xmin = max(0,core_x_low-step+(core_x_low-step>=0));
+	// skip the last if there is right scan
+	int xmax = min(get_dimx(),core_x_high+step-(core_x_high+step<=get_dimx()));
+	//bottom scan
+	if(core_y_low-step>=0){
+		double y = get(xmin,core_y_low-step)->high[1];
+		double x1 = get(xmin,core_y_low-step)->low[0];
+		double x2 = get(xmax,core_y_low-step)->high[0];
+		Point p1 = Point(x1, y);
+		Point p2 = Point(x2, y);
+		double dist = point_to_segment_distance(p, p1, p2, geography);
+		mindist = min(dist, mindist);
+	}
+	//top scan
+	if(core_y_high+step<=get_dimy()){
+		double y = get(xmin,core_y_low+step)->low[1];
+		double x1 = get(xmin,core_y_low+step)->low[0];
+		double x2 = get(xmax,core_y_low+step)->high[0];
+		Point p1 = Point(x1, y);
+		Point p2 = Point(x2, y);
+		double dist = point_to_segment_distance(p, p1, p2, geography);
+		mindist = min(dist, mindist);
+	}
+	return mindist;
+}
+
 vector<Pixel *> MyRaster::expand_radius(Pixel *center, int step){
 
 	int lowx = center->id[0];
 	int highx = center->id[0];
 	int lowy = center->id[1];
 	int highy = center->id[1];
+
 	return expand_radius(lowx,highx,lowy,highy,step);
 }
 

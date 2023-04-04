@@ -29,6 +29,10 @@ bool VertexSequence::contain(Point &point) {
 	return ret;
 }
 
+double VertexSequence::distance(Point &point, bool geography) {
+	return point_to_segment_sequence_distance(point, p, num_vertices, geography);
+}
+
 bool MyPolygon::contain(Point &p){
     return boundary->contain(p);
 }
@@ -502,8 +506,6 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 		double step_size = raster->get_step(ctx->geography);
 		vector<Pixel *> needprocess;
 
-		bool there_is_border = false;
-		bool border_checked = false;
 		while(true){
 			struct timeval start = get_cur_time();
 			if(step==0){
@@ -514,14 +516,13 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 			// should never happen
 			// all the boxes are scanned
 			if(needprocess.size()==0){
-				//assert(false&&"should not evaluated all boxes");
+				assert(false&&"should not evaluated all boxes");
 				if(profile){
 					ctx->refine_count++;
 				}
-				return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
+				return boundary->distance(p, ctx->geography);
 			}
-			//if(profile)
-			{
+			if(profile)	{
 				ctx->pixel_evaluated.counter += needprocess.size();
 				ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
 			}
@@ -529,23 +530,21 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 			for(Pixel *cur:needprocess){
 				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 				if(cur->is_boundary()){
-					there_is_border = true;
 					start = get_cur_time();
-					//if(profile)
+					if(profile)
 					{
 						ctx->border_evaluated.counter++;
 					}
 					// no need to check the edges of this pixel
-					double mbr_dist = cur->distance(p, ctx->geography);
 					if(profile){
 						ctx->border_evaluated.execution_time += get_time_elapsed(start);
 					}
-					// skip the boundary pixels that is further than the
-					// current minimum
+
+					double mbr_dist = cur->distance(p, ctx->geography);
+					// skip the pixels that is further than the current minimum
 					if(mbr_dist >= mindist){
 						continue;
 					}
-					border_checked = true;
 
 					// the vector model need be checked.
 					start = get_cur_time();
@@ -569,18 +568,19 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 			}
 			//printf("point to polygon distance - step:%d #pixels:%ld radius:%f mindist:%f\n",step,needprocess.size(),mbrdist+step*step_size,mindist);
 			needprocess.clear();
-			// for within query, if all firstly processed boundary pixels
-			// are not within the distance, it is for sure no edge will
-			// be in the specified distance
-			if(ctx->is_within_query() && there_is_border != border_checked){
+
+			// for within query, return if the current minimum is close enough
+			if(ctx->within(mindist)){
 				return mindist;
 			}
+			step++;
+			double minrasterdist = raster->get_possible_min(p, closest, step, ctx->geography);
+			//cout<<step<<" "<<mindist<<" "<<minrasterdist<<endl;
 
-			if(mindist<=mbrdist+step*step_size){
+			// close enough
+			if(mindist < minrasterdist){
 				break;
 			}
-
-			step++;
 		}
 		if(profile){
 			ctx->refine_count++;
@@ -600,7 +600,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 			if(profile){
 				ctx->edge_checked.counter += this->get_num_vertices();
 			}
-			return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
+			return boundary->distance(p, ctx->geography);
 		}
 		return DBL_MAX;
 	}else{
@@ -628,7 +628,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 				if(profile){
 					ctx->edge_checked.counter += get_num_vertices();
 				}
-				return point_to_segment_sequence_distance(p, boundary->p, boundary->num_vertices,ctx->geography);
+				return boundary->distance(p, ctx->geography);
 			}
 		}else{
 			return DBL_MAX;

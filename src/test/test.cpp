@@ -72,6 +72,24 @@ int main(int argc, char** argv) {
 //
 //	omp_set_num_threads(6);
 //	printf("ID: %d, Max threads: %d, Num threads: %d\n",omp_get_thread_num(), omp_get_max_threads(), omp_get_num_threads());
+	query_context cctx;
+	cctx.query_type = QueryType::distance;
+	cctx.geography = false;
+
+
+	vector<MyPolygon *> polys = load_binary_file(argv[1], cctx);
+	MyPolygon *poly = polys[0];
+	//poly->print();
+	//Point p(-0.4, 0);
+	Point p(0, 0);
+	poly->rasterization(10);
+	double dist2 = poly->distance(p, &cctx);
+	cctx.print_stats();
+	double dist1 = poly->boundary->distance(p, false);
+
+	cout<<dist1<<" "<<dist2<<endl;
+
+	//poly->get_rastor()->print();
 
 
 	return 0;

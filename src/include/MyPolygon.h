@@ -54,6 +54,7 @@ public:
 	void reverse();
 	double area();
 	bool contain(Point &p);
+	double distance(Point &p, bool geography = true);
 	//fix the collinear problem
 	void fix();
 };
@@ -87,6 +88,8 @@ public:
 	vector<Pixel *> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<Pixel *> expand_radius(Pixel *center, int step);
 
+	double get_possible_min(Point &p, Pixel *center, int step, bool geography = true);
+
 	int get_offset_x(double x);
 	int get_offset_y(double y);
 
@@ -108,27 +111,27 @@ public:
 	 * the gets functions
 	 *
 	 * */
-	double get_step_x(){
+	inline double get_step_x(){
 		return step_x;
 	}
-	double get_step_y(){
+	inline double get_step_y(){
 		return step_y;
 	}
-	double get_step(bool geography){
+	inline double get_step(bool geography){
 		if(geography){
 			return min(step_x/degree_per_kilometer_longitude(mbr->low[1]), step_y/degree_per_kilometer_latitude);
 		}else{
 			return min(step_x, step_y);
 		}
 	}
-	int get_dimx(){
+	inline int get_dimx(){
 		return dimx;
 	}
-	int get_dimy(){
+	inline int get_dimy(){
 		return dimy;
 	}
 
-	Pixel *get(int dx, int dy){
+	inline Pixel *get(int dx, int dy){
 		assert(dx>=0&&dx<=dimx);
 		assert(dy>=0&&dy<=dimy);
 		return pixels[dx][dy];
