@@ -85,10 +85,10 @@ size_t Tile::conduct_query(bool dry_run){
 	lock();
 	for(Point *p:targets){
 		vector<MyPolygon *> result = lookup(p);
-		for(MyPolygon *poly:result){
-			if(dry_run){
-				found += poly->getMBB()->contain(*p);
-			}else{
+		if(dry_run){
+			found += result.size();
+		}else{
+			for(MyPolygon *poly:result){
 				found += poly->contain(*p);
 			}
 		}
