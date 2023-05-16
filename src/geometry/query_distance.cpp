@@ -285,128 +285,105 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 
 // get the distance from pixel pix to polygon target
 double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bool profile){
-	double mindist = DBL_MAX;
 	assert(target->raster);
+	assert(raster);
 	assert(pix->is_boundary());
 
-	if(raster){
-		mindist = getMBB()->max_distance(*pix, ctx->geography);
-		const double mbrdist = getMBB()->distance(*pix,ctx->geography);
-		double min_mbrdist = mbrdist;
-		int step = 0;
-		double step_size = raster->get_step(ctx->geography);
-		// initialize the seed closest pixels
-		vector<Pixel *> needprocess = raster->get_closest_pixels(pix);
-		assert(needprocess.size()>0);
-		unsigned short lowx = needprocess[0]->id[0];
-		unsigned short highx = needprocess[0]->id[0];
-		unsigned short lowy = needprocess[0]->id[1];
-		unsigned short highy = needprocess[0]->id[1];
-		for(Pixel *p:needprocess){
-			lowx = min(lowx, p->id[0]);
-			highx = max(highx, p->id[0]);
-			lowy = min(lowy, p->id[1]);
-			highy = max(highy, p->id[1]);
+	double mindist = getMBB()->max_distance(*pix, ctx->geography);
+	double mbrdist = getMBB()->distance(*pix,ctx->geography);
+	double min_mbrdist = mbrdist;
+	int step = 0;
+	double step_size = raster->get_step(ctx->geography);
+	// initialize the seed closest pixels
+	vector<Pixel *> needprocess = raster->get_closest_pixels(pix);
+	assert(needprocess.size()>0);
+	unsigned short lowx = needprocess[0]->id[0];
+	unsigned short highx = needprocess[0]->id[0];
+	unsigned short lowy = needprocess[0]->id[1];
+	unsigned short highy = needprocess[0]->id[1];
+	for(Pixel *p:needprocess){
+		lowx = min(lowx, p->id[0]);
+		highx = max(highx, p->id[0]);
+		lowy = min(lowy, p->id[1]);
+		highy = max(highy, p->id[1]);
+	}
+
+	while(true){
+		struct timeval start = get_cur_time();
+
+		// for later steps, expand the circle to involve more pixels
+		if(step>0){
+			needprocess = raster->expand_radius(lowx,highx,lowy,highy,step);
+		}
+		//ctx->pixel_evaluated.counter += needprocess.size();
+		//ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
+
+		// all the boxes are scanned (should never happen)
+		if(needprocess.size()==0){
+			return mindist;
 		}
 
-		while(true){
-			struct timeval start = get_cur_time();
-
-			// for later steps, expand the circle to involve more pixels
-			if(step>0){
-				needprocess = raster->expand_radius(lowx,highx,lowy,highy,step);
+		for(Pixel *cur:needprocess){
+			if(profile){
+				ctx->pixel_evaluated.counter++;
 			}
-			//ctx->pixel_evaluated.counter += needprocess.size();
-			//ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
-
-			// all the boxes are scanned (should never happen)
-			if(needprocess.size()==0){
-				return mindist;
-			}
-
-			for(Pixel *cur:needprocess){
+			//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
+			// note that there is no need to check the edges of
+			// this pixel if it is too far from the target
+			if(cur->is_boundary()){
+				start = get_cur_time();
+				bool toofar = (cur->distance(*pix,ctx->geography) >= mindist);
 				if(profile){
-					ctx->pixel_evaluated.counter++;
+					ctx->border_evaluated.counter++;
+					ctx->border_evaluated.execution_time += get_time_elapsed(start, true);
 				}
-				//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
-				// note that there is no need to check the edges of
-				// this pixel if it is too far from the target
-				if(cur->is_boundary()){
-					start = get_cur_time();
-					bool toofar = (cur->distance(*pix,ctx->geography) >= mindist);
-					if(profile){
-						ctx->border_evaluated.counter++;
-						ctx->border_evaluated.execution_time += get_time_elapsed(start, true);
-					}
-					if(toofar){
-						continue;
-					}
-					//ctx->border_evaluated.counter++;
-					// the vector model need be checked.
-					start = get_cur_time();
-					if(profile){
-						ctx->border_checked.counter++;
-					}
-					for(edge_range &pix_er:pix->edge_ranges){
-						for(edge_range &cur_er:cur->edge_ranges){
-							double dist;
-							if(ctx->is_within_query()){
-								dist = segment_to_segment_within_batch(target->boundary->p+pix_er.vstart,
-													boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(),
-													ctx->within_distance, ctx->geography, ctx->edge_checked.counter);
-							}else{
-								dist = segment_sequence_distance(target->boundary->p+pix_er.vstart,
-													boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(), ctx->geography);
-								if(profile){
-									ctx->edge_checked.counter += pix_er.size()*cur_er.size();
-								}
-							}
-							mindist = min(dist, mindist);
-							if(ctx->within(mindist)){
-								return mindist;
+				if(toofar){
+					continue;
+				}
+				//ctx->border_evaluated.counter++;
+				// the vector model need be checked.
+				start = get_cur_time();
+				if(profile){
+					ctx->border_checked.counter++;
+				}
+				for(edge_range &pix_er:pix->edge_ranges){
+					for(edge_range &cur_er:cur->edge_ranges){
+						double dist;
+						if(ctx->is_within_query()){
+							dist = segment_to_segment_within_batch(target->boundary->p+pix_er.vstart,
+												boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(),
+												ctx->within_distance, ctx->geography, ctx->edge_checked.counter);
+						}else{
+							dist = segment_sequence_distance(target->boundary->p+pix_er.vstart,
+												boundary->p+cur_er.vstart, pix_er.size(), cur_er.size(), ctx->geography);
+							if(profile){
+								ctx->edge_checked.counter += pix_er.size()*cur_er.size();
 							}
 						}
-					}
-					if(profile){
-						ctx->edge_checked.execution_time += get_time_elapsed(start, true);
+						mindist = min(dist, mindist);
+						if(ctx->within(mindist)){
+							return mindist;
+						}
 					}
 				}
-			}
-			//log("step:%d #pixels:%ld radius:%f mindist:%f",step, needprocess.size(), mbrdist+step*step_size, mindist);
-			needprocess.clear();
-			double min_possible = mbrdist+step*step_size;
-			// the minimum distance for now is good enough for three reasons:
-			// 1. current minimum distance is smaller than any further distance
-			// 2. for within query, current minimum is close enough
-			// 3. for within query, current minimum could never be smaller than the threshold
-			if(mindist <= min_possible
-			   || (ctx->within(mindist))
-			   || (ctx->is_within_query() && ctx->within_distance < min_possible)){
-				return mindist;
-			}
-			step++;
-		}
-
-	}else{
-		for(edge_range &er:pix->edge_ranges){
-			double dist;
-			if(ctx->is_within_query()){
-				dist = segment_to_segment_within_batch(target->boundary->p+er.vstart,
-									boundary->p, er.size(), boundary->num_vertices, ctx->within_distance, ctx->geography, ctx->edge_checked.counter);
-			}else{
-				dist = segment_sequence_distance(target->boundary->p+er.vstart,
-									boundary->p, er.size(), boundary->num_vertices, ctx->geography);
 				if(profile){
-					ctx->edge_checked.counter += er.size()*boundary->num_vertices;
+					ctx->edge_checked.execution_time += get_time_elapsed(start, true);
 				}
 			}
-
-			mindist = min(dist, mindist);
-			if(ctx->within(mindist)){
-				return mindist;
-			}
 		}
-		return mindist;
+		//log("step:%d #pixels:%ld radius:%f mindist:%f",step, needprocess.size(), mbrdist+step*step_size, mindist);
+		needprocess.clear();
+		double min_possible = mbrdist+step*step_size;
+		// the minimum distance for now is good enough for three reasons:
+		// 1. current minimum distance is smaller than any further distance
+		// 2. for within query, current minimum is close enough
+		// 3. for within query, current minimum could never be smaller than the threshold
+		if(mindist <= min_possible
+		   || (ctx->within(mindist))
+		   || (ctx->is_within_query() && ctx->within_distance < min_possible)){
+			return mindist;
+		}
+		step++;
 	}
 
 	return mindist;
