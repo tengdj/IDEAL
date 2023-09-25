@@ -179,6 +179,7 @@ size_t number_of_objects(const char *path){
 const size_t buffer_size = 10*1024*1024;
 
 void *load_unit(void *arg){
+	log("thread start");
 	query_context *ctx = (query_context *)arg;
 	vector<load_holder *> *jobs = (vector<load_holder *> *)ctx->target;
 	vector<MyPolygon *> *global_polygons = (vector<MyPolygon *> *)ctx->target2;
@@ -214,6 +215,8 @@ void *load_unit(void *arg){
 	return NULL;
 }
 vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx){
+	global_ctx.index = 0;
+	global_ctx.index_end = 0;
 	vector<MyPolygon *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
@@ -264,6 +267,7 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx
 	pthread_t threads[global_ctx.num_threads];
 	query_context myctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
+		myctx[i].index = 0;
 		myctx[i] = global_ctx;
 		myctx[i].thread_id = i;
 		myctx[i].global_ctx = &global_ctx;

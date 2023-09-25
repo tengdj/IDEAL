@@ -217,6 +217,8 @@ void query_context::print_stats(){
 			cout<<it.first<<"\t"<<it.second<<"\t"<<latency[it.first]/it.second<<endl;
 		}
 	}
+
+	printf("%.3f\t%.3f\n",pixel_evaluated.execution_time+border_evaluated.execution_time,edge_checked.execution_time+intersection_checked.execution_time);
 }
 
 
