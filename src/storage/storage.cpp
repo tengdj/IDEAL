@@ -179,7 +179,6 @@ size_t number_of_objects(const char *path){
 const size_t buffer_size = 10*1024*1024;
 
 void *load_unit(void *arg){
-	log("thread start");
 	query_context *ctx = (query_context *)arg;
 	vector<load_holder *> *jobs = (vector<load_holder *> *)ctx->target;
 	vector<MyPolygon *> *global_polygons = (vector<MyPolygon *> *)ctx->target2;
