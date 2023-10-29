@@ -747,6 +747,16 @@ size_t MyRaster::get_num_crosses(){
 	return num;
 }
 
+double MyRaster::get_num_intersection(){
+	size_t num = 0;
+	for(vector<Pixel *> &rows:pixels){
+		for(Pixel *p:rows){
+			num += p->intersection_nodes[RIGHT].size();
+		}
+	}
+	return 1.0*num/(pixels[0].size()+1);
+}
+
 vector<Pixel *> MyRaster::get_pixels(PartitionStatus status){
 	vector<Pixel *> ret;
 	for(vector<Pixel *> &rows:pixels){

@@ -100,6 +100,7 @@ public:
 	size_t get_num_pixels(PartitionStatus status);
 	size_t get_num_gridlines();
 	size_t get_num_crosses();
+	double get_num_intersection();
 	void print();
 
 	vector<Pixel *> get_pixels(PartitionStatus status);
@@ -326,7 +327,7 @@ public:
 		return boundary->area();
 	}
 
-	void print_partition(query_context qc);
+	void print_partition();
 };
 
 class MyMultiPolygon{

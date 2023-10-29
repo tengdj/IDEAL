@@ -511,12 +511,9 @@ string MyPolygon::to_string(bool clockwise, bool complete_ring){
 }
 
 
-void MyPolygon::print_partition(query_context qt){
-	MyMultiPolygon *inpolys = new MyMultiPolygon();
-	MyMultiPolygon *borderpolys = new MyMultiPolygon();
-	MyMultiPolygon *outpolys = new MyMultiPolygon();
-
-	if(qt.use_qtree){
+/**
+ *
+ * 	if(qt.use_qtree){
 		partition_qtree(qt.vpr);
 		log("leaf count %d",qtree->leaf_count());
 		log("size in bytes %d",qtree->size());
@@ -539,6 +536,15 @@ void MyPolygon::print_partition(query_context qt){
 			}
 		}
 	}
+ *
+ *
+ */
+
+
+void MyPolygon::print_partition(){
+	MyMultiPolygon *inpolys = new MyMultiPolygon();
+	MyMultiPolygon *borderpolys = new MyMultiPolygon();
+	MyMultiPolygon *outpolys = new MyMultiPolygon();
 
 	cout<<"border:"<<endl;
 	borderpolys->print();
@@ -546,7 +552,6 @@ void MyPolygon::print_partition(query_context qt){
 	inpolys->print();
 	cout<<"out:"<<endl;
 	outpolys->print();
-
 
 	delete borderpolys;
 	delete inpolys;

@@ -288,6 +288,7 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 	assert(target->raster);
 	assert(raster);
 	assert(pix->is_boundary());
+	struct timeval start = get_cur_time();
 
 	double mindist = getMBB()->max_distance(*pix, ctx->geography);
 	double mbrdist = getMBB()->distance(*pix,ctx->geography);
@@ -308,6 +309,8 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 		highy = max(highy, p->id[1]);
 	}
 
+	ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
+
 	while(true){
 		struct timeval start = get_cur_time();
 
@@ -315,8 +318,8 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 		if(step>0){
 			needprocess = raster->expand_radius(lowx,highx,lowy,highy,step);
 		}
-		//ctx->pixel_evaluated.counter += needprocess.size();
-		//ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
+		ctx->pixel_evaluated.counter += needprocess.size();
+		ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
 
 		// all the boxes are scanned (should never happen)
 		if(needprocess.size()==0){
@@ -362,6 +365,9 @@ double MyPolygon::distance(MyPolygon *target, Pixel *pix, query_context *ctx, bo
 						}
 						mindist = min(dist, mindist);
 						if(ctx->within(mindist)){
+							if(profile){
+								ctx->edge_checked.execution_time += get_time_elapsed(start, true);
+							}
 							return mindist;
 						}
 					}
@@ -399,11 +405,13 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 	}
 
 	if(raster){
+		timeval start = get_cur_time();
 		// both polygons are rasterized and the pixel of the target is larger
 		// then swap the role of source and target, and use the target as the host one
 		// currently we put this optimization in the caller
 		if(target->raster && target->get_rastor()->get_step(false) > get_rastor()->get_step(false)){
 			ctx->object_checked.counter--;
+			ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 			return target->distance(this, ctx);
 		}
 
@@ -425,6 +433,7 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 			lowy = min(lowy, p->id[1]);
 			highy = max(highy, p->id[1]);
 		}
+		ctx->pixel_evaluated.execution_time += get_time_elapsed(start);
 
 		while(true){
 			struct timeval start = get_cur_time();
@@ -433,8 +442,8 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx){
 			if(step>0){
 				needprocess = raster->expand_radius(lowx,highx,lowy,highy,step);
 			}
-			//ctx->pixel_evaluated.counter += needprocess.size();
-			//ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
+			ctx->pixel_evaluated.counter += needprocess.size();
+			ctx->pixel_evaluated.execution_time += get_time_elapsed(start, true);
 
 			// all the boxes are scanned (should never happen)
 			if(needprocess.size()==0){
