@@ -4,7 +4,7 @@
 
 int main(){
 	query_context ctx;
-	vector<MyPolygon *> source = load_binary_file("/gisdata/ideal/idl/has_child.idl",ctx);
+	vector<MyPolygon *> source = load_binary_file("/home/qmh/data/has_child.idl",ctx);
 
 	for(MyPolygon *p:source){
 		if(p->boundary->num_vertices>10000){

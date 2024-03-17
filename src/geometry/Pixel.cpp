@@ -316,3 +316,57 @@ int Pixel::num_edges_covered(){
 	}
 	return c;
 }
+
+Pixels::Pixels(int num_pixels){
+	status = new uint8_t[num_pixels / 4 + 1];
+	memset(status, 0, (num_pixels / 4 + 1) * sizeof(uint8_t));
+	pointer = new uint16_t[num_pixels + 1];    //这里+1是为了让pointer[num_pixels] = len_edge_sequences，这样对于最后一个pointer就不用特判了
+}
+
+Pixels::~Pixels(){
+	if(status) delete []status;
+	if(pointer) delete []pointer;
+	if(edge_sequences) delete []edge_sequences;
+}
+
+void Pixels::set_status(int id, PartitionStatus state){
+	int pos = id % 4 * 2;   //乘2是因为每个status占2bit
+	if(state == OUT){
+		status[id / 4] &= ~((uint8_t)3 << pos);
+	}else if(state == IN){
+		status[id / 4] |= ((uint8_t)3 << pos);
+	}else{
+		status[id / 4] &= ~((uint8_t)1 << pos);
+		status[id / 4] |= ((uint8_t)1 << (pos + 1));
+	}
+}
+
+PartitionStatus Pixels::show_status(int id){
+	uint8_t st = status[id / 4];
+	int pos = id % 4 * 2;   //乘2是因为每个status占2bit	
+	st &= ((uint8_t)3 << pos);
+	st >>= pos;
+	if(st == 0) return OUT;
+	if(st == 3) return IN;
+	return BORDER;
+}
+
+void Pixels::process_pixels_null(int x, int y){
+	pointer[(x+1)*(y+1)] = len_edge_sequences;
+	for(int i = (x+1)*(y+1)-1; i >= 0; i --){
+		if(show_status(i) != BORDER){
+			pointer[i] = pointer[i + 1]; 
+		}
+	}
+}
+
+void Pixels::init_edge_sequences(int num_edge_seqs){
+	len_edge_sequences = num_edge_seqs;
+	edge_sequences = new pair<uint16_t, uint16_t>[num_edge_seqs];
+}
+
+void Pixels::add_edge(int idx, int start, int end){
+	edge_sequences[idx] = make_pair(start, end - start  + 1);
+}
+
+

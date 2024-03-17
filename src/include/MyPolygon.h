@@ -59,11 +59,35 @@ public:
 	void fix();
 };
 
+class Grid_line{
+	uint16_t *offset = nullptr;
+	double *intersection_nodes = nullptr;
+
+	size_t num_grid_lines = 0;
+	size_t num_crosses = 0;
+public:
+	Grid_line() = default;
+	Grid_line(int size);
+	~Grid_line();
+	void init_intersection_node(int num_nodes);
+	int get_num_nodes(int y) {return offset[y + 1] - offset[y];}
+	void add_node(int idx, double x) {intersection_nodes[idx] = x;}
+
+	void set_num_crosses(size_t x) {num_crosses = x;}
+	size_t get_num_crosses() {return num_crosses;}
+	void set_offset(int id, int idx) {offset[id] = idx;}
+	uint16_t get_offset(int id) {return offset[id];}
+	double get_intersection_nodes(int id) {return intersection_nodes[id];}
+};
+
 
 class MyRaster{
 	box *mbr = NULL;
 	VertexSequence *vs = NULL;
 	vector<vector<Pixel *>> pixels;
+	Pixels *pixs = nullptr;
+	Grid_line *horizontal;
+	Grid_line *vertical;
 	double step_x = 0.0;
 	double step_y = 0.0;
 	int dimx = 0;
@@ -79,17 +103,26 @@ public:
 	void rasterization();
 	~MyRaster();
 
+	void process_crosses(map<int, vector<cross_info>> edge_info);
+	void process_intersection(map<int, vector<double>> edge_intersection, string direction);
 	bool contain(box *,bool &contained);
 	vector<Pixel *> get_intersect_pixels(box *pix);
-	vector<Pixel *> get_closest_pixels(box *target);
+	vector<int> get_closest_pixels(box &target);
 	Pixel *get_pixel(Point &p);
-	Pixel *get_closest_pixel(Point &p);
+	Pixels *get_pixels() {return pixs;}
+	box get_pixel_box(int x, int y);
+	int get_pixel_id(Point &p);
+	int get_closest_pixel(Point &p);
 	Pixel *get_closest_pixel(box *target);
-	vector<Pixel *> expand_radius(int lowx, int highx, int lowy, int highy, int step);
-	vector<Pixel *> expand_radius(Pixel *center, int step);
+	uint16_t get_num_sequences(int id);
+	vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
+	vector<int> expand_radius(int center, int step);
 
-	double get_possible_min(Point &p, Pixel *center, int step, bool geography = true);
+	double get_possible_min(Point &p, int center, int step, bool geography = true);
 
+	int get_id(int x, int y);
+	int get_x(int id);
+	int get_y(int id);
 	int get_offset_x(double x);
 	int get_offset_y(double y);
 
@@ -106,7 +139,8 @@ public:
 	vector<Pixel *> get_pixels(PartitionStatus status);
 	box *extractMER(Pixel *starter);
 
-	vector<Pixel *> retrieve_pixels(box *);
+	vector<Pixel *> retrievePixels(box *);
+	vector<int> retrieve_pixels(box *);
 
 	/*
 	 * the gets functions
@@ -255,7 +289,7 @@ public:
 
 	double distance(Point &p, query_context *ctx, bool profile = true);
 	double distance(MyPolygon *target, query_context *ctx);
-	double distance(MyPolygon *target, Pixel *pix, query_context *ctx, bool profile = true);
+	double distance(MyPolygon *target, int pix, query_context *ctx, bool profile = true);
 	double distance(geos::geom::Geometry *geom);
 
 	double distance_rtree(Point &p, query_context *ctx);

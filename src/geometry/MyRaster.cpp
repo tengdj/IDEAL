@@ -67,36 +67,117 @@ MyRaster::MyRaster(VertexSequence *vst, int dx, int dy){
 }
 
 MyRaster::~MyRaster(){
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			delete p;
-		}
-		rows.clear();
+	if(mbr != nullptr) delete mbr;
+	if(pixs != nullptr) delete pixs;
+	if(horizontal != nullptr) delete horizontal;
+	if(vertical != nullptr) delete vertical;
+}
+
+void MyRaster::process_crosses(map<int, vector<cross_info>> edges_info){
+	int num_edge_seqs = 0;
+	for(auto ei : edges_info){
+		num_edge_seqs += ei.second.size();
 	}
-	pixels.clear();
+	pixs->init_edge_sequences(num_edge_seqs);
+
+	int idx = 0;
+	int edge_count = 0;
+	for(auto info : edges_info){
+		auto pix = info.first;
+		auto crosses = info.second; 
+		if(crosses.size() == 0) return;
+		
+		if(crosses.size() % 2 == 1){
+			crosses.push_back(cross_info((cross_type)!crosses[crosses.size()-1].type, crosses[crosses.size()-1].edge_id));
+		}
+		
+		assert(crosses.size()%2==0);
+
+		// 根据crosses.size()，初始化
+		int start = 0;
+		int end = crosses.size() - 1;
+		pixs->set_offset(pix, idx);
+
+		if(crosses[0].type == LEAVE){
+			assert(crosses[end].type == ENTER);
+			pixs->add_edge(idx ++, 0, crosses[0].edge_id);
+			pixs->add_edge(idx ++, crosses[end].edge_id, vs->num_vertices - 2);
+			start ++;
+			end --;
+		}
+
+		for(int i = start; i <= end; i++){
+			assert(crosses[i].type == ENTER);
+			//special case, an ENTER has no pair LEAVE,
+			//happens when one edge crosses the pair
+			if(i == end || crosses[i + 1].type == ENTER){
+				pixs->add_edge(idx ++, crosses[i].edge_id, crosses[i].edge_id);
+			}else{
+				pixs->add_edge(idx ++, crosses[i].edge_id, crosses[i+1].edge_id);
+				i++;
+			}
+		}
+	}
+}
+
+void MyRaster::process_intersection(map<int, vector<double>> intersection_info, string direction){
+	int num_nodes = 0;
+	for(auto i : intersection_info){
+		num_nodes += i.second.size();
+	}
+	if(direction == "horizontal"){
+		horizontal->init_intersection_node(num_nodes);
+		horizontal->set_num_crosses(num_nodes);
+		int idx = 0;
+		for(auto info : intersection_info){
+			auto h = info.first;
+			auto nodes = info.second;
+			
+			sort(nodes.begin(), nodes.end());
+
+			horizontal->set_offset(h, idx);
+
+			for(auto node : nodes){
+				horizontal->add_node(idx, node);
+				idx ++;
+			}
+		}
+		horizontal->set_offset(dimy, idx);
+	}else{
+		vertical->init_intersection_node(num_nodes);
+		vertical->set_num_crosses(num_nodes);
+
+		int idx = 0;
+		for(auto info : intersection_info){
+			auto h = info.first;
+			auto nodes = info.second;
+			
+			sort(nodes.begin(), nodes.end());
+
+			vertical->set_offset(h, idx);
+
+			for(auto node : nodes){
+				vertical->add_node(idx, node);
+				idx ++;
+			}
+		}
+		vertical->set_offset(dimx, idx);		
+	}
+
 }
 
 void MyRaster::init_pixels(){
 	assert(mbr);
-	const double start_x = mbr->low[0];
-	const double start_y = mbr->low[1];
-	for(double i=0;i<=dimx;i++){
-		vector<Pixel *> v;
-		for(double j=0;j<=dimy;j++){
-			Pixel *m = new Pixel();
-			m->id[0] = i;
-			m->id[1] = j;
-			m->low[0] = i*step_x+start_x;
-			m->high[0] = (i+1.0)*step_x+start_x;
-			m->low[1] = j*step_y+start_y;
-			m->high[1] = (j+1.0)*step_y+start_y;
-			v.push_back(m);
-		}
-		pixels.push_back(v);
-	};
+	pixs = new Pixels((dimx+1)*(dimy+1));
+	horizontal = new Grid_line(dimy);
+	vertical = new Grid_line(dimx);
 }
 
 void MyRaster::evaluate_edges(){
+	map<int, vector<double>> horizontal_intersect_info;
+	map<int, vector<double>> vertical_intersect_info;
+	map<int, vector<cross_info>> edges_info;
+	
 	// normalize
 	assert(mbr);
 	const double start_x = mbr->low[0];
@@ -142,9 +223,6 @@ void MyRaster::evaluate_edges(){
 		assert(cur_starty<=dimy);
 		assert(cur_endy<=dimy);
 
-		pixels[cur_startx][cur_starty]->status = BORDER;
-		pixels[cur_endx][cur_endy]->status = BORDER;
-
 		//in the same pixel
 		if(cur_startx==cur_endx&&cur_starty==cur_endy){
 			continue;
@@ -154,26 +232,38 @@ void MyRaster::evaluate_edges(){
 			//left to right
 			if(cur_startx<cur_endx){
 				for(int x=cur_startx;x<cur_endx;x++){
-					pixels[x][cur_starty]->leave(y1,RIGHT,i);
-					pixels[x+1][cur_starty]->enter(y1,LEFT,i);
+					vertical_intersect_info[x + 1].push_back(y1);
+					edges_info[get_id(x, cur_starty)].push_back(cross_info(LEAVE, i));
+					edges_info[get_id(x + 1, cur_starty)].push_back(cross_info(ENTER, i));
+					pixs->set_status(get_id(x, cur_starty), BORDER);
+					pixs->set_status(get_id(x+1, cur_starty), BORDER);
 				}
 			}else { // right to left
 				for(int x=cur_startx;x>cur_endx;x--){
-					pixels[x][cur_starty]->leave(y1, LEFT,i);
-					pixels[x-1][cur_starty]->enter(y1, RIGHT,i);
+					vertical_intersect_info[x].push_back(y1);
+					edges_info[get_id(x, cur_starty)].push_back(cross_info(LEAVE, i));
+					edges_info[get_id(x - 1, cur_starty)].push_back(cross_info(ENTER, i));
+					pixs->set_status(get_id(x, cur_starty), BORDER);
+					pixs->set_status(get_id(x-1, cur_starty), BORDER);
 				}
 			}
 		}else if(x1==x2){
 			//bottom up
 			if(cur_starty<cur_endy){
 				for(int y=cur_starty;y<cur_endy;y++){
-					pixels[cur_startx][y]->leave(x1, TOP,i);
-					pixels[cur_startx][y+1]->enter(x1, BOTTOM,i);
+					horizontal_intersect_info[y + 1].push_back(x1);
+					edges_info[get_id(cur_startx, y)].push_back(cross_info(LEAVE, i));
+					edges_info[get_id(cur_startx, y + 1)].push_back(cross_info(ENTER, i));
+					pixs->set_status(get_id(cur_startx, y), BORDER);
+					pixs->set_status(get_id(cur_startx, y+1), BORDER);
 				}
 			}else { //border[bottom] down
 				for(int y=cur_starty;y>cur_endy;y--){
-					pixels[cur_startx][y]->leave(x1, BOTTOM,i);
-					pixels[cur_startx][y-1]->enter(x1, TOP,i);
+					horizontal_intersect_info[y].push_back(x1);
+					edges_info[get_id(cur_startx, y)].push_back(cross_info(LEAVE, i));
+					edges_info[get_id(cur_startx, y - 1)].push_back(cross_info(ENTER, i));
+					pixs->set_status(get_id(cur_startx, y), BORDER);
+					pixs->set_status(get_id(cur_startx, y-1), BORDER);
 				}
 			}
 		}else{
@@ -209,11 +299,17 @@ void MyRaster::evaluate_edges(){
 						passed = true;
 						// left to right
 						if(cur_startx<cur_endx){
-							pixels[x++][y]->leave(yval,RIGHT,i);
-							pixels[x][y]->enter(yval,LEFT,i);
+							vertical_intersect_info[x + 1].push_back(yval);
+							pixs->set_status(get_id(x, y), BORDER);
+							edges_info[get_id(x ++, y)].push_back(cross_info(LEAVE, i));
+							edges_info[get_id(x, y)].push_back(cross_info(ENTER, i));
+							pixs->set_status(get_id(x, y), BORDER);
 						}else{//right to left
-							pixels[x--][y]->leave(yval,LEFT,i);
-							pixels[x][y]->enter(yval,RIGHT,i);
+							vertical_intersect_info[x].push_back(yval);
+							pixs->set_status(get_id(x, y), BORDER);
+							edges_info[get_id(x --, y)].push_back(cross_info(LEAVE, i));
+							edges_info[get_id(x, y)].push_back(cross_info(ENTER, i));
+							pixs->set_status(get_id(x, y), BORDER);
 						}
 					}
 				}
@@ -236,11 +332,17 @@ void MyRaster::evaluate_edges(){
 					if(cur_x==x){
 						passed = true;
 						if(cur_starty<cur_endy){// bottom up
-							pixels[x][y++]->leave(xval, TOP,i);
-							pixels[x][y]->enter(xval, BOTTOM,i);
+							horizontal_intersect_info[y + 1].push_back(xval);
+							pixs->set_status(get_id(x, y), BORDER);
+							edges_info[get_id(x, y ++)].push_back(cross_info(LEAVE, i));
+							edges_info[get_id(x, y)].push_back(cross_info(ENTER, i));
+							pixs->set_status(get_id(x, y), BORDER);
 						}else{// top down
-							pixels[x][y--]->leave(xval, BOTTOM,i);
-							pixels[x][y]->enter(xval, TOP,i);
+							horizontal_intersect_info[y].push_back(xval);
+							pixs->set_status(get_id(x, y), BORDER);
+							edges_info[get_id(x, y --)].push_back(cross_info(LEAVE, i));
+							edges_info[get_id(x, y)].push_back(cross_info(ENTER, i));
+							pixs->set_status(get_id(x, y), BORDER);
 						}
 					}
 				}
@@ -261,38 +363,36 @@ void MyRaster::evaluate_edges(){
 		}
 	}
 
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			for(int i=0;i<4;i++){
-				if(p->intersection_nodes[i].size()>0){
-					p->status = BORDER;
-					break;
-				}
-			}
-		}
-	}
 
-
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *pix:rows){
-			pix->process_crosses(vs->num_vertices);
-		}
-	}
+	process_crosses(edges_info);
+	process_intersection(horizontal_intersect_info, "horizontal");
+	process_intersection(vertical_intersect_info, "vertical");
+	pixs->process_pixels_null(dimx, dimy);
 }
 
 void MyRaster::scanline_reandering(){
-	for(int y=1;y<dimy;y++){
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
+
+	for(int y = 1; y < dimy; y ++){
 		bool isin = false;
-		for(int x=0;x<dimx;x++){
-			if(pixels[x][y]->status!=BORDER){
+		uint16_t i = horizontal->get_offset(y), j = horizontal->get_offset(y + 1);
+		for(int x = 0; x < dimx; x ++){
+			if(pixs->show_status(get_id(x, y)) != BORDER){
 				if(isin){
-					pixels[x][y]->status = IN;
+					pixs->set_status(get_id(x, y), IN);
+				}else{
+					pixs->set_status(get_id(x, y), OUT);
 				}
 				continue;
 			}
-			if(pixels[x][y]->intersection_nodes[BOTTOM].size()%2==1){
-				isin = !isin;
+			int pass = 0;
+			while(i < j && horizontal->get_intersection_nodes(i) <= start_x + step_x * (x + 1)){
+				pass ++;
+				i ++;
 			}
+			if(pass % 2 == 1) isin = !isin;
+
 		}
 	}
 }
@@ -307,6 +407,23 @@ void MyRaster::rasterization(){
 
 	//3. determine the status of rest pixels with scanline rendering
 	scanline_reandering();
+}
+
+int MyRaster::get_id(int x, int y){
+	assert(x>=0&&x<=dimx);
+	assert(y>=0&&y<=dimy);
+	return y * (dimx+1) + x;
+}
+
+// from id to pixel x
+int MyRaster::get_x(int id){
+	return id % (dimx+1);
+}
+
+// from id to pixel y
+int MyRaster::get_y(int id){
+	assert((id / (dimx+1)) <= dimy);
+	return id / (dimx+1);
 }
 
 // the range must be [0, dimx]
@@ -331,24 +448,50 @@ Pixel *MyRaster::get_pixel(Point &p){
 	return pixels[xoff][yoff];
 }
 
+box MyRaster::get_pixel_box(int x, int y){
+	const double start_x = mbr->low[0];
+	const double start_y = mbr->low[1];
+
+	double lowx = start_x + x * step_x;
+	double lowy = start_y + y * step_y;
+	double highx = start_x + (x + 1) * step_x;
+	double highy = start_y + (y + 1) * step_y;
+
+	return box(lowx, lowy, highx, highy);
+}
+
+int MyRaster::get_pixel_id(Point &p){
+	int xoff = get_offset_x(p.x);
+	int yoff = get_offset_y(p.y);
+	assert(xoff <= dimx);
+	assert(yoff <= dimy);
+	return get_id(xoff, yoff);
+}
+
+uint16_t MyRaster::get_num_sequences(int id){
+	if(pixs->show_status(id) != BORDER) return 0;
+	return pixs->get_pointer(id + 1) - pixs->get_pointer(id);
+}
+
 // similar to the expand_radius function, get the possible minimum distance between point p and
 // the target pixels which will be evaluated in this step, will be used as a stop sign
-double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geography){
-	int core_x_low = center->id[0];
-	int core_x_high = center->id[0];
-	int core_y_low = center->id[1];
-	int core_y_high = center->id[1];
-	vector<Pixel *> needprocess;
+double MyRaster::get_possible_min(Point &p, int center, int step, bool geography){
+	int core_x_low = get_x(center);
+	int core_x_high = get_x(center);
+	int core_y_low = get_y(center);
+	int core_y_high = get_y(center);
+
+	vector<int> needprocess;
 
 	int ymin = max(0,core_y_low-step);
-	int ymax = min(get_dimy(),core_y_high+step);
+	int ymax = min(dimy,core_y_high+step);
 
 	double mindist = DBL_MAX;
 	//left scan
 	if(core_x_low-step>=0){
-		double x = get(core_x_low-step,ymin)->high[0];
-		double y1 = get(core_x_low-step,ymin)->low[1];
-		double y2 = get(core_x_low-step,ymax)->high[1];
+		double x = get_pixel_box(core_x_low-step,ymin).high[0];
+		double y1 = get_pixel_box(core_x_low-step,ymin).low[1];
+		double y2 = get_pixel_box(core_x_low-step,ymax).high[1];
 
 		Point p1 = Point(x, y1);
 		Point p2 = Point(x, y2);
@@ -357,9 +500,9 @@ double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geogra
 	}
 	//right scan
 	if(core_x_high+step<=get_dimx()){
-		double x = get(core_x_high+step,ymin)->low[0];
-		double y1 = get(core_x_high+step,ymin)->low[1];
-		double y2 = get(core_x_high+step,ymax)->high[1];
+		double x = get_pixel_box(core_x_high+step,ymin).low[0];
+		double y1 = get_pixel_box(core_x_high+step,ymin).low[1];
+		double y2 = get_pixel_box(core_x_high+step,ymax).high[1];
 		Point p1 = Point(x, y1);
 		Point p2 = Point(x, y2);
 		double dist = point_to_segment_distance(p, p1, p2, geography);
@@ -369,12 +512,12 @@ double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geogra
 	// skip the first if there is left scan
 	int xmin = max(0,core_x_low-step+(core_x_low-step>=0));
 	// skip the last if there is right scan
-	int xmax = min(get_dimx(),core_x_high+step-(core_x_high+step<=get_dimx()));
+	int xmax = min(dimx,core_x_high+step-(core_x_high+step<=dimx));
 	//bottom scan
 	if(core_y_low-step>=0){
-		double y = get(xmin,core_y_low-step)->high[1];
-		double x1 = get(xmin,core_y_low-step)->low[0];
-		double x2 = get(xmax,core_y_low-step)->high[0];
+		double y = get_pixel_box(xmin,core_y_low-step).high[1];
+		double x1 = get_pixel_box(xmin,core_y_low-step).low[0];
+		double x2 = get_pixel_box(xmax,core_y_low-step).high[0];
 		Point p1 = Point(x1, y);
 		Point p2 = Point(x2, y);
 		double dist = point_to_segment_distance(p, p1, p2, geography);
@@ -382,9 +525,9 @@ double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geogra
 	}
 	//top scan
 	if(core_y_high+step<=get_dimy()){
-		double y = get(xmin,core_y_low+step)->low[1];
-		double x1 = get(xmin,core_y_low+step)->low[0];
-		double x2 = get(xmax,core_y_low+step)->high[0];
+		double y = get_pixel_box(xmin,core_y_low+step).low[1];
+		double x1 = get_pixel_box(xmin,core_y_low+step).low[0];
+		double x2 = get_pixel_box(xmax,core_y_low+step).high[0];
 		Point p1 = Point(x1, y);
 		Point p2 = Point(x2, y);
 		double dist = point_to_segment_distance(p, p1, p2, geography);
@@ -393,49 +536,49 @@ double MyRaster::get_possible_min(Point &p, Pixel *center, int step, bool geogra
 	return mindist;
 }
 
-vector<Pixel *> MyRaster::expand_radius(Pixel *center, int step){
+vector<int> MyRaster::expand_radius(int center, int step){
 
-	int lowx = center->id[0];
-	int highx = center->id[0];
-	int lowy = center->id[1];
-	int highy = center->id[1];
+	int lowx = get_x(center);
+	int highx = get_x(center);
+	int lowy = get_y(center);
+	int highy = get_y(center);
 
 	return expand_radius(lowx,highx,lowy,highy,step);
 }
 
-vector<Pixel *> MyRaster::expand_radius(int core_x_low, int core_x_high, int core_y_low, int core_y_high, int step){
+vector<int> MyRaster::expand_radius(int core_x_low, int core_x_high, int core_y_low, int core_y_high, int step){
 
-	vector<Pixel *> needprocess;
+	vector<int> needprocess;
 	int ymin = max(0,core_y_low-step);
-	int ymax = min(get_dimy(),core_y_high+step);
+	int ymax = min(dimy,core_y_high+step);
 
 	//left scan
 	if(core_x_low-step>=0){
 		for(int y=ymin;y<=ymax;y++){
-			needprocess.push_back(get(core_x_low-step,y));
+			needprocess.push_back(get_id(core_x_low-step,y));
 		}
 	}
 	//right scan
 	if(core_x_high+step<=get_dimx()){
 		for(int y=ymin;y<=ymax;y++){
-			needprocess.push_back(get(core_x_high+step,y));
+			needprocess.push_back(get_id(core_x_high+step,y));
 		}
 	}
 
 	// skip the first if there is left scan
 	int xmin = max(0,core_x_low-step+(core_x_low-step>=0));
 	// skip the last if there is right scan
-	int xmax = min(get_dimx(),core_x_high+step-(core_x_high+step<=get_dimx()));
+	int xmax = min(dimx,core_x_high+step-(core_x_high+step<=dimx));
 	//bottom scan
 	if(core_y_low-step>=0){
 		for(int x=xmin;x<=xmax;x++){
-			needprocess.push_back(get(x,core_y_low-step));
+			needprocess.push_back(get_id(x,core_y_low-step));
 		}
 	}
 	//top scan
 	if(core_y_high+step<=get_dimy()){
 		for(int x=xmin;x<=xmax;x++){
-			needprocess.push_back(get(x,core_y_high+step));
+			needprocess.push_back(get_id(x,core_y_high+step));
 		}
 	}
 
@@ -444,7 +587,7 @@ vector<Pixel *> MyRaster::expand_radius(int core_x_low, int core_x_high, int cor
 
 
 
-Pixel *MyRaster::get_closest_pixel(Point &p){
+int MyRaster::get_closest_pixel(Point &p){
 	int pixx = get_offset_x(p.x);
 	int pixy = get_offset_y(p.y);
 	if(pixx < 0){
@@ -459,22 +602,22 @@ Pixel *MyRaster::get_closest_pixel(Point &p){
 	if(pixy > dimy){
 		pixy = dimy;
 	}
-	return pixels[pixx][pixy];
+	return get_id(pixx, pixy);
 }
 
 // retrieve the pixels in the raster which is closest to the target pixels
-vector<Pixel *> MyRaster::get_closest_pixels(box *target){
+vector<int> MyRaster::get_closest_pixels(box &target){
 
 	// note that at 0 or dimx/dimy will be returned if
 	// the range of target is beyound this, as expected
-	int txstart = get_offset_x(target->low[0]);
-	int txend = get_offset_x(target->high[0]);
-	int tystart = get_offset_y(target->low[1]);
-	int tyend = get_offset_y(target->high[1]);
-	vector<Pixel *> ret;
+	int txstart = get_offset_x(target.low[0]);
+	int txend = get_offset_x(target.high[0]);
+	int tystart = get_offset_y(target.low[1]);
+	int tyend = get_offset_y(target.high[1]);
+	vector<int> ret;
 	for(int i=txstart;i<=txend;i++){
 		for(int j=tystart;j<=tyend;j++){
-			ret.push_back(pixels[i][j]);
+			ret.push_back(get_id(i, j));
 		}
 	}
 	return ret;
@@ -518,15 +661,16 @@ vector<Pixel *> MyRaster::get_intersect_pixels(box *b){
 
 int MyRaster::count_intersection_nodes(Point &p){
 	// here we assume the point inside one of the pixel
-	Pixel *pix = get_pixel(p);
-	assert(pix->status==BORDER);
+	int pix_id = get_pixel_id(p);
+	assert(pixs->show_status(pix_id) == BORDER);
 	int count = 0;
-	for(int i=0;i<=pix->id[1];i++){
-		for(double &node:pixels[pix->id[0]][i]->intersection_nodes[RIGHT]){
-			if(node<=p.y){
-				count++;
-			}
-		}
+	int x = get_x(pix_id) + 1;
+	uint16_t i = vertical->get_offset(x), j;
+	if(x < dimx) j = vertical->get_offset(x + 1);
+	else j = vertical->get_num_crosses();
+	while(i < j && vertical->get_intersection_nodes(i) <= p.y){
+		count ++;
+		i ++;
 	}
 	return count;
 }
@@ -549,23 +693,25 @@ void MyRaster::print(){
 
 	for(int i=0;i<=dimx;i++){
 		for(int j=0;j<=dimy;j++){
-			MyPolygon *m = MyPolygon::gen_box(*pixels[i][j]);
-			if(pixels[i][j]->status==BORDER){
+			box bx = get_pixel_box(i, j);
+			MyPolygon *m = MyPolygon::gen_box(bx);
+			if(pixs->show_status(get_id(i, j)) == BORDER){
 				borderpolys->insert_polygon(m);
-			}else if(pixels[i][j]->status==IN){
+			}else if(pixs->show_status(get_id(i, j)) == IN){
 				inpolys->insert_polygon(m);
-			}else if(pixels[i][j]->status==OUT){
+			}else if(pixs->show_status(get_id(i, j)) == OUT){
 				outpolys->insert_polygon(m);
 			}
 		}
 	}
 
-	cout<<"border:"<<endl;
+	cout<<"border:" << borderpolys->num_polygons() <<endl;
 	borderpolys->print();
-	cout<<"in:"<<endl;
+	cout<<"in:"<< inpolys->num_polygons() << endl;
 	inpolys->print();
-	cout<<"out:"<<endl;
+	cout<<"out:"<< outpolys->num_polygons() << endl;
 	outpolys->print();
+	cout << endl;
 
 
 	delete borderpolys;
@@ -662,7 +808,7 @@ box *MyRaster::extractMER(Pixel *starter){
 }
 
 
-vector<Pixel *> MyRaster::retrieve_pixels(box *target){
+vector<Pixel *> MyRaster::retrievePixels(box *target){
 
 	vector<Pixel *> ret;
 	int start_x = get_offset_x(target->low[0]);
@@ -677,6 +823,22 @@ vector<Pixel *> MyRaster::retrieve_pixels(box *target){
 		}
 	}
 
+	return ret;
+}
+
+vector<int> MyRaster::retrieve_pixels(box *target){
+	vector<int> ret;
+	int start_x = get_offset_x(target->low[0]);
+	int start_y = get_offset_y(target->low[1]);
+	int end_x = get_offset_x(target->high[0]);
+	int end_y = get_offset_y(target->high[1]);
+
+	//log("%d %d %d %d %d %d",dimx,dimy,start_x,end_x,start_y,end_y);
+	for(int i=start_x;i<=end_x;i++){
+		for(int j=start_y;j<=end_y;j++){
+			ret.push_back(get_id(i , j));
+		}
+	}
 	return ret;
 }
 

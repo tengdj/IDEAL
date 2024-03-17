@@ -137,6 +137,29 @@ public:
 	int num_edges_covered();
 };
 
+class Pixels{
+	uint8_t *status = nullptr;
+	uint16_t *pointer = nullptr;
+	pair<uint16_t, uint16_t> *edge_sequences = nullptr;   //change uint8_t to uint16_t, for many vertices case
+
+	int len_edge_sequences = 0;
+public:	
+	Pixels() = default;
+	Pixels(int num_vertices);
+	~Pixels();
+
+	uint16_t get_pointer(int id) {return pointer[id];}
+	
+	void set_status(int id, PartitionStatus status);
+	PartitionStatus show_status(int id);
+	void set_offset(int id, int idx){pointer[id] = idx;}
+	void process_pixels_null(int x, int y);
+	
+	void init_edge_sequences(int num_edge_seqs);
+	void add_edge(int idx, int start, int end);
+	pair<uint16_t, uint16_t> get_edge_sequence(int idx){return edge_sequences[idx];}
+};
+
 /*
  * the node for RTree
  *
