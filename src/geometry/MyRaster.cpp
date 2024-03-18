@@ -93,7 +93,7 @@ void MyRaster::process_crosses(map<int, vector<cross_info>> edges_info){
 		
 		assert(crosses.size()%2==0);
 
-		// 根据crosses.size()，初始化
+		// Initialize based on crosses.size().
 		int start = 0;
 		int end = crosses.size() - 1;
 		pixs->set_offset(pix, idx);

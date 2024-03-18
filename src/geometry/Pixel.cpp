@@ -320,7 +320,7 @@ int Pixel::num_edges_covered(){
 Pixels::Pixels(int num_pixels){
 	status = new uint8_t[num_pixels / 4 + 1];
 	memset(status, 0, (num_pixels / 4 + 1) * sizeof(uint8_t));
-	pointer = new uint16_t[num_pixels + 1];    //这里+1是为了让pointer[num_pixels] = len_edge_sequences，这样对于最后一个pointer就不用特判了
+	pointer = new uint16_t[num_pixels + 1];    // +1 here is to ensure that pointer[num_pixels] equals len_edge_sequences, so we don't need to make a special case for the last pointer.
 }
 
 Pixels::~Pixels(){
@@ -330,7 +330,7 @@ Pixels::~Pixels(){
 }
 
 void Pixels::set_status(int id, PartitionStatus state){
-	int pos = id % 4 * 2;   //乘2是因为每个status占2bit
+	int pos = id % 4 * 2;   // The multiplication by 2 is because each status occupies 2 bits.
 	if(state == OUT){
 		status[id / 4] &= ~((uint8_t)3 << pos);
 	}else if(state == IN){
@@ -343,7 +343,7 @@ void Pixels::set_status(int id, PartitionStatus state){
 
 PartitionStatus Pixels::show_status(int id){
 	uint8_t st = status[id / 4];
-	int pos = id % 4 * 2;   //乘2是因为每个status占2bit	
+	int pos = id % 4 * 2;   // The multiplication by 2 is because each status occupies 2 bits.	
 	st &= ((uint8_t)3 << pos);
 	st >>= pos;
 	if(st == 0) return OUT;
