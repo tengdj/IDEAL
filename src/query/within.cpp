@@ -20,9 +20,9 @@ RTree<MyPolygon *, double, 2, double> tree;
 bool MySearchCallback(MyPolygon *poly, void* arg){
 	query_context *ctx = (query_context *)arg;
 	// query with parition
-	if(ctx->use_grid){
-		poly->rasterization(ctx->vpr);
-	}
+	// if(ctx->use_grid){
+	// 	poly->rasterization(ctx->vpr);
+	// }
 	Point *p = (Point *)ctx->target;
 	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->within_distance){
         return true;
@@ -133,6 +133,5 @@ int main(int argc, char** argv) {
 
 	return 0;
 }
-
 
 

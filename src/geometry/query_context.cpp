@@ -108,7 +108,7 @@ void query_context::report_progress(int eval_batch){
 }
 
 void query_context::merge_global(){
-	lock();
+	global_ctx->lock();
 	global_ctx->found += found;
 	global_ctx->query_count += query_count;
 	global_ctx->refine_count += refine_count;
@@ -132,7 +132,7 @@ void query_context::merge_global(){
 			global_ctx->latency[it.first] = lt;
 		}
 	}
-	unlock();
+	global_ctx->unlock();
 }
 
 bool query_context::next_batch(int batch_num){
