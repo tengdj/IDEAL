@@ -440,13 +440,6 @@ int MyRaster::get_offset_y(double yval){
 	int y = double_to_int((yval-mbr->low[1])/step_y);
 	return min(max(y, 0), dimy);
 }
-Pixel *MyRaster::get_pixel(Point &p){
-	int xoff = get_offset_x(p.x);
-	int yoff = get_offset_y(p.y);
-	assert(xoff<=dimx);
-	assert(yoff<=dimy);
-	return pixels[xoff][yoff];
-}
 
 box MyRaster::get_pixel_box(int x, int y){
 	const double start_x = mbr->low[0];
@@ -625,39 +618,6 @@ vector<int> MyRaster::get_closest_pixels(box &target){
 
 // retrieve the pixel in the raster which is closest to the target pixels
 // pick the one in the middle if there is multiple pixels
-Pixel * MyRaster::get_closest_pixel(box *target){
-
-	// note that at 0 or dimx/dimy will be returned if
-	// the range of target is beyound this, as expected
-	int txstart = get_offset_x(target->low[0]);
-	int txend = get_offset_x(target->high[0]);
-	int tystart = get_offset_y(target->low[1]);
-	int tyend = get_offset_y(target->high[1]);
-
-	return pixels[(txstart+txend)/2][(tystart+tyend)/2];
-}
-
-
-vector<Pixel *> MyRaster::get_intersect_pixels(box *b){
-
-	// test all the pixels
-	int txstart = get_offset_x(b->low[0]);
-	int tystart = get_offset_y(b->low[1]);
-
-	double width_d = (b->high[0]-b->low[0]+step_x*0.9999999)/step_x;
-	int width = double_to_int(width_d);
-
-	double height_d = (b->high[1]-b->low[1]+step_y*0.9999999)/step_y;
-	int height = double_to_int(height_d);
-
-	vector<Pixel *> ret;
-	for(int i=txstart;i<txstart+width;i++){
-		for(int j=tystart;j<tystart+height;j++){
-			ret.push_back(pixels[i][j]);
-		}
-	}
-	return ret;
-}
 
 int MyRaster::count_intersection_nodes(Point &p){
 	// here we assume the point inside one of the pixel
@@ -675,15 +635,6 @@ int MyRaster::count_intersection_nodes(Point &p){
 	return count;
 }
 
-int MyRaster::get_num_border_edge(){
-	int num = 0;
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			num += p->num_edges_covered();
-		}
-	}
-	return num;
-}
 
 
 void MyRaster::print(){
@@ -723,10 +674,10 @@ void MyRaster::print(){
  * with the given center, expand to get the Maximum Enclosed Rectangle
  *
  * */
-box *MyRaster::extractMER(Pixel *starter){
-	assert(starter->status==IN);
-	int cx = starter->id[0];
-	int cy = starter->id[1];
+box *MyRaster::extractMER(int starter){
+	assert(pixs->show_status(starter) == IN);
+	int cx = get_x(starter);
+	int cy = get_y(starter);
 	box *curmer = new box();
 	int shift[4] = {0,0,0,0};
 	bool limit[4] = {false,false,false,false};
@@ -741,7 +692,7 @@ box *MyRaster::extractMER(Pixel *starter){
 			}else{
 				for(int i=cy-shift[1];i<=cy+shift[3];i++){
 					//log("%d %d %d %d", cx-shift[0], dimx, i, dimy);
-					if(pixels[cx-shift[0]][i]->status!=IN){
+					if(pixs->show_status(get_id(0, i) != IN))
 						limit[0] = true;
 						shift[0]--;
 						break;
@@ -757,7 +708,7 @@ box *MyRaster::extractMER(Pixel *starter){
 				shift[1]--;
 			}else{
 				for(int i=cx-shift[0];i<=cx+shift[2];i++){
-					if(pixels[i][cy-shift[1]]->status!=IN){
+					if(pixs->show_status(get_id(i, cy-shift[1]) != IN)){
 						limit[1] = true;
 						shift[1]--;
 						break;
@@ -808,24 +759,6 @@ box *MyRaster::extractMER(Pixel *starter){
 }
 
 
-vector<Pixel *> MyRaster::retrievePixels(box *target){
-
-	vector<Pixel *> ret;
-	int start_x = get_offset_x(target->low[0]);
-	int start_y = get_offset_y(target->low[1]);
-	int end_x = get_offset_x(target->high[0]);
-	int end_y = get_offset_y(target->high[1]);
-
-	//log("%d %d %d %d %d %d",dimx,dimy,start_x,end_x,start_y,end_y);
-	for(int i=start_x;i<=end_x;i++){
-		for(int j=start_y;j<=end_y;j++){
-			ret.push_back(pixels[i][j]);
-		}
-	}
-
-	return ret;
-}
-
 vector<int> MyRaster::retrieve_pixels(box *target){
 	vector<int> ret;
 	int start_x = get_offset_x(target->low[0]);
@@ -842,91 +775,10 @@ vector<int> MyRaster::retrieve_pixels(box *target){
 	return ret;
 }
 
-bool MyRaster::contain(box *b, bool &contained){
-
-	if(!mbr->contain(*b)){
-		contained = false;
-		return true;
-	}
-	// test all the pixels that intersects b
-	vector<Pixel *> covered = get_intersect_pixels(b);
-
-	int incount = 0;
-	int outcount = 0;
-	for(Pixel *pix:covered){
-		if(pix->status==OUT){
-			outcount++;
-		}
-		if(pix->status==IN){
-			incount++;
-		}
-	}
-	int total = covered.size();
-	covered.clear();
-	// all in/out
-	if(incount==total){
-		contained = true;
-		return true;
-	}else if(outcount==total){
-		contained = false;
-		return true;
-	}
-
-	// not determined by checking pixels only
-	return false;
-}
-
-size_t MyRaster::get_num_pixels(PartitionStatus status){
-	size_t num = 0;
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			if(p->status==status){
-				num++;
-			}
-		}
-	}
-	return num;
-}
-
 size_t MyRaster::get_num_pixels(){
 	return (dimx+1)*(dimy+1);
 }
 
 size_t MyRaster::get_num_gridlines(){
 	return dimx+dimy;
-}
-
-size_t MyRaster::get_num_crosses(){
-	size_t num = 0;
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			num += p->intersection_nodes[RIGHT].size();
-			num += p->intersection_nodes[BOTTOM].size();
-			num += p->intersection_nodes[LEFT].size();
-			num += p->intersection_nodes[TOP].size();
-		}
-	}
-	return num;
-}
-
-double MyRaster::get_num_intersection(){
-	size_t num = 0;
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			num += p->intersection_nodes[RIGHT].size();
-		}
-	}
-	return 1.0*num/(pixels[0].size()+1);
-}
-
-vector<Pixel *> MyRaster::get_pixels(PartitionStatus status){
-	vector<Pixel *> ret;
-	for(vector<Pixel *> &rows:pixels){
-		for(Pixel *p:rows){
-			if(p->status==status){
-				ret.push_back(p);
-			}
-		}
-	}
-	return ret;
 }

@@ -302,21 +302,23 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 
 			ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 		}else{
-			vector<Pixel *> pxs = raster->retrievePixels(target->getMBB());
-			vector<Pixel *> bpxs;
-			for(Pixel *p:pxs){
-				if(p->status==BORDER){
+			vector<int> pxs = raster->retrieve_pixels(target->getMBB());
+			vector<int> bpxs;
+			for(auto p : pxs){
+				if(pixs->show_status(p) == BORDER){
 					bpxs.push_back(p);
 				}
 			}
 			for(auto p : pxs){
-				for(edge_range &r:p->edge_ranges){
-					if(segment_intersect_batch(this->boundary->p+r.vstart, target->boundary->p, r.size(), target->boundary->num_vertices, ctx->edge_checked.counter)){
+				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
+					if(segment_intersect_batch(this->boundary->p+r.first, target->boundary->p, r.second, target->boundary->num_vertices, ctx->edge_checked.counter)){
 						//logt("%ld boundary %d(%ld) %d(%ld)",start,bpxs.size(),getid(),this->get_num_vertices(),target->getid(), target->get_num_vertices());
 						return false;
 					}
 				}
 			}
+			return true;
 		}
 		pxs.clear();
 	} else if(qtree) {
@@ -407,14 +409,16 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 	struct timeval start = get_cur_time();
 
 	if(raster){
-		vector<Pixel *> pxs = raster->retrievePixels(target->getMBB());
+		vector<int> pxs = raster->retrieve_pixels(target->getMBB());
+		auto pixs = raster->get_pixels();
+		auto tpixs = target->raster->get_pixels();
 		int etn = 0;
 		int itn = 0;
-		vector<Pixel *> bpxs;
-		for(Pixel *p:pxs){
-			if(p->status==OUT){
+		vector<int> bpxs;
+		for(auto p : pxs){
+			if(pixs->show_status(p) == OUT){
 				etn++;
-			}else if(p->status==IN){
+			}else if(pixs->show_status(p) == IN){
 				itn++;
 			}else{
 				bpxs.push_back(p);
@@ -431,65 +435,75 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 
 		start = get_cur_time();
 		assert(target->raster);
-		vector<pair<Pixel *, Pixel*>> candidates;
-		vector<Pixel *> bpxs2;
+		vector<pair<int, int>> candidates;
+		vector<int> bpxs2;
 		start = get_cur_time();
-		for(Pixel *p:bpxs){
-			bpxs2 = target->raster->retrievePixels(p);
+		for(auto p : bpxs){
+			box bx = raster->get_pixel_box(raster->get_x(p), raster->get_y(p));
+			bpxs2 = target->raster->retrieve_pixels(&bx);
 			// cannot determine anything; e-i e-e e-b
-			if(p->is_external()){
+			if(pixs->show_status(p) == OUT){
 				continue;
 			}
-			for(Pixel *p2:bpxs2){
+			for(auto p2 : bpxs2){
 				ctx->pixel_evaluated.counter++;
 
 				// nothing specific; i-e b-e
-				if(p2->is_external()){
+				if(tpixs->show_status(p2) == OUT){
 					continue;
 				}
 
 				// must intersect; i-i
-				if(p->is_internal() && p2->is_internal()){
+				if(pixs->show_status(p) == IN && tpixs->show_status(p2) == OUT){
 					ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
 					return true;
 				}
 
 				// b-b b-i i-b
-				candidates.push_back(pair<Pixel *, Pixel *>(p, p2));
+				candidates.push_back(pair<int, int>(p, p2));
 			}
 			bpxs2.clear();
 		}
 		ctx->pixel_evaluated.execution_time += get_time_elapsed(start,true);
 
 
-		for(pair<Pixel *, Pixel *> &pa:candidates){
-			Pixel *p = pa.first;
-			Pixel *p2 = pa.second;
+		for(auto pa : candidates){
+			int p = pa.first;
+			int p2 = pa.second;
 			ctx->border_evaluated.counter++;
-			if(p->is_boundary() && p->is_boundary()){
-				for(edge_range &r:p->edge_ranges){
-					for(edge_range &r2:p2->edge_ranges){
-						if(segment_intersect_batch(boundary->p+r.vstart, target->boundary->p+r2.vstart, r.size(), r2.size(), ctx->edge_checked.counter)){
+			if(pixs->show_status(p) == BORDER && tpixs->show_status(p2) == BORDER){
+				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
+					for(int j = 0; j < target->raster->get_num_sequences(p2); j ++){
+						auto r2 = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + j);
+						if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second, ctx->edge_checked.counter)){
 							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 							return false;
 						}
 					}
-				}
-			} else if (p->is_boundary()){
-				assert(p2->is_internal());
-				for(edge_range &r:p->edge_ranges){
-					for(int i=0;i<r.size();i++){
-						if(p2->intersect(*(boundary->p+r.vstart+i), *(boundary->p+r.vstart+i+1))){
+				}				
+			} else if (pixs->show_status(p) == BORDER){
+				assert(tpixs->show_status(p2) == IN);
+				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
+					for(int j = 0; j < r.second;j ++){
+                        box bx = target->get_rastor()->get_pixel_box(
+                            target->get_rastor()->get_x(p2),
+                            target->get_rastor()->get_y(p2));
+                        if(bx.intersect(*(boundary->p+r.first+i), *(boundary->p+r.first+i+1))){
 							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 							return true;
 						}
 					}
 				}
 			} else {
-				assert(p->is_internal());
-				for(edge_range &r:p2->edge_ranges){
-					for(int i=0;i<r.size();i++){
-						if(p->intersect(*(target->boundary->p+r.vstart+i), *(target->boundary->p+r.vstart+i+1))){
+				assert(pixs->show_status(p) == IN);
+				for(int i = 0; i < target->raster->get_num_sequences(p2); i ++){
+					auto r = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + i);
+					for(int j = 0; j < r.second;j ++){
+                        box bx = raster->get_pixel_box(raster->get_x(p),
+                                                       raster->get_y(p));
+                        if(bx.intersect(*(target->boundary->p+r.first+i), *(target->boundary->p+r.first+i+1))){
 							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
 							return true;
 						}

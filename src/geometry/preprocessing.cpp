@@ -270,9 +270,6 @@ void *qtree_unit(void *args){
 			double latency = get_time_elapsed(start);
 			int num_vertices = polygons[i]->get_num_vertices();
 			//ctx->report_latency(num_vertices, latency);
-//			if(latency>10000||num_vertices>200000){
-//				logt("partition %d vertices (source)",start,num_vertices);
-//			}
 			ctx->report_progress();
 		}
 	}
@@ -342,9 +339,6 @@ void *rasterization_unit(void *args){
 			double latency = get_time_elapsed(start);
 			int num_vertices = polygons[i]->get_num_vertices();
 			//ctx->report_latency(num_vertices, latency);
-//			if(latency>10000||num_vertices>200000){
-//				logt("partition %d vertices (source)",start,num_vertices);
-//			}
 			ctx->report_progress();
 		}
 	}

@@ -84,7 +84,6 @@ public:
 class MyRaster{
 	box *mbr = NULL;
 	VertexSequence *vs = NULL;
-	vector<vector<Pixel *>> pixels;
 	Pixels *pixs = nullptr;
 	Grid_line *horizontal;
 	Grid_line *vertical;
@@ -106,14 +105,11 @@ public:
 	void process_crosses(map<int, vector<cross_info>> edge_info);
 	void process_intersection(map<int, vector<double>> edge_intersection, string direction);
 	bool contain(box *,bool &contained);
-	vector<Pixel *> get_intersect_pixels(box *pix);
 	vector<int> get_closest_pixels(box &target);
-	Pixel *get_pixel(Point &p);
 	Pixels *get_pixels() {return pixs;}
 	box get_pixel_box(int x, int y);
 	int get_pixel_id(Point &p);
 	int get_closest_pixel(Point &p);
-	Pixel *get_closest_pixel(box *target);
 	uint16_t get_num_sequences(int id);
 	vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<int> expand_radius(int center, int step);
@@ -136,10 +132,8 @@ public:
 	double get_num_intersection();
 	void print();
 
-	vector<Pixel *> get_pixels(PartitionStatus status);
 	box *extractMER(Pixel *starter);
 
-	vector<Pixel *> retrievePixels(box *);
 	vector<int> retrieve_pixels(box *);
 
 	/*
@@ -164,12 +158,6 @@ public:
 	}
 	inline int get_dimy(){
 		return dimy;
-	}
-
-	inline Pixel *get(int dx, int dy){
-		assert(dx>=0&&dx<=dimx);
-		assert(dy>=0&&dy<=dimy);
-		return pixels[dx][dy];
 	}
 
 };
@@ -350,8 +338,6 @@ public:
 	size_t get_data_size();
 	size_t encode(char *target);
 	size_t decode(char *source);
-	static char *encode_raster(vector<vector<Pixel>> raster);
-	static vector<vector<Pixel>> decode_raster(char *);
 
 	vector<Point> generate_test_points(int num);
 	vector<MyPolygon *> generate_test_polygons(int num);
