@@ -635,6 +635,16 @@ int MyRaster::count_intersection_nodes(Point &p){
 	return count;
 }
 
+vector<int> MyRaster::get_pixels(PartitionStatus status){
+	vector<int> ret;
+	for(int id = 0; id < get_num_pixels(); id ++){
+		if(pixs->show_status(id) == status){
+			ret.push_back(id);
+		}
+	}
+	return ret;
+}
+
 
 
 void MyRaster::print(){
@@ -692,7 +702,7 @@ box *MyRaster::extractMER(int starter){
 			}else{
 				for(int i=cy-shift[1];i<=cy+shift[3];i++){
 					//log("%d %d %d %d", cx-shift[0], dimx, i, dimy);
-					if(pixs->show_status(get_id(0, i) != IN))
+					if(pixs->show_status(get_id(0, i) != IN)){
 						limit[0] = true;
 						shift[0]--;
 						break;
@@ -719,12 +729,12 @@ box *MyRaster::extractMER(int starter){
 		//right
 		if(!limit[2]){
 			shift[2]++;
-			if(cx+shift[2]>=pixels.size()){
+			if(cx+shift[2]>=(dimy+1)){
 				limit[2] = true;
 				shift[2]--;
 			}else{
 				for(int i=cy-shift[1];i<=cy+shift[3];i++){
-					if(pixels[cx+shift[2]][i]->status!=IN){
+					if(pixs->show_status(get_id(cx+shift[2], i)) != IN){
 						limit[2] = true;
 						shift[2]--;
 						break;
@@ -735,12 +745,12 @@ box *MyRaster::extractMER(int starter){
 		//top
 		if(!limit[3]){
 			shift[3]++;
-			if(cy+shift[3]>=pixels[0].size()){
+			if(cy+shift[3]>=(dimx+1)){
 				limit[3] = true;
 				shift[3]--;
 			}else{
 				for(int i=cx-shift[0];i<=cx+shift[2];i++){
-					if(pixels[i][cy+shift[3]]->status!=IN){
+					if(pixs->show_status(get_id(i, cy+shift[3])) == IN){
 						limit[3] = true;
 						shift[3]--;
 						break;
@@ -750,10 +760,10 @@ box *MyRaster::extractMER(int starter){
 		}
 	}
 
-	curmer->low[0] = pixels[cx-shift[0]][cy-shift[1]]->low[0];
-	curmer->low[1] = pixels[cx-shift[0]][cy-shift[1]]->low[1];
-	curmer->high[0] = pixels[cx+shift[2]][cy+shift[3]]->high[0];
-	curmer->high[1] = pixels[cx+shift[2]][cy+shift[3]]->high[1];
+	curmer->low[0] = get_pixel_box(cx-shift[0], cy-shift[1]).low[0];
+	curmer->low[1] = get_pixel_box(cx-shift[0], cy-shift[1]).low[1];
+	curmer->high[0] = get_pixel_box(cx+shift[2], cy+shift[3]).high[0];
+	curmer->high[1] = get_pixel_box(cx+shift[2], cy+shift[3]).high[1];
 
 	return curmer;
 }

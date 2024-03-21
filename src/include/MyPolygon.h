@@ -107,6 +107,7 @@ public:
 	bool contain(box *,bool &contained);
 	vector<int> get_closest_pixels(box &target);
 	Pixels *get_pixels() {return pixs;}
+	vector<int> get_pixels(PartitionStatus status);
 	box get_pixel_box(int x, int y);
 	int get_pixel_id(Point &p);
 	int get_closest_pixel(Point &p);
@@ -132,7 +133,7 @@ public:
 	double get_num_intersection();
 	void print();
 
-	box *extractMER(Pixel *starter);
+	box *extractMER(int starter);
 
 	vector<int> retrieve_pixels(box *);
 

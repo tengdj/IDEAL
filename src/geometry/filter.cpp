@@ -83,7 +83,7 @@ box *MyPolygon::getMER(query_context *ctx){
 
 	MyRaster *ras = new MyRaster(boundary,ctx->vpr);
 	ras->rasterization();
-	vector<Pixel *> interiors = ras->get_pixels(IN);
+	vector<int> interiors = ras->get_pixels(IN);
 	if(interiors.size()==0){
 		return NULL;
 	}
