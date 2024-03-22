@@ -103,6 +103,7 @@ int main(int argc, char** argv) {
 	}
 	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
 
+
 	// the target is also the source
 	global_ctx.target_num = global_ctx.source_polygons.size();
 	//global_ctx.target_num = 1;

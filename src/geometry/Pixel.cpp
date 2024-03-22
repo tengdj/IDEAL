@@ -309,3 +309,16 @@ void Pixels::add_edge(int idx, int start, int end){
 	edge_sequences[idx] = make_pair(start, end - start  + 1);
 }
 
+uint16_t Pixels::get_num_sequences(int id){
+	if(show_status(id) != BORDER) return 0;
+	return pointer[id + 1] - pointer[id];
+}
+
+int Pixels::num_edges_covered(int id){
+	int c = 0;
+	for(int i = 0; i < get_num_sequences(id); i ++){
+		auto r = edge_sequences[pointer[id] + i];
+		c += r.second;
+	}
+	return c;
+}

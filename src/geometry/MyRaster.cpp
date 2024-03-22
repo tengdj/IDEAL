@@ -461,11 +461,6 @@ int MyRaster::get_pixel_id(Point &p){
 	return get_id(xoff, yoff);
 }
 
-uint16_t MyRaster::get_num_sequences(int id){
-	if(pixs->show_status(id) != BORDER) return 0;
-	return pixs->get_pointer(id + 1) - pixs->get_pointer(id);
-}
-
 // similar to the expand_radius function, get the possible minimum distance between point p and
 // the target pixels which will be evaluated in this step, will be used as a stop sign
 double MyRaster::get_possible_min(Point &p, int center, int step, bool geography){
@@ -599,6 +594,7 @@ int MyRaster::get_closest_pixel(Point &p){
 }
 
 // retrieve the pixels in the raster which is closest to the target pixels
+// pick the one in the middle if there is multiple pixels
 vector<int> MyRaster::get_closest_pixels(box &target){
 
 	// note that at 0 or dimx/dimy will be returned if
@@ -616,8 +612,26 @@ vector<int> MyRaster::get_closest_pixels(box &target){
 	return ret;
 }
 
-// retrieve the pixel in the raster which is closest to the target pixels
-// pick the one in the middle if there is multiple pixels
+vector<int> MyRaster::get_intersect_pixels(box *b){
+
+	// test all the pixels
+	int txstart = get_offset_x(b->low[0]);
+	int tystart = get_offset_y(b->low[1]);
+
+	double width_d = (b->high[0]-b->low[0]+step_x*0.9999999)/step_x;
+	int width = double_to_int(width_d);
+
+	double height_d = (b->high[1]-b->low[1]+step_y*0.9999999)/step_y;
+	int height = double_to_int(height_d);
+
+	vector<int> ret;
+	for(int i=txstart;i<txstart+width;i++){
+		for(int j=tystart;j<tystart+height;j++){
+			ret.push_back(get_id(i, j));
+		}
+	}
+	return ret;
+}
 
 int MyRaster::count_intersection_nodes(Point &p){
 	// here we assume the point inside one of the pixel
@@ -645,7 +659,15 @@ vector<int> MyRaster::get_pixels(PartitionStatus status){
 	return ret;
 }
 
-
+int MyRaster::get_num_border_edge(){
+	int num = 0;
+	for(int i = 0; i < get_num_pixels(); i ++){
+		if(pixs->show_status(i) == BORDER){
+			num += pixs->num_edges_covered(i);
+		}
+	}
+	return num;
+}
 
 void MyRaster::print(){
 	MyMultiPolygon *inpolys = new MyMultiPolygon();
@@ -785,10 +807,60 @@ vector<int> MyRaster::retrieve_pixels(box *target){
 	return ret;
 }
 
+bool MyRaster::contain(box *b, bool &contained){
+
+	if(!mbr->contain(*b)){
+		contained = false;
+		return true;
+	}
+	// test all the pixels that intersects b
+	vector<int> covered = get_intersect_pixels(b);
+
+	int incount = 0;
+	int outcount = 0;
+	for(auto pix : covered){
+		if(pixs->show_status(pix) == OUT){
+			outcount++;
+		}
+		if(pixs->show_status(pix) == IN){
+			incount++;
+		}
+	}
+	int total = covered.size();
+	covered.clear();
+	// all in/out
+	if(incount==total){
+		contained = true;
+		return true;
+	}else if(outcount==total){
+		contained = false;
+		return true;
+	}
+
+	// not determined by checking pixels only
+	return false;
+}
+
+size_t MyRaster::get_num_pixels(PartitionStatus status){
+	size_t num = 0;
+	for(int i = 0; i < get_num_pixels();i ++){
+		if(pixs->show_status(i) == status){
+			num++;
+		}
+	}
+	return num;	
+}
+
 size_t MyRaster::get_num_pixels(){
 	return (dimx+1)*(dimy+1);
 }
 
 size_t MyRaster::get_num_gridlines(){
 	return dimx+dimy;
+}
+
+size_t MyRaster::get_num_crosses(){
+	size_t num = 0;
+	num = horizontal->get_num_crosses() + vertical->get_num_crosses();
+	return num;
 }

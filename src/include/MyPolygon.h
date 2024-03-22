@@ -105,13 +105,13 @@ public:
 	void process_crosses(map<int, vector<cross_info>> edge_info);
 	void process_intersection(map<int, vector<double>> edge_intersection, string direction);
 	bool contain(box *,bool &contained);
+	vector<int> get_intersect_pixels(box *pix);
 	vector<int> get_closest_pixels(box &target);
 	Pixels *get_pixels() {return pixs;}
 	vector<int> get_pixels(PartitionStatus status);
 	box get_pixel_box(int x, int y);
 	int get_pixel_id(Point &p);
 	int get_closest_pixel(Point &p);
-	uint16_t get_num_sequences(int id);
 	vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<int> expand_radius(int center, int step);
 

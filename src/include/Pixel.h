@@ -132,6 +132,9 @@ public:
 	void init_edge_sequences(int num_edge_seqs);
 	void add_edge(int idx, int start, int end);
 	pair<uint16_t, uint16_t> get_edge_sequence(int idx){return edge_sequences[idx];}
+	uint16_t get_num_sequences(int id);
+	int num_edges_covered(int id);
+
 };
 
 /*

@@ -90,7 +90,7 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 
 		// checking the intersection edges in the target pixel
 		uint edge_count = 0;
-        for(uint16_t e = 0; e < raster->get_num_sequences(target); e ++){    
+        for(uint16_t e = 0; e < pix->get_num_sequences(target); e ++){    
             auto edges = pix->get_edge_sequence(pix->get_pointer(target) + e);
             auto pos = edges.first;
             for(int k = 0; k < edges.second; k ++){
@@ -257,7 +257,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 						pix_border[2].x = bx.high[0]; pix_border[2].y = bx.high[1];
 						pix_border[3].x = bx.high[0]; pix_border[3].y = bx.low[1];
 						pix_border[4].x = bx.low[0]; pix_border[4].y = bx.low[1];
-						for (int e = 0; e < target->raster->get_num_sequences(p2); e++){
+						for (int e = 0; e < tpixs->get_num_sequences(p2); e++){
 							auto edges = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + e);
 							auto pos = edges.first;
 							auto size = edges.second;
@@ -288,9 +288,9 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				// 		}
 				// 	}
 				// }
-				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+				for(int i = 0; i < pixs->get_num_sequences(p); i ++){
 					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
-					for(int j = 0; j < target->raster->get_num_sequences(p2); j ++){
+					for(int j = 0; j < tpixs->get_num_sequences(p2); j ++){
 						auto r2 = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + j);
 						if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second, ctx->edge_checked.counter)){
 							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
@@ -310,7 +310,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				}
 			}
 			for(auto p : pxs){
-				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+				for(int i = 0; i < pixs->get_num_sequences(p); i ++){
 					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
 					if(segment_intersect_batch(this->boundary->p+r.first, target->boundary->p, r.second, target->boundary->num_vertices, ctx->edge_checked.counter)){
 						//logt("%ld boundary %d(%ld) %d(%ld)",start,bpxs.size(),getid(),this->get_num_vertices(),target->getid(), target->get_num_vertices());
@@ -472,9 +472,9 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 			int p2 = pa.second;
 			ctx->border_evaluated.counter++;
 			if(pixs->show_status(p) == BORDER && tpixs->show_status(p2) == BORDER){
-				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+				for(int i = 0; i < pixs->get_num_sequences(p); i ++){
 					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
-					for(int j = 0; j < target->raster->get_num_sequences(p2); j ++){
+					for(int j = 0; j < tpixs->get_num_sequences(p2); j ++){
 						auto r2 = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + j);
 						if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second, ctx->edge_checked.counter)){
 							ctx->edge_checked.execution_time += get_time_elapsed(start,true);
@@ -484,7 +484,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 				}				
 			} else if (pixs->show_status(p) == BORDER){
 				assert(tpixs->show_status(p2) == IN);
-				for(int i = 0; i < raster->get_num_sequences(p); i ++){
+				for(int i = 0; i < pixs->get_num_sequences(p); i ++){
 					auto r = pixs->get_edge_sequence(pixs->get_pointer(p) + i);
 					for(int j = 0; j < r.second;j ++){
                         box bx = target->get_rastor()->get_pixel_box(
@@ -498,7 +498,7 @@ bool MyPolygon::intersect(MyPolygon *target, query_context *ctx){
 				}
 			} else {
 				assert(pixs->show_status(p) == IN);
-				for(int i = 0; i < target->raster->get_num_sequences(p2); i ++){
+				for(int i = 0; i < tpixs->get_num_sequences(p2); i ++){
 					auto r = tpixs->get_edge_sequence(tpixs->get_pointer(p2) + i);
 					for(int j = 0; j < r.second;j ++){
                         box bx = raster->get_pixel_box(raster->get_x(p),

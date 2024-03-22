@@ -201,7 +201,7 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 						ctx->border_checked.counter++;
 					}
 
-					for(int i = 0; i < raster->get_num_sequences(cur); i ++){
+					for(int i = 0; i < pixs->get_num_sequences(cur); i ++){
 						auto rg = pixs->get_edge_sequence(pixs->get_pointer(cur) + i);
 						for(int j = 0; j < rg.second; j ++){
 							auto r = rg.first + j;
@@ -357,9 +357,9 @@ double MyPolygon::distance(MyPolygon *target, int pix, query_context *ctx, bool 
 				if(profile){
 					ctx->border_checked.counter++;
 				}
-				for(int i = 0; i < raster->get_num_sequences(pix); i ++){
+				for(int i = 0; i < r_pixs->get_num_sequences(pix); i ++){
 					auto pix_er = r_pixs->get_edge_sequence(r_pixs->get_pointer(pix) + i);
-					for(int j = 0; j < target->raster->get_num_sequences(cur); j ++){
+					for(int j = 0; j < t_pixs->get_num_sequences(cur); j ++){
 						auto cur_er = t_pixs->get_edge_sequence(t_pixs->get_pointer(cur) + j);
 						if(cur_er.second < 2 || pix_er.second < 2) continue;
 						double dist;
