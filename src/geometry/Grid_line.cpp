@@ -1,4 +1,4 @@
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 
 Grid_line::Grid_line(int size){
     num_grid_lines = size + 2;

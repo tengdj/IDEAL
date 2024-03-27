@@ -1,18 +1,16 @@
-#include "MyPolygon.h"
+#include "Ideal.h"
 #include "query_context.h"
 
 int main() {
     query_context ctx;
-    vector<MyPolygon *> source =
-        load_binary_file("/gisdata/ideal/idl/has_child.idl", ctx);
+    vector<Ideal *> source =
+        load_binary_file("/home/qmh/data/has_child.idl", ctx);
 
-    for (MyPolygon *p : source) {
-        if (p->boundary->num_vertices > 10000) {
-            p->rasterization(100);
-            p->print();
-            p->get_rastor()->print();
-            return 0;
-        }
+    for (Ideal* p : source) {
+        printf("BOX: lowx=%lf lowy=%lf, highx=%lf highy=%lf\n", p->mbr->low[0], p->mbr->low[1], p->mbr->high[0], p->mbr->high[1]);
+        p->rasterization(100);
+        p->MyPolygon::print();
+        p->MyRaster::print();
     }
 
     return 0;

@@ -8,8 +8,10 @@
 #ifndef SRC_INDEX_QTREE_H_
 #define SRC_INDEX_QTREE_H_
 #include <boost/sort/sort.hpp>
-
-#include "Pixel.h"
+#include "../include/Box.h"
+#include "../include/Point.h"
+#include <stack>
+#include <cfloat>
 
 enum QT_Direction{
 	bottom_left = 0,

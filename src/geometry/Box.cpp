@@ -1,12 +1,5 @@
-/*
- * Pixel.cpp
- *
- *  Created on: May 26, 2020
- *      Author: teng
- */
-
-
-#include "Pixel.h"
+#include "../include/Box.h"
+#include "../include/geometry_computation.h"
 
 bool print_debug = false;
 
@@ -249,76 +242,4 @@ void box::print(){
 	printf("POLYGON((");
 	print_vertices();
 	printf("))\n");
-
-}
-
-/*
- * functions for Pixel
- *
- * */
-
-Pixels::Pixels(int num_pixels){
-	status = new uint8_t[num_pixels / 4 + 1];
-	memset(status, 0, (num_pixels / 4 + 1) * sizeof(uint8_t));
-	pointer = new uint16_t[num_pixels + 1];    // +1 here is to ensure that pointer[num_pixels] equals len_edge_sequences, so we don't need to make a special case for the last pointer.
-}
-
-Pixels::~Pixels(){
-	if(status) delete []status;
-	if(pointer) delete []pointer;
-	if(edge_sequences) delete []edge_sequences;
-}
-
-void Pixels::set_status(int id, PartitionStatus state){
-	int pos = id % 4 * 2;   // The multiplication by 2 is because each status occupies 2 bits.
-	if(state == OUT){
-		status[id / 4] &= ~((uint8_t)3 << pos);
-	}else if(state == IN){
-		status[id / 4] |= ((uint8_t)3 << pos);
-	}else{
-		status[id / 4] &= ~((uint8_t)1 << pos);
-		status[id / 4] |= ((uint8_t)1 << (pos + 1));
-	}
-}
-
-PartitionStatus Pixels::show_status(int id){
-	uint8_t st = status[id / 4];
-	int pos = id % 4 * 2;   // The multiplication by 2 is because each status occupies 2 bits.	
-	st &= ((uint8_t)3 << pos);
-	st >>= pos;
-	if(st == 0) return OUT;
-	if(st == 3) return IN;
-	return BORDER;
-}
-
-void Pixels::process_pixels_null(int x, int y){
-	pointer[(x+1)*(y+1)] = len_edge_sequences;
-	for(int i = (x+1)*(y+1)-1; i >= 0; i --){
-		if(show_status(i) != BORDER){
-			pointer[i] = pointer[i + 1]; 
-		}
-	}
-}
-
-void Pixels::init_edge_sequences(int num_edge_seqs){
-	len_edge_sequences = num_edge_seqs;
-	edge_sequences = new pair<uint16_t, uint16_t>[num_edge_seqs];
-}
-
-void Pixels::add_edge(int idx, int start, int end){
-	edge_sequences[idx] = make_pair(start, end - start  + 1);
-}
-
-uint16_t Pixels::get_num_sequences(int id){
-	if(show_status(id) != BORDER) return 0;
-	return pointer[id + 1] - pointer[id];
-}
-
-int Pixels::num_edges_covered(int id){
-	int c = 0;
-	for(int i = 0; i < get_num_sequences(id); i ++){
-		auto r = edge_sequences[pointer[id] + i];
-		c += r.second;
-	}
-	return c;
 }

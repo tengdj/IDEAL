@@ -6,7 +6,7 @@
  */
 
 
-#include "MyPolygon.h"
+#include "Ideal.h"
 
 
 void dump_to_file(const char *path, char *data, size_t size){
@@ -70,10 +70,10 @@ MyPolygon *read_polygon_binary_file(ifstream &infile){
 		return NULL;
 	}
 	MyPolygon *poly = new MyPolygon();
-	poly->boundary = new VertexSequence(num_vertices);
-	infile.read((char *)poly->boundary->p,num_vertices*sizeof(Point));
-	if(poly->boundary->clockwise()){
-		poly->boundary->reverse();
+	VertexSequence *boundary = poly->get_boundary(num_vertices);
+	infile.read((char *)boundary->p,num_vertices*sizeof(Point));
+	if(boundary->clockwise()){
+		boundary->reverse();
 	}
 
 	for(int i=0;i<num_holes;i++){
@@ -85,7 +85,7 @@ MyPolygon *read_polygon_binary_file(ifstream &infile){
 			vs->reverse();
 		}
 		vs->fix();
-		poly->holes.push_back(vs);
+		poly->get_holes().push_back(vs);
 	}
 	return poly;
 }
@@ -181,10 +181,10 @@ const size_t buffer_size = 10*1024*1024;
 void *load_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<load_holder *> *jobs = (vector<load_holder *> *)ctx->target;
-	vector<MyPolygon *> *global_polygons = (vector<MyPolygon *> *)ctx->target2;
+	vector<Ideal *> *global_polygons = (vector<Ideal *> *)ctx->target2;
 
 	char *buffer = new char[buffer_size];
-	vector<MyPolygon *> polygons;
+	vector<Ideal *> polygons;
 	while(ctx->next_batch(1)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			load_holder *lh = (*jobs)[i];
@@ -193,7 +193,7 @@ void *load_unit(void *arg){
 			ctx->global_ctx->unlock();
 			size_t off = 0;
 			while(off<poly_size){
-				MyPolygon *poly = new MyPolygon();
+				Ideal *poly = new Ideal();
 				off += poly->decode(buffer+off);
 				if(poly->get_num_vertices() >= 3 && tryluck(ctx->sample_rate)){
 					polygons.push_back(poly);
@@ -213,10 +213,10 @@ void *load_unit(void *arg){
 	polygons.clear();
 	return NULL;
 }
-vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx){
+vector<Ideal *> load_binary_file(const char *path, query_context &global_ctx){
 	global_ctx.index = 0;
 	global_ctx.index_end = 0;
-	vector<MyPolygon *> polygons;
+	vector<Ideal *> polygons;
 	if(!file_exist(path)){
 		log("%s does not exist",path);
 		exit(0);

@@ -13,11 +13,11 @@
 #include <boost/program_options.hpp>
 
 #include "Point.h"
-#include "Pixel.h"
 
 namespace po = boost::program_options;
 using namespace std;
 class MyPolygon;
+class Ideal;
 
 
 enum QueryType{
@@ -136,6 +136,8 @@ public:
 	// temporary storage for query processing
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
+	vector<Ideal *> source_ideals;
+	vector<Ideal *> target_ideals;
 	Point *points = NULL;
 	void *target = NULL;
 	void *target2 = NULL;
