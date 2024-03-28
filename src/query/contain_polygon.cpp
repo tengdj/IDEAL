@@ -5,57 +5,36 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 #include <fstream>
 #include "../index/RTree.h"
 #include <queue>
 
-RTree<MyPolygon *, double, 2, double> tree;
+RTree<Ideal *, double, 2, double> tree;
 int ct = 0;
 
-bool MySearchCallback(MyPolygon *poly, void* arg){
+bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
-	MyPolygon *target = (MyPolygon *)ctx->target;
-
-	struct timeval start = get_cur_time();
-	ctx->found += poly->contain(target, ctx);
-
-	if(ctx->collect_latency){
-		int nv = target->get_num_vertices();
-		if(nv<5000){
-			nv = 100*(nv/100);
-			ctx->report_latency(nv, get_time_elapsed(start));
-		}
-	}
-	// keep going until all hit objects are found
+	Ideal *target = (Ideal *)ctx->target;
+	ctx->found += ideal->contain(target, ctx);
 	return true;
 }
 
 void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
-	//log("thread %d is started",ctx->thread_id);
+	log("thread %d is started",ctx->thread_id);
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(!tryluck(ctx->sample_rate)){
 				ctx->report_progress();
 				continue;
 			}
-			MyPolygon *poly = gctx->target_polygons[i];
-//			if(poly->get_num_vertices()>100){
-//				continue;
-//			}
-			ctx->target = (void *)poly;
-			box *px = poly->getMBB();
-			struct timeval start = get_cur_time();
-			tree.Search(px->low, px->high, MySearchCallback, (void *)ctx);
-			//logt("completed %d", start, ct++);
-			ctx->object_checked.execution_time += get_time_elapsed(start);
+			Ideal *ideal = gctx->target_ideals[i];
 
-//			if(poly->getid()==315){
-//				poly->print(false, false);
-//				exit(0);
-//			}
+			ctx->target = (void *)ideal;
+			box *bx = ideal->getMBB();
+			tree.Search(bx->low, bx->high, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}
 	}
@@ -71,15 +50,15 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 
 	timeval start = get_cur_time();
-	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 	start = get_cur_time();
-	for(MyPolygon *p:global_ctx.source_polygons){
+	for(auto p : global_ctx.source_ideals){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree with %d nodes", start,global_ctx.source_polygons.size());
 
-	global_ctx.target_polygons = load_binary_file(global_ctx.target_path.c_str(),global_ctx);
-	global_ctx.target_num = global_ctx.target_polygons.size();
+	global_ctx.target_ideals = load_binary_file(global_ctx.target_path.c_str(),global_ctx);
+	global_ctx.target_num = global_ctx.target_ideals.size();
 	start = get_cur_time();
 
 	global_ctx.reset_stats();

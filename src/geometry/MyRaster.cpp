@@ -129,3 +129,41 @@ box MyRaster::get_pixel_box(int x, int y){
 
 	return box(lowx, lowy, highx, highy);
 }
+
+int MyRaster::get_pixel_id(Point &p){
+	int xoff = get_offset_x(p.x);
+	int yoff = get_offset_y(p.y);
+	assert(xoff <= dimx);
+	assert(yoff <= dimy);
+	return get_id(xoff, yoff);
+}
+
+vector<int> MyRaster::retrieve_pixels(box *target){
+	vector<int> ret;
+	int start_x = get_offset_x(target->low[0]);
+	int start_y = get_offset_y(target->low[1]);
+	int end_x = get_offset_x(target->high[0]);
+	int end_y = get_offset_y(target->high[1]);
+
+	//log("%d %d %d %d %d %d",dimx,dimy,start_x,end_x,start_y,end_y);
+	for(int i=start_x;i<=end_x;i++){
+		for(int j=start_y;j<=end_y;j++){
+			ret.push_back(get_id(i , j));
+		}
+	}
+	return ret;
+}
+
+size_t MyRaster::get_num_pixels(){
+	return (dimx+1)*(dimy+1);
+}
+
+size_t MyRaster::get_num_pixels(PartitionStatus status){
+	size_t num = 0;
+	for(int i = 0; i < get_num_pixels();i ++){
+		if(show_status(i) == status){
+			num++;
+		}
+	}
+	return num;	
+}

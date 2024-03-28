@@ -10,41 +10,24 @@
 #include "../index/RTree.h"
 #include <queue>
 #include <fstream>
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 
 
 
 // some shared parameters
 
-RTree<MyPolygon *, double, 2, double> tree;
+RTree<Ideal *, double, 2, double> tree;
 
-bool MySearchCallback(MyPolygon *poly, void* arg){
+bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
-
-	struct timeval start = get_cur_time();
-	if(ctx->use_geos){
-		geos::geom::Geometry *gm = (geos::geom::Geometry *)(ctx->target);
-		ctx->found += poly->contain(gm);
-	}else{
-		ctx->found += poly->contain(*(Point *)ctx->target, ctx);
-	}
-
-	double timepassed = get_time_elapsed(start);
-	if(ctx->collect_latency){
-		int nv = poly->get_num_vertices();
-		if(nv<5000){
-			nv = 100*(nv/100);
-			ctx->report_latency(nv, timepassed);
-		}
-	}
+	ctx->found += ideal->contain(*(Point *)ctx->target, ctx);
 	return true;
 }
 
 void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
-	//log("thread %d is started",ctx->thread_id);
-	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
+	log("thread %d is started",ctx->thread_id);
 	char point_buffer[200];
 
 	while(ctx->next_batch(100)){
@@ -53,23 +36,15 @@ void *query(void *args){
 				ctx->report_progress();
 				continue;
 			}
-			struct timeval start = get_cur_time();
-			if(gctx->use_geos){
-				sprintf(point_buffer,"POINT(%f %f)",gctx->points[i].x,gctx->points[i].y);
-				unique_ptr<geos::geom::Geometry> gm = wkt_reader->read(point_buffer);
-				ctx->target = (geos::geom::Geometry *)(gm.get());
-				tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
-			}else{
-				ctx->target = (void *)&gctx->points[i];
-				tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
-			}
-			ctx->object_checked.execution_time += ::get_time_elapsed(start);
+			
+			ctx->target = (void *)&gctx->points[i];
+			tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
+			
 			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
 
-	delete wkt_reader;
 	return NULL;
 }
 
@@ -81,12 +56,12 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
 
-	global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
 
 	preprocess(&global_ctx);
 
 	timeval start = get_cur_time();
-	for(MyPolygon *p:global_ctx.source_polygons){
+	for(auto p : global_ctx.source_ideals){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
 	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());

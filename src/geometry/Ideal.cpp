@@ -4,6 +4,11 @@ void Ideal::add_edge(int idx, int start, int end){
 	edge_sequences[idx] = make_pair(start, end - start  + 1);
 }
 
+uint16_t Ideal::get_num_sequences(int id){
+	if(show_status(id) != BORDER) return 0;
+	return offset[id + 1] - offset[id];
+}
+
 void Ideal::init_edge_sequences(int num_edge_seqs){
 	len_edge_sequences = num_edge_seqs;
 	edge_sequences = new pair<uint16_t, uint16_t>[num_edge_seqs];
@@ -360,4 +365,176 @@ void Ideal::rasterization(int vpr){
     init_raster(boundary->num_vertices / vpr);
     rasterization();
 	pthread_mutex_unlock(&ideal_partition_lock);
+}
+
+int Ideal::num_edges_covered(int id){
+	int c = 0;
+	for(int i = 0; i < get_num_sequences(id); i ++){
+		auto r = edge_sequences[offset[id] + i];
+		c += r.second;
+	}
+	return c;
+}
+
+int Ideal::get_num_border_edge(){
+	int num = 0;
+	for(int i = 0; i < get_num_pixels(); i ++){
+		if(show_status(i) == BORDER){
+			num += num_edges_covered(i);
+		}
+	}
+	return num;
+}
+
+size_t Ideal::get_num_crosses(){
+	size_t num = 0;
+	num = horizontal->get_num_crosses() + vertical->get_num_crosses();
+	return num;
+}
+
+int Ideal::count_intersection_nodes(Point &p){
+	// here we assume the point inside one of the pixel
+	int pix_id = get_pixel_id(p);
+	assert(show_status(pix_id) == BORDER);
+	int count = 0;
+	int x = get_x(pix_id) + 1;
+	uint16_t i = vertical->get_offset(x), j;
+	if(x < dimx) j = vertical->get_offset(x + 1);
+	else j = vertical->get_num_crosses();
+	while(i < j && vertical->get_intersection_nodes(i) <= p.y){
+		count ++;
+		i ++;
+	}
+	return count;
+}
+
+bool Ideal::contain(Point &p, query_context *ctx, bool profile){
+
+	// the MBB may not be checked for within query
+	if(!mbr->contain(p)){
+		return false;
+	}
+
+
+	struct timeval start = get_cur_time();
+	// todo adjust the lower bound of pixel number when the raster model is usable
+    start = get_cur_time();
+    int target = get_pixel_id(p);
+    box bx = get_pixel_box(get_x(target), get_y(target));
+    double bx_high = bx.high[0];
+    if(show_status(target) == IN) {
+        return true;
+    }
+    if(show_status(target) == OUT){
+        return false;
+    }
+
+    start = get_cur_time();
+    bool ret = false;
+
+    // checking the intersection edges in the target pixel
+    for(uint16_t e = 0; e < get_num_sequences(target); e ++){    
+        auto edges = get_edge_sequence(get_offset(target) + e);
+        auto pos = edges.first;
+        for(int k = 0; k < edges.second; k ++){
+            int i = pos + k;
+            int j = i + 1;  //ATTENTION
+            if(((boundary->p[i].y >= p.y) != (boundary->p[j].y >= p.y))){
+                double int_x = (boundary->p[j].x - boundary->p[i].x) * (p.y - boundary->p[i].y) / (boundary->p[j].y - boundary->p[i].y) + boundary->p[i].x;
+                if(p.x <= int_x && int_x <= bx_high){
+                    ret = !ret;
+                }
+            }
+        }
+    }
+    // check the crossing nodes on the right bar
+    // swap the state of ret if odd number of intersection
+    // nodes encountered at the right side of the border
+    struct timeval tstart = get_cur_time();
+    int nc = count_intersection_nodes(p);
+    if(nc%2==1){
+        ret = !ret;
+    }
+    return ret;
+}
+
+bool Ideal::contain(Ideal *target, query_context *ctx, bool profile){
+	if(!getMBB()->contain(*target->getMBB())){
+		//log("mbb do not contain");
+		return false;
+	}
+
+	vector<int> pxs = retrieve_pixels(target->getMBB());
+	int etn = 0;
+	int itn = 0;
+	for(auto p : pxs){
+		if(show_status(p) == OUT){
+			etn++;
+		}else if(show_status(p) == IN){
+			itn++;
+		}
+	}
+	if(etn == pxs.size()){
+		return false;
+	}
+	if(itn == pxs.size()){
+		return true;
+	}
+
+	vector<pair<int, int>> candidates;
+	vector<int> tpxs;
+
+	for(auto p : pxs){
+		box bx =  get_pixel_box(get_x(p), get_y(p));
+		tpxs = target->retrieve_pixels(&bx);
+		for(auto p2 : tpxs){
+			// an external pixel of the container intersects an internal
+			// pixel of the containee, which means the containment must be false
+			if(show_status(p) == IN) continue;
+			if(show_status(p) == OUT && target->show_status(p2) == IN){
+				return false;
+			}
+			if (show_status(p) == OUT && target->show_status(p2) == BORDER){
+				Point pix_border[5];
+				pix_border[0].x = bx.low[0]; pix_border[0].y = bx.low[1];
+				pix_border[1].x = bx.low[0]; pix_border[1].y = bx.high[1];
+				pix_border[2].x = bx.high[0]; pix_border[2].y = bx.high[1];
+				pix_border[3].x = bx.high[0]; pix_border[3].y = bx.low[1];
+				pix_border[4].x = bx.low[0]; pix_border[4].y = bx.low[1];
+				for (int e = 0; e < target->get_num_sequences(p2); e++){
+					auto edges = target->get_edge_sequence(target->get_offset(p2) + e);
+					auto pos = edges.first;
+					auto size = edges.second;
+					if (segment_intersect_batch(target->boundary->p + pos, pix_border, size, 4, ctx->edge_checked.counter)){
+						return false;
+					}
+				}
+			}
+			// evaluate the state
+			if(show_status(p) == BORDER && target->show_status(p2) == BORDER){
+				candidates.push_back(make_pair(p, p2));
+			}
+		}
+		tpxs.clear();
+	
+		for(auto pa : candidates){
+			auto p = pa.first;
+			auto p2 = pa.second;
+			for(int i = 0; i < get_num_sequences(p); i ++){
+				auto r = get_edge_sequence(get_offset(p) + i);
+				for(int j = 0; j < target->get_num_sequences(p2); j ++){
+					auto r2 = target->get_edge_sequence(target->get_offset(p2) + j);
+					if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second, ctx->edge_checked.counter)){
+						return false;
+					}
+				}
+			}				
+		}
+	}
+	pxs.clear();
+
+	// this is the last step for all the cases, when no intersection segment is identified
+	// pick one point from the target and it must be contained by this polygon
+	Point p(target->getx(0),target->gety(0));
+	return contain(p, ctx,false);
 }
