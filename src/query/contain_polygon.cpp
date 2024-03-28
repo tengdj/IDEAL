@@ -79,14 +79,8 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-//		logt("vpr %d: queried %d polygons %ld rastor %ld vector %ld found",start,vpr,global_ctx.query_count,global_ctx.raster_checked,global_ctx.vector_checked
-//				,global_ctx.found);
 	global_ctx.print_stats();
 	logt("query",start);
-
-//	for(MyPolygon *p:source){
-//		delete p;
-//	}
 	return 0;
 }
 

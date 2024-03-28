@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 #include <fstream>
 #include "../index/RTree.h"
 #include <queue>
@@ -14,42 +14,29 @@
 namespace po = boost::program_options;
 using namespace std;
 
-RTree<MyPolygon *, double, 2, double> tree;
+RTree<Ideal *, double, 2, double> tree;
 
-bool MySearchCallback(MyPolygon *poly, void* arg){
+bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
 
-	MyPolygon *target= (MyPolygon *)ctx->target;
-	// query with rasterization
-	if(ctx->use_grid){
-		poly->rasterization(ctx->vpr);
-		target->rasterization(ctx->vpr);
-	}
+	Ideal *target= (Ideal *)ctx->target;
 
-	if(poly == target){
+	if(ideal == target){
 		return true;
 	}
 	// the minimum possible distance is larger than the threshold
-	if(poly->getMBB()->distance(*target->getMBB(), ctx->geography)>ctx->within_distance){
+	if(ideal->getMBB()->distance(*target->getMBB(), ctx->geography)>ctx->within_distance){
         return true;
 	}
 	// the maximum possible distance is smaller than the threshold
-	if(poly->getMBB()->max_distance(*target->getMBB(), ctx->geography)<=ctx->within_distance){
+	if(ideal->getMBB()->max_distance(*target->getMBB(), ctx->geography)<=ctx->within_distance){
 		ctx->found++;
         return true;
 	}
-	timeval start = get_cur_time();
-	ctx->distance = poly->distance(target,ctx);
 
+	ctx->distance = ideal->distance(target,ctx);
 	ctx->found += ctx->distance <= ctx->within_distance;
 
-	if(ctx->collect_latency){
-		int nv = target->get_num_vertices();
-		if(nv<5000){
-			nv = 100*(nv/100);
-			ctx->report_latency(nv, get_time_elapsed(start));
-		}
-	}
 	return true;
 }
 
@@ -67,14 +54,9 @@ void *query(void *args){
 				ctx->report_progress();
 				continue;
 			}
-			struct timeval query_start = get_cur_time();
-			ctx->target = (void *)(gctx->source_polygons[i]);
-			box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
+			ctx->target = (void *)(gctx->source_ideals[i]);
+			box qb = gctx->source_ideals[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
 			tree.Search(qb.low, qb.high, MySearchCallback, (void *)ctx);
-//			if(gctx->source_polygons[i]->getid()==8){
-//				gctx->source_polygons[i]->print(false, false);
-//			}
-			ctx->object_checked.execution_time += get_time_elapsed(query_start);
 			ctx->report_progress();
 		}
 	}
@@ -91,26 +73,24 @@ int main(int argc, char** argv) {
     global_ctx.geography = true;
 
 	timeval start = get_cur_time();
-    global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
-	logt("loaded %d objects", start,global_ctx.source_polygons.size());
+    global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+	logt("loaded %d objects", start,global_ctx.source_ideals.size());
 
-//
 	preprocess(&global_ctx);
 	logt("preprocess the source data", start);
 
-	for(MyPolygon *p:global_ctx.source_polygons){
+	for(Ideal *p : global_ctx.source_ideals){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
-	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
-
+	logt("building R-Tree with %d nodes", start, global_ctx.source_ideals.size());
 
 	// the target is also the source
-	global_ctx.target_num = global_ctx.source_polygons.size();
-	//global_ctx.target_num = 1;
+	global_ctx.target_num = global_ctx.source_ideals.size();
+
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
-		ctx[i] = global_ctx;//query_context(global_ctx);
+		ctx[i] = global_ctx; //query_context(global_ctx);
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 	}

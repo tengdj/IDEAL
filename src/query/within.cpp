@@ -5,7 +5,7 @@
  *      Author: teng
  */
 
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 #include <fstream>
 #include "../index/RTree.h"
 #include <queue>
@@ -14,35 +14,16 @@
 namespace po = boost::program_options;
 using namespace std;
 
+RTree<Ideal *, double, 2, double> tree;
 
-RTree<MyPolygon *, double, 2, double> tree;
-
-bool MySearchCallback(MyPolygon *poly, void* arg){
+bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
-	// query with parition
-	// if(ctx->use_grid){
-	// 	poly->rasterization(ctx->vpr);
-	// }
 	Point *p = (Point *)ctx->target;
-	if(poly->getMBB()->distance(*p, ctx->geography)>ctx->within_distance){
+	if(ideal->getMBB()->distance(*p, ctx->geography)>ctx->within_distance){
         return true;
 	}
-
-	timeval start = get_cur_time();
-	if(ctx->use_geos){
-		geos::geom::Geometry *gm = (geos::geom::Geometry *)ctx->target;
-		ctx->distance = poly->distance(gm);
-	}else{
-		ctx->distance = poly->distance(*p,ctx);
-	}
+	ctx->distance = ideal->distance(*p,ctx);
 	ctx->found += ctx->distance <= ctx->within_distance;
-	if(ctx->collect_latency){
-		int nv = poly->get_num_vertices();
-		if(nv<5000){
-			nv = 100*(nv/100);
-			ctx->report_latency(nv, get_time_elapsed(start));
-		}
-	}
 	return true;
 }
 
@@ -53,7 +34,6 @@ void *query(void *args){
 	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
-	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader();
 	char point_buffer[200];
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
@@ -68,24 +48,12 @@ void *query(void *args){
 			buffer_high[0] = gctx->points[i].x+shiftx;
 			buffer_high[1] = gctx->points[i].y+shifty;
 
-			struct timeval query_start = get_cur_time();
-			if(gctx->use_geos){
-				sprintf(point_buffer,"POINT(%f %f)",gctx->points[i].x,gctx->points[i].y);
-				unique_ptr<geos::geom::Geometry> gm = wkt_reader->read(point_buffer);
-				ctx->target = (geos::geom::Geometry *)gm.get();
-				tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
-			}else{
-				ctx->target = (void *)&gctx->points[i];
-				tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
-			}
-
-
-			ctx->object_checked.execution_time += get_time_elapsed(query_start);
+			ctx->target = (void *)&gctx->points[i];
+			tree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
 			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
-	delete wkt_reader;
 	return NULL;
 }
 
@@ -97,15 +65,15 @@ int main(int argc, char** argv) {
 	global_ctx.query_type = QueryType::within;
 
 
-    global_ctx.source_polygons = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
+    global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(), global_ctx);
 
 	preprocess(&global_ctx);
 
 	timeval start = get_cur_time();
-	for(MyPolygon *p:global_ctx.source_polygons){
+	for(auto p : global_ctx.source_ideals){
 		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
 	}
-	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
+	logt("building R-Tree with %d nodes", start, global_ctx.source_ideals.size());
 
 	// read all the points
 	global_ctx.load_points();
@@ -130,7 +98,7 @@ int main(int argc, char** argv) {
 
 	global_ctx.print_stats();
 	logt("total query",start);
-
+	
 	return 0;
 }
 

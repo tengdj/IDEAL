@@ -37,16 +37,16 @@ public:
     PartitionStatus show_status(int id);
 
 	// vector<int> get_intersect_pixels(box *pix);
-    // vector<int> get_closest_pixels(box &target);
-    // int get_closest_pixel(Point &p);
+    vector<int> get_closest_pixels(box &target);
+    int get_closest_pixel(Point &p);
     // vector<int> get_pixels(PartitionStatus status);
     box get_pixel_box(int x, int y);
     int get_pixel_id(Point &p);
     vector<int> retrieve_pixels(box *);
 
     // bool contain(box *b, bool &contained);
-    // vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
-	// vector<int> expand_radius(int center, int step);
+    vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
+	vector<int> expand_radius(int center, int step);
 
     // statistic collection
     size_t get_num_pixels();

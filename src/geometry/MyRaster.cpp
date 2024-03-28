@@ -2,7 +2,7 @@
 #include "../include/MyPolygon.h"
 
 void MyRaster::init_raster(int num_pixels){
-    assert(num_pixels > 0);
+    assert(num_pixels >= 0);
 
 	double multi = abs((mbr->high[1]-mbr->low[1])/(mbr->high[0]-mbr->low[0]));
 	dimx = std::pow((num_pixels)/multi,0.5);
@@ -118,6 +118,41 @@ PartitionStatus MyRaster::show_status(int id){
 	return BORDER;
 }
 
+vector<int> MyRaster::get_closest_pixels(box &target){
+
+	// note that at 0 or dimx/dimy will be returned if
+	// the range of target is beyound this, as expected
+	int txstart = get_offset_x(target.low[0]);
+	int txend = get_offset_x(target.high[0]);
+	int tystart = get_offset_y(target.low[1]);
+	int tyend = get_offset_y(target.high[1]);
+	vector<int> ret;
+	for(int i=txstart;i<=txend;i++){
+		for(int j=tystart;j<=tyend;j++){
+			ret.push_back(get_id(i, j));
+		}
+	}
+	return ret;
+}
+
+int MyRaster::get_closest_pixel(Point &p){
+	int pixx = get_offset_x(p.x);
+	int pixy = get_offset_y(p.y);
+	if(pixx < 0){
+		pixx = 0;
+	}
+	if(pixx > dimx){
+		pixx = dimx;
+	}
+	if(pixy < 0){
+		pixy = 0;
+	}
+	if(pixy > dimy){
+		pixy = dimy;
+	}
+	return get_id(pixx, pixy);
+}
+
 box MyRaster::get_pixel_box(int x, int y){
 	const double start_x = mbr->low[0];
 	const double start_y = mbr->low[1];
@@ -152,6 +187,55 @@ vector<int> MyRaster::retrieve_pixels(box *target){
 		}
 	}
 	return ret;
+}
+
+vector<int> MyRaster::expand_radius(int core_x_low, int core_x_high, int core_y_low, int core_y_high, int step){
+
+	vector<int> needprocess;
+	int ymin = max(0,core_y_low-step);
+	int ymax = min(dimy,core_y_high+step);
+
+	//left scan
+	if(core_x_low-step>=0){
+		for(int y=ymin;y<=ymax;y++){
+			needprocess.push_back(get_id(core_x_low-step,y));
+		}
+	}
+	//right scan
+	if(core_x_high+step<=get_dimx()){
+		for(int y=ymin;y<=ymax;y++){
+			needprocess.push_back(get_id(core_x_high+step,y));
+		}
+	}
+
+	// skip the first if there is left scan
+	int xmin = max(0,core_x_low-step+(core_x_low-step>=0));
+	// skip the last if there is right scan
+	int xmax = min(dimx,core_x_high+step-(core_x_high+step<=dimx));
+	//bottom scan
+	if(core_y_low-step>=0){
+		for(int x=xmin;x<=xmax;x++){
+			needprocess.push_back(get_id(x,core_y_low-step));
+		}
+	}
+	//top scan
+	if(core_y_high+step<=get_dimy()){
+		for(int x=xmin;x<=xmax;x++){
+			needprocess.push_back(get_id(x,core_y_high+step));
+		}
+	}
+
+	return needprocess;
+}
+
+vector<int> MyRaster::expand_radius(int center, int step){
+
+	int lowx = get_x(center);
+	int highx = get_x(center);
+	int lowy = get_y(center);
+	int highy = get_y(center);
+
+	return expand_radius(lowx,highx,lowy,highy,step);
 }
 
 size_t MyRaster::get_num_pixels(){

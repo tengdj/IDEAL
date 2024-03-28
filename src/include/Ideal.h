@@ -51,8 +51,8 @@ public:
 class Ideal : public MyPolygon, public MyRaster{
 	uint16_t *offset = nullptr;
 	pair<uint16_t, uint16_t> *edge_sequences = nullptr;   
-	Grid_line *horizontal;
-	Grid_line *vertical;
+	Grid_line *horizontal = nullptr;
+	Grid_line *vertical = nullptr;
 
 	int len_edge_sequences = 0;
 
@@ -75,7 +75,7 @@ public:
 	void add_edge(int idx, int start, int end);
 	pair<uint16_t, uint16_t> get_edge_sequence(int idx){return edge_sequences[idx];}
 	uint16_t get_num_sequences(int id);
-	// double get_possible_min(Point &p, int center, int step, bool geography = true);
+	double get_possible_min(Point &p, int center, int step, bool geography = true);
 	void process_crosses(map<int, vector<cross_info>> edge_info);
 	void process_intersection(map<int, vector<double>> edge_intersection, Direction direction);
 	int count_intersection_nodes(Point &p);
@@ -94,9 +94,9 @@ public:
 	bool contain(Point &p, query_context *ctx, bool profile = false);
 	bool contain(Ideal *target, query_context *ctx, bool profile = false);
 	// bool intersect(MyPolygon *target, query_context *ctx);
-	// double distance(Point &p, query_context *ctx, bool profile = true);
-	// double distance(MyPolygon *target, query_context *ctx);
-	// double distance(MyPolygon *target, int pix, query_context *ctx, bool profile = true);
+	double distance(Point &p, query_context *ctx, bool profile = false);
+	double distance(Ideal *target, query_context *ctx);
+	double distance(Ideal *target, int pix, query_context *ctx, bool profile = true);
 };
 
 //utility functions
