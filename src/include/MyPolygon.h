@@ -24,7 +24,6 @@
 #include "Box.h"
 #include "Point.h"
 #include "query_context.h"
-#include "GEOSTool.h"
 #include "geometry_computation.h"
 
 using namespace std;
@@ -85,12 +84,10 @@ private:
 
 	RTNode *rtree = NULL;
 
-	unique_ptr<geos::geom::Geometry> geos_geom;
-
 protected:
 	VertexSequence *boundary = NULL;
 public:
-
+	box* get_mer() {return mer;}
 	VertexSequence *get_boundary() {return boundary;}
 	VertexSequence *get_boundary(int num_vertices){
 		if(boundary) return boundary;
@@ -101,11 +98,11 @@ public:
 	MyPolygon *clone();
 
 	//  R-tree on triangles
-	// void triangulate();
 	// size_t get_triangle_size();
-	// void build_rtree();
 	// RTNode *get_rtree() {return rtree;}
-	// size_t get_rtree_size();
+	size_t get_rtree_size();
+	void triangulate();
+	void build_rtree();
 
 	static VertexSequence *read_vertices(const char *wkt, size_t &offset, bool clockwise=true);
 	static MyPolygon *read_polygon(const char *wkt, size_t &offset);
@@ -117,13 +114,11 @@ public:
 	// static MyPolygon *read_one_polygon();
 
 	// some query functions
-	// bool contain(Point &p);// brute-forcely check containment
-	// bool contain(geos::geom::Geometry *geom);
-	
+	bool contain(Point &p);// brute-forcely check containment
+	bool contain_rtree(RTNode *node, Point &p, query_context *ctx);
+	bool contain(Point &p, query_context *ctx, bool profile=false);
 	// bool intersect_box(box *target);
-	// bool intersect(geos::geom::Geometry *geom);
 
-	// double distance(geos::geom::Geometry *geom);
 	// double distance_rtree(Point &p, query_context *ctx);
 	// double distance_rtree(Point &start, Point &end, query_context *ctx);
 
@@ -133,12 +128,11 @@ public:
 	// void print_triangles();
 	// void print_without_return(bool print_hole=false, bool complete_ring=false);
 	// string to_string(bool clockwise = false, bool complete_ring=false);
-	// bool convert_to_geos(geos::io::WKTReader *reader);
 
 	// for filtering
 	box *getMBB();
-	// box *getMER(query_context *ctx=NULL);
-	// VertexSequence *get_convex_hull();
+	box *getMER(query_context *ctx=NULL);
+	VertexSequence *get_convex_hull();
 	
 	inline int get_num_vertices(){
 		if(!boundary){
@@ -232,6 +226,7 @@ void print_boxes(vector<box *> boxes);
 
 // storage related functions
 size_t load_points_from_path(const char *path, Point **points);
+vector<MyPolygon *> load_polygons_from_path(const char *path, query_context &ctx);
 size_t load_mbr_from_file(const char *path, box **);
 size_t load_polygonmeta_from_file(const char *path, PolygonMeta **pmeta);
 

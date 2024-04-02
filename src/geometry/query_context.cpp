@@ -231,7 +231,6 @@ query_context get_parameters(int argc, char **argv){
 		("rasterize,r", "partition with rasterization")
 		("qtree,q", "partition with qtree")
 		("raster_only", "query with raster only")
-		("geos,g", "use the geos library")
 		("vector", "use techniques like MER convex hull and internal RTree")
 
 		("source,s", po::value<string>(&global_ctx.source_path), "path to the source")
@@ -244,23 +243,24 @@ query_context get_parameters(int argc, char **argv){
 		("latency,l","collect the latency information")
 		;
 	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
+	try{
+		po::store(po::parse_command_line(argc, argv, desc), vm);
+	}catch(...){
+		cout << "Undefined Option!" << endl;
+		exit(0);
+	}
 	if (vm.count("help")) {
 		cout << desc << "\n";
 		exit(0);
 	}
 	po::notify(vm);
 
-	global_ctx.use_geos = vm.count("geos");
-	global_ctx.use_grid = vm.count("rasterize");
-	global_ctx.use_qtree = vm.count("qtree");
+	global_ctx.use_ideal = vm.count("rasterize");
 	global_ctx.use_vector = vm.count("vector");
+	global_ctx.use_raster = vm.count("raster_only");
 
-	assert(global_ctx.use_geos+global_ctx.use_grid+global_ctx.use_qtree+global_ctx.use_vector<=1
+	assert(global_ctx.use_ideal+global_ctx.use_raster+global_ctx.use_vector<=1
 			&&"can only choose one from GEOS, IDEAL, VECTOR, QTree");
-
-	global_ctx.perform_refine = !vm.count("raster_only");
-	global_ctx.collect_latency = vm.count("latency");
 
 	return global_ctx;
 }

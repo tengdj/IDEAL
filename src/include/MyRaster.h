@@ -3,6 +3,7 @@
 
 #include "BaseGeometry.h"
 #include "../index/QTree.h"
+#include "../include/MyPolygon.h"
 
 enum PartitionStatus{
 	OUT = 0,
@@ -11,9 +12,7 @@ enum PartitionStatus{
 };
 
 class MyRaster : virtual public BaseGeometry{
-private:
-    QTNode *qtree = NULL;
-    pthread_mutex_t qtree_partition_lock;
+    pthread_mutex_t raster_lock;
 protected:
     uint8_t *status = nullptr;
     double step_x = 0.0;
@@ -21,11 +20,13 @@ protected:
 	int dimx = 0;
 	int dimy = 0;
 public:
-    MyRaster(){
-        pthread_mutex_init(&qtree_partition_lock, NULL);
+    MyRaster() {
+        pthread_mutex_init(&raster_lock, NULL);
     }
     void init_raster(int num_pixels);
     // void init_raster(int dimx, int dimy);
+    void rasterization(VertexSequence *vs, int vpr);
+    void rasterization(VertexSequence *vs);
 
     int get_id(int x, int y);
 	int get_x(int id);
@@ -39,7 +40,7 @@ public:
 	// vector<int> get_intersect_pixels(box *pix);
     vector<int> get_closest_pixels(box &target);
     int get_closest_pixel(Point &p);
-    // vector<int> get_pixels(PartitionStatus status);
+    vector<int> get_pixels(PartitionStatus status);
     box get_pixel_box(int x, int y);
     int get_pixel_id(Point &p);
     vector<int> retrieve_pixels(box *);
@@ -53,14 +54,11 @@ public:
     size_t get_num_pixels(PartitionStatus status);
     // double get_pixel_portion(PartitionStatus status);
 
-    // for filtering
-    // QTNode *partition_qtree(const int vpr);
-	// QTNode *get_qtree() {return qtree;}
 
     // utility
     void print();
 
-    // box *extractMER(int starter);
+    box *extractMER(int starter);
 
     // get functions
     inline double get_step_x() {return step_x;}

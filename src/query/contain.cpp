@@ -16,11 +16,18 @@
 
 // some shared parameters
 
-RTree<Ideal *, double, 2, double> tree;
+RTree<Ideal *, double, 2, double> ideal_rtree;
+RTree<MyPolygon *, double, 2, double> poly_rtree;
 
-bool MySearchCallback(Ideal *ideal, void* arg){
+bool IdealSearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
 	ctx->found += ideal->contain(*(Point *)ctx->target, ctx);
+	return true;
+}
+
+bool PolygonSearchCallback(MyPolygon *poly, void* arg){
+	query_context *ctx = (query_context *)arg;
+	ctx->found += poly->contain(*(Point *)ctx->target, ctx);
 	return true;
 }
 
@@ -36,10 +43,13 @@ void *query(void *args){
 				ctx->report_progress();
 				continue;
 			}
-			
 			ctx->target = (void *)&gctx->points[i];
-			tree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), MySearchCallback, (void *)ctx);
-			
+			if(gctx->use_ideal){
+				ideal_rtree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), IdealSearchCallback, (void *)ctx);
+			}
+			if(gctx->use_vector){
+				poly_rtree.Search((double *)(gctx->points+i), (double *)(gctx->points+i), PolygonSearchCallback, (void *)ctx);
+			}
 			ctx->report_progress();
 		}
 	}
@@ -56,21 +66,29 @@ int main(int argc, char** argv) {
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
 
-	global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+	if(global_ctx.use_ideal){
+		global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
+		timeval start = get_cur_time();
+		for(auto p : global_ctx.source_ideals){
+			ideal_rtree.Insert(p->getMBB()->low, p->getMBB()->high, p);
+		}
+		logt("building R-Tree with %d nodes", start, global_ctx.source_ideals.size());
+	}else{
+		global_ctx.source_polygons = load_polygons_from_path(global_ctx.source_path.c_str(),global_ctx);
+		timeval start = get_cur_time();
+		for(auto p : global_ctx.source_polygons){
+			poly_rtree.Insert(p->getMBB()->low, p->getMBB()->high, p);
+		}
+		logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
+	}
 
 	preprocess(&global_ctx);
-
-	timeval start = get_cur_time();
-	for(auto p : global_ctx.source_ideals){
-		tree.Insert(p->getMBB()->low, p->getMBB()->high, p);
-	}
-	logt("building R-Tree with %d nodes", start, global_ctx.source_polygons.size());
 
 	// read all the points
 	global_ctx.load_points();
 
 
-	start = get_cur_time();
+	timeval start = get_cur_time();
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){

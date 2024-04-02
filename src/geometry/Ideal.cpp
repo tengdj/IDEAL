@@ -616,7 +616,6 @@ double Ideal::distance(Point &p, query_context *ctx, bool profile){
 			needprocess.push_back(closest);
 		}else{
 			needprocess = expand_radius(closest, step);
-			printf("%d\n", needprocess.size());
 		}
 		// should never happen
 		// all the boxes are scanned
