@@ -242,7 +242,7 @@ box *MyRaster::extractMER(int starter){
 			}else{
 				for(int i=cy-shift[1];i<=cy+shift[3];i++){
 					//log("%d %d %d %d", cx-shift[0], dimx, i, dimy);
-					if(show_status(get_id(cx-shift[0], i) != IN)){
+					if(show_status(get_id(cx-shift[0], i)) != IN){
 						limit[0] = true;
 						shift[0]--;
 						break;
@@ -258,7 +258,7 @@ box *MyRaster::extractMER(int starter){
 				shift[1]--;
 			}else{
 				for(int i=cx-shift[0];i<=cx+shift[2];i++){
-					if(show_status(get_id(i, cy-shift[1]) != IN)){
+					if(show_status(get_id(i, cy-shift[1])) != IN){
 						limit[1] = true;
 						shift[1]--;
 						break;

@@ -116,7 +116,13 @@ public:
 	// some query functions
 	bool contain(Point &p);// brute-forcely check containment
 	bool contain_rtree(RTNode *node, Point &p, query_context *ctx);
+	double distance_rtree(Point &p, query_context *ctx);
+	double distance_rtree(Point &start, Point &end, query_context *ctx);
 	bool contain(Point &p, query_context *ctx, bool profile=false);
+	bool contain(MyPolygon *target, query_context *ctx);
+	double distance(Point &p, query_context *ctx, bool profile = false);
+	double distance(MyPolygon *target, query_context *ctx, bool profile = false);
+
 	// bool intersect_box(box *target);
 
 	// double distance_rtree(Point &p, query_context *ctx);

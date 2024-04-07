@@ -318,6 +318,114 @@ bool MyPolygon::contain_rtree(RTNode *node, Point &p, query_context *ctx){
 	return false;
 }
 
+double MyPolygon::distance_rtree(Point &p, query_context *ctx){
+	assert(rtree);
+	queue<RTNode *> pixq;
+	for(RTNode *p:rtree->children){
+		pixq.push(p);
+	}
+	// set this value as the MINMAXDIST
+	ctx->distance = DBL_MAX;
+	vector<std::pair<RTNode *, double>> tmp;
+	while(pixq.size()>0){
+		int s = pixq.size();
+		for(int i=0;i<s;i++){
+			RTNode *pix = pixq.front();
+			pixq.pop();
+			double mindist = pix->distance(p,ctx->geography);
+			if(mindist>ctx->distance){
+				continue;
+			}
+			double maxdist = pix->max_distance(p,ctx->geography);
+
+			if(maxdist<ctx->distance){
+				ctx->distance = maxdist;
+			}
+
+			tmp.push_back(std::pair<RTNode *, double>(pix, mindist));
+		}
+
+		for(std::pair<RTNode *, double> pr:tmp){
+			if(pr.second<=ctx->distance){
+				if(pr.first->children.size()==0){
+					Point *triangle = (Point *)pr.first->node_element;
+					for(int i=0;i<=2;i++){
+						double dist = point_to_segment_distance(p, triangle[i], triangle[(i+1)%3],ctx->geography);
+						if(ctx->distance>dist){
+							ctx->distance = dist;
+						}
+					}
+					ctx->edge_checked.counter += 3;
+				}else{
+					for(RTNode *p:pr.first->children){
+						pixq.push(p);
+					}
+				}
+			}
+		}
+
+		tmp.clear();
+	}
+
+	return ctx->distance;
+}
+
+// calculate the distance with rtree from a segment
+double MyPolygon::distance_rtree(Point &start, Point &end, query_context *ctx){
+	assert(rtree);
+
+	// start a breadth first search
+	queue<RTNode *> pixq;
+	for(RTNode *p:rtree->children){
+		pixq.push(p);
+	}
+	// set this value as the MINMAXDIST
+	double mindist = DBL_MAX;
+	vector<std::pair<RTNode *, double>> candidates;
+	while(pixq.size()>0){
+		for(int i=0;i<pixq.size();i++){
+			RTNode *pix = pixq.front();
+			pixq.pop();
+			// this node and its descendants must not be candidate
+			double dist = pix->distance(start, end, ctx->geography);
+			if(dist >= mindist){
+				continue;
+			}
+			// maximum possible distance between the target and this node
+			double maxdist = pix->max_distance(start, end, ctx->geography);
+			mindist = min(maxdist, mindist);
+			candidates.push_back(std::pair<RTNode *, double>(pix, dist));
+		}
+
+		for(std::pair<RTNode *, double> pr:candidates){
+			// minimum possible distance of this node
+			// must be smaller than the current minimum
+			if(pr.second<=mindist){
+				// is leaf
+				if(pr.first->is_leaf()){
+					Point *triangle = (Point *)pr.first->node_element;
+					for(int i=0;i<=2;i++){
+						double dist = segment_to_segment_distance(start, end, triangle[i], triangle[(i+1)%3],ctx->geography);
+						mindist = min(mindist, dist);
+						// close enough for a within query
+						if(ctx->within(mindist)){
+							return mindist;
+						}
+					}
+					ctx->edge_checked.counter += 3;
+				}else{
+					for(RTNode *p:pr.first->children){
+						pixq.push(p);
+					}
+				}
+			}
+		}
+		candidates.clear();
+	}
+
+	return mindist;
+}
+
 bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 	// check the maximum enclosed rectangle (MER)
 	if(mer&&mer->contain(p)){
@@ -335,13 +443,134 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 	// todo for test only, remove in released version
 	if(ctx->perform_refine)
 	{
-		// if(rtree){
-		// 	contained = contain_rtree(rtree,p,ctx);
-		// }else{
+		if(rtree){
+			contained = contain_rtree(rtree,p,ctx);
+		}
+		else{
 			contained = contain(p);
-		// }
+		}
 	}
 	return contained;
+}
+
+bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
+	if(!getMBB()->contain(*target->getMBB())){
+		//log("mbb do not contain");
+		return false;
+	}
+
+	// filtering with mer, mbr, and convex hull
+	if(mer){
+		// filter with the mer of source and mbr of the target
+		if(mer->contain(*target->getMBB())){
+			return true;
+		}
+
+		// filter with the convex hull of target
+		if(target->convex_hull){
+			Point mer_vertices[5];
+			mer->to_array(mer_vertices);
+			if(!segment_intersect_batch(mer_vertices, target->convex_hull->p, 5, target->convex_hull->num_vertices, ctx->edge_checked.counter)){
+				if(mer->contain(convex_hull->p[0])){
+					return true;
+				}
+			}
+		}
+	}
+
+	// further filtering with the mbr of the target
+	Point mbb_vertices[5];
+	target->mbr->to_array(mbb_vertices);
+	// no intersection between this polygon and the mbr of the target polygon
+	if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5, ctx->edge_checked.counter)){
+		// the target must be the one which is contained (not contain) as its mbr is contained
+		if(contain(mbb_vertices[0], ctx)){
+			return true;
+		}
+	}
+
+	// use the internal rtree if it is created
+	if(rtree){
+		for(int i=0;i<target->get_num_vertices();i++){
+			if(!contain_rtree(rtree, *target->get_point(i), ctx)){
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// otherwise, checking all the edges to make sure no intersection
+	if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
+		return false;
+	}
+
+	// this is the last step for all the cases, when no intersection segment is identified
+	// pick one point from the target and it must be contained by this polygon
+	Point p(target->getx(0),target->gety(0));
+	return contain(p, ctx,false);
+}
+
+double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
+	// distance is 0 if contained by the polygon
+	double mindist = getMBB()->max_distance(p, ctx->geography);
+	bool contained = contain(p, ctx, profile);
+	if(contained) return 0;
+
+	//checking convex
+	if(ctx->is_within_query()&&convex_hull){
+		double min_dist = DBL_MAX;
+		for(int i=0;i<convex_hull->num_vertices-1;i++){
+			double dist = point_to_segment_distance(p, convex_hull->p[i], convex_hull->p[i+1], ctx->geography);
+			if(dist<min_dist){
+				min_dist = dist;
+			}
+		}
+		if(min_dist>ctx->within_distance){
+			return min_dist;
+		}
+	}
+	//SIMPVEC return
+	if(ctx->perform_refine){
+		if(rtree){
+			return distance_rtree(p,ctx);
+		}else{
+			return boundary->distance(p, ctx->geography);
+		}
+	}else{
+		return DBL_MAX;
+	}
+}
+
+double MyPolygon::distance(MyPolygon *target, query_context *ctx, bool profile){
+	//checking convex for filtering
+	if(ctx->is_within_query() && convex_hull && target->convex_hull){
+		double dist = segment_sequence_distance(convex_hull->p, target->convex_hull->p,
+				convex_hull->num_vertices, target->convex_hull->num_vertices, ctx->geography);
+		// the convex_hull is a conservative approximation of the original polygon,
+		// so the distance between the convex hulls of two polygon is smaller than
+		// the real distance
+		if(dist>ctx->within_distance){
+			return dist;
+		}
+	}
+
+	//SIMPVEC return
+	if(rtree){
+		double mindist = DBL_MAX;
+		for(int i=0;i<target->boundary->num_vertices-1;i++){
+			double dist = distance_rtree(target->boundary->p[i], target->boundary->p[i+1], ctx);
+			mindist = min(mindist, dist);
+			//log("%f",mindist);
+
+			if(ctx->within(mindist)){
+				return mindist;
+			}
+		}
+		return mindist;
+	}else{
+		return segment_sequence_distance(boundary->p, target->boundary->p,
+								boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
+	}
 }
 
 void MyPolygon::print_without_head(bool print_hole, bool complete_ring){
