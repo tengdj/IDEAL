@@ -13,15 +13,19 @@ enum PartitionStatus{
 
 class MyRaster : virtual public BaseGeometry{
     pthread_mutex_t raster_lock;
+    pthread_mutex_t qtree_lock;
 protected:
     uint8_t *status = nullptr;
     double step_x = 0.0;
 	double step_y = 0.0;
 	int dimx = 0;
 	int dimy = 0;
+
+    QTNode *qtree = NULL;
 public:
     MyRaster() {
         pthread_mutex_init(&raster_lock, NULL);
+        pthread_mutex_init(&qtree_lock, NULL);
     }
     void init_raster(int num_pixels);
     // void init_raster(int dimx, int dimy);

@@ -50,7 +50,7 @@ public:
 
 class Ideal : public MyPolygon, public MyRaster{
 	uint16_t *offset = nullptr;
-	pair<uint16_t, uint16_t> *edge_sequences = nullptr;   
+	pair<uint32_t, uint32_t> *edge_sequences = nullptr;
 	Grid_line *horizontal = nullptr;
 	Grid_line *vertical = nullptr;
 
@@ -73,7 +73,7 @@ public:
 	void process_pixels_null(int x, int y);
 	void init_edge_sequences(int num_edge_seqs);
 	void add_edge(int idx, int start, int end);
-	pair<uint16_t, uint16_t> get_edge_sequence(int idx){return edge_sequences[idx];}
+	pair<uint32_t, uint32_t> get_edge_sequence(int idx){return edge_sequences[idx];}
 	uint16_t get_num_sequences(int id);
 	double get_possible_min(Point &p, int center, int step, bool geography = true);
 	void process_crosses(map<int, vector<cross_info>> edge_info);

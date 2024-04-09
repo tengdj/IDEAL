@@ -202,7 +202,6 @@ void *load_unit(void *arg){
 					delete poly;
 				}
 			}
-			ctx->report_progress(1);
 		}
 	}
 
@@ -314,7 +313,6 @@ void *load_polygons_unit(void *arg){
 					delete poly;
 				}
 			}
-			ctx->report_progress(1);
 		}
 	}
 

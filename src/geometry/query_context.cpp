@@ -164,9 +164,9 @@ bool query_context::next_batch(int batch_num){
 
 void query_context::print_stats(){
 
-	log("count-query:\t%ld",query_count);
-	log("count-contain:\t%ld",this->contain_check.counter);
-	log("count-checked:\t%ld",object_checked.counter);
+	// log("count-query:\t%ld",query_count);
+	// log("count-contain:\t%ld",this->contain_check.counter);
+	// log("count-checked:\t%ld",object_checked.counter);
 	log("count-found:\t%ld",found);
 
 	if(object_checked.counter>0){
@@ -218,7 +218,6 @@ void query_context::print_stats(){
 		}
 	}
 
-	printf("%.3f\t%.3f\n",pixel_evaluated.execution_time+border_evaluated.execution_time,edge_checked.execution_time+intersection_checked.execution_time);
 }
 
 
@@ -258,8 +257,9 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.use_ideal = vm.count("rasterize");
 	global_ctx.use_vector = vm.count("vector");
 	global_ctx.use_raster = vm.count("raster_only");
+	global_ctx.use_qtree = vm.count("qtree");
 
-	assert(global_ctx.use_ideal+global_ctx.use_raster+global_ctx.use_vector<=1
+	assert(global_ctx.use_ideal+global_ctx.use_raster+global_ctx.use_vector+global_ctx.use_qtree<=1
 			&&"can only choose one from GEOS, IDEAL, VECTOR, QTree");
 
 	return global_ctx;

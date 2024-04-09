@@ -12,7 +12,6 @@ void *rasterization_unit(void *args){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			struct timeval start = get_cur_time();
 			ideals[i]->rasterization(ctx->vpr);
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -79,7 +78,6 @@ void *convex_hull_unit(void *args){
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->get_convex_hull();
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -146,7 +144,6 @@ void *mer_unit(void *args){
 			polygons[i]->getMER(ctx);
 			// printf("MER: %lf %lf %lf %lf\n", polygons[i]->get_mer()->low[0], polygons[i]->get_mer()->low[1], polygons[i]->get_mer()->high[0], polygons[i]->get_mer()->high[1]);
 			// polygons[i]->print();
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -213,7 +210,6 @@ void *internal_rtree_unit(void *args){
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->build_rtree();
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();

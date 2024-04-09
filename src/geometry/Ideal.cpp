@@ -11,7 +11,7 @@ uint16_t Ideal::get_num_sequences(int id){
 
 void Ideal::init_edge_sequences(int num_edge_seqs){
 	len_edge_sequences = num_edge_seqs;
-	edge_sequences = new pair<uint16_t, uint16_t>[num_edge_seqs];
+	edge_sequences = new pair<uint32_t, uint32_t>[num_edge_seqs];
 }
 
 void Ideal::process_pixels_null(int x, int y){
@@ -25,8 +25,37 @@ void Ideal::process_pixels_null(int x, int y){
 
 void Ideal::process_crosses(map<int, vector<cross_info>> edges_info){
 	int num_edge_seqs = 0;
-	for(auto ei : edges_info){
-		num_edge_seqs += ei.second.size();
+
+	for(auto info : edges_info){
+		auto pix = info.first;
+		auto crosses = info.second; 
+		if(crosses.size() == 0) return;
+
+		if(crosses.size()%2==1){
+			crosses.push_back(cross_info((cross_type)!crosses[crosses.size()-1].type,crosses[crosses.size()-1].edge_id));
+		}
+
+		int start = 0;
+		int end = crosses.size() - 1;
+		if(crosses[0].type == LEAVE){
+			assert(crosses[end].type == ENTER);
+			num_edge_seqs += 2;
+			start ++;
+			end --;
+		}
+
+		for(int i = start; i <= end; i++){
+			assert(crosses[i].type == ENTER);
+			//special case, an ENTER has no pair LEAVE,
+			//happens when one edge crosses the pair
+			if(i == end || crosses[i + 1].type == ENTER){
+				num_edge_seqs ++;
+			}else{
+				num_edge_seqs ++;
+				i++;
+			}
+		}
+
 	}
 	init_edge_sequences(num_edge_seqs);
 
@@ -34,7 +63,7 @@ void Ideal::process_crosses(map<int, vector<cross_info>> edges_info){
 	int edge_count = 0;
 	for(auto info : edges_info){
 		auto pix = info.first;
-		auto crosses = info.second; 
+		auto crosses = info.second;
 		if(crosses.size() == 0) return;
 		
 		if(crosses.size() % 2 == 1){
@@ -184,7 +213,7 @@ void Ideal::evaluate_edges(){
 				for(int x=cur_startx;x<cur_endx;x++){
 					vertical_intersect_info[x + 1].push_back(y1);
 					edges_info[get_id(x, cur_starty)].push_back(cross_info(LEAVE, i));
-					edges_info[get_id(x + 1, cur_starty)].push_back(cross_info(ENTER, i));
+					edges_info[get_id(x+1, cur_starty)].push_back(cross_info(ENTER, i));
 					set_status(get_id(x, cur_starty), BORDER);
 					set_status(get_id(x+1, cur_starty), BORDER);
 				}
@@ -192,7 +221,7 @@ void Ideal::evaluate_edges(){
 				for(int x=cur_startx;x>cur_endx;x--){
 					vertical_intersect_info[x].push_back(y1);
 					edges_info[get_id(x, cur_starty)].push_back(cross_info(LEAVE, i));
-					edges_info[get_id(x - 1, cur_starty)].push_back(cross_info(ENTER, i));
+					edges_info[get_id(x-1, cur_starty)].push_back(cross_info(ENTER, i));
 					set_status(get_id(x, cur_starty), BORDER);
 					set_status(get_id(x-1, cur_starty), BORDER);
 				}
@@ -203,7 +232,7 @@ void Ideal::evaluate_edges(){
 				for(int y=cur_starty;y<cur_endy;y++){
 					horizontal_intersect_info[y + 1].push_back(x1);
 					edges_info[get_id(cur_startx, y)].push_back(cross_info(LEAVE, i));
-					edges_info[get_id(cur_startx, y + 1)].push_back(cross_info(ENTER, i));
+					edges_info[get_id(cur_startx, y+1)].push_back(cross_info(ENTER, i));
 					set_status(get_id(cur_startx, y), BORDER);
 					set_status(get_id(cur_startx, y+1), BORDER);
 				}
@@ -211,7 +240,7 @@ void Ideal::evaluate_edges(){
 				for(int y=cur_starty;y>cur_endy;y--){
 					horizontal_intersect_info[y].push_back(x1);
 					edges_info[get_id(cur_startx, y)].push_back(cross_info(LEAVE, i));
-					edges_info[get_id(cur_startx, y - 1)].push_back(cross_info(ENTER, i));
+					edges_info[get_id(cur_startx, y-1)].push_back(cross_info(ENTER, i));
 					set_status(get_id(cur_startx, y), BORDER);
 					set_status(get_id(cur_startx, y-1), BORDER);
 				}
@@ -313,11 +342,24 @@ void Ideal::evaluate_edges(){
 		}
 	}
 
+	// for(int i = 0; i <= dimx; i ++) {
+	// 	set_status(get_id(i, dimy), OUT);
+	// }
+
+	// for(int i = 0; i <= dimy; i ++) {
+	// 	set_status(get_id(dimx, i), OUT);
+	// }
+
 
 	process_crosses(edges_info);
 	process_intersection(horizontal_intersect_info, HORIZONTAL);
 	process_intersection(vertical_intersect_info, VERTICAL);
 	process_pixels_null(dimx, dimy);
+
+	// for(int i = 0; i <= get_num_pixels(); i ++){
+	// 	cout << offset[i] << " ";
+	// }
+	// cout << endl;
 }
 
 void Ideal::scanline_reandering(){
@@ -627,6 +669,7 @@ double Ideal::distance(Point &p, query_context *ctx, bool profile){
 			//printf("checking pixel %d %d %d\n",cur->id[0],cur->id[1],cur->status);
 			if(show_status(cur) == BORDER){
 				box cur_box = get_pixel_box(get_x(cur), get_y(cur));
+				// printf("BOX: lowx=%lf, lowy=%lf, highx=%lf, highy=%lf\n", cur_box.low[0], cur_box.low[1], cur_box.high[0], cur_box.high[1]);
 				double mbr_dist = cur_box.distance(p, ctx->geography);
 				// skip the pixels that is further than the current minimum
 				if(mbr_dist >= mindist){
@@ -641,6 +684,9 @@ double Ideal::distance(Point &p, query_context *ctx, bool profile){
 						auto r = rg.first + j;
 						double dist = point_to_segment_distance(p, *get_point(r), *get_point(r+1), ctx->geography);
 						mindist = min(mindist, dist);
+						if(ctx->within(mindist)){
+							return mindist;
+						}
 					}
 				}
 			}

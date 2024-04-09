@@ -70,16 +70,11 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	log("thread %d is started",ctx->thread_id);
-	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
 
 	while(ctx->next_batch(1)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			if(!tryluck(gctx->sample_rate)){
-				ctx->report_progress();
-				continue;
-			}
 			if(gctx->use_ideal){
 				ctx->target = (void *)(gctx->source_ideals[i]);
 				box qb = gctx->source_ideals[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
@@ -90,7 +85,6 @@ void *query(void *args){
 				box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
 				poly_rtree.Search(qb.low, qb.high, PolygonSearchCallback, (void *)ctx);
 			}
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();

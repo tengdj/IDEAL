@@ -43,16 +43,11 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	log("thread %d is started",ctx->thread_id);
-	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
 	char point_buffer[200];
 	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			if(!tryluck(gctx->sample_rate)){
-				ctx->report_progress();
-				continue;
-			}
 			double shiftx = degree_per_kilometer_longitude(gctx->points[i].y)*gctx->within_distance;
 			double shifty = degree_per_kilometer_latitude*gctx->within_distance;
 			buffer_low[0] = gctx->points[i].x-shiftx;
@@ -67,7 +62,6 @@ void *query(void *args){
 			if(gctx->use_vector){
 				poly_rtree.Search(buffer_low, buffer_high, PolygonSearchCallback, (void *)ctx);
 			}
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -120,7 +114,7 @@ int main(int argc, char** argv) {
 
 	global_ctx.print_stats();
 	logt("total query",start);
-	
+
 	return 0;
 }
 

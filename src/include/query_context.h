@@ -86,6 +86,7 @@ public:
 	bool use_ideal = false;
 	bool use_raster = false;
 	bool use_vector = false;
+	bool use_qtree = false;
 
 	int mer_sample_round = 20;
 	bool perform_refine = true;
@@ -121,7 +122,6 @@ public:
 	size_t found = 0;
 	size_t query_count = 0;
 	size_t refine_count = 0;
-	size_t candidate_count = 0;
 
 	execute_step object_checked;
 	execute_step node_check;

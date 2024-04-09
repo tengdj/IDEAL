@@ -34,10 +34,6 @@ void *query(void *args){
 	log("thread %d is started",ctx->thread_id);
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			if(!tryluck(ctx->sample_rate)){
-				ctx->report_progress();
-				continue;
-			}
 			if(gctx->use_ideal){
 				Ideal *ideal = gctx->target_ideals[i];
 				ctx->target = (void *)ideal;
@@ -49,7 +45,6 @@ void *query(void *args){
 				box *px = poly->getMBB();
 				poly_rtree.Search(px->low, px->high, PolygonSearchCallback, (void *)ctx);
 			}
-			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
