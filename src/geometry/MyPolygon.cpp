@@ -1,5 +1,35 @@
 #include "../include/MyPolygon.h"
-#include "../include/MyRaster.h"
+#include "../include/Ideal.h"
+
+MyPolygon::~MyPolygon(){
+	if(boundary){
+		delete boundary;
+	}
+	for(VertexSequence *p:holes){
+		if(p){
+			delete p;
+		}
+	}
+	holes.clear();
+	if(mbr){
+		delete mbr;
+	}
+	if(mer){
+		delete mer;
+	}
+	if(qtree){
+		delete qtree;
+	}
+	if(rtree){
+		delete rtree;
+	}
+	if(triangles){
+		delete []triangles;
+	}
+	if(convex_hull){
+		delete convex_hull;
+	}
+}
 
 box *MyPolygon::getMBB(){
 	if(mbr){
@@ -15,8 +45,10 @@ box *MyPolygon::getMER(query_context *ctx){
 		return mer;
 	}
 
-	MyRaster *ras = new MyRaster();
-	ras->rasterization(boundary, ctx->vpr);
+	Ideal *ras = new Ideal();
+	ras->mbr = new box(mbr);
+	ras->boundary = new VertexSequence(boundary->num_vertices, boundary->p);
+ 	ras->rasterization(ctx->vpr);
 	vector<int> interiors = ras->get_pixels(IN);
 	if(interiors.size()==0){
 		return NULL;
@@ -49,6 +81,87 @@ VertexSequence *MyPolygon::get_convex_hull(){
 		convex_hull = boundary->convexHull();
 	}
 	return convex_hull;
+}
+
+QTNode *MyPolygon::partition_qtree(const int vpr){
+
+	pthread_mutex_lock(&qtree_partition_lock);
+	if(qtree){
+		pthread_mutex_unlock(&qtree_partition_lock);
+		return qtree;
+	}
+
+	int num_boxes = get_num_vertices()/vpr;
+	int level = 1;
+	while(pow(4,level)<num_boxes){
+		level++;
+	}
+	int dimx = pow(2,level);
+	int dimy = dimx;
+
+	Ideal *ras = new Ideal();
+	ras->mbr = new box(mbr);
+	ras->boundary = new VertexSequence(boundary->num_vertices, boundary->p);
+	ras->init_raster(dimx, dimy);
+    ras->rasterization();
+
+	int box_count = 4;
+	int cur_level = 1;
+
+	qtree = new QTNode(*(this->getMBB()));
+	std::stack<QTNode *> ws;
+	qtree->split();
+	qtree->push(ws);
+
+	vector<QTNode *> level_nodes;
+
+	//breadth first traverse
+	query_context qc;
+	while(box_count<num_boxes||!ws.empty()){
+		if(cur_level>level){
+			dimx *= 2;
+			dimy *= 2;
+			level = cur_level;
+			delete ras;
+			ras = new Ideal();
+			ras->mbr = new box(mbr);
+			ras->boundary = new VertexSequence(boundary->num_vertices, boundary->p);
+			ras->init_raster(dimx, dimy);
+			ras->rasterization();
+		}
+
+		while(!ws.empty()){
+			QTNode *cur = ws.top();
+			ws.pop();
+			bool contained = false;
+			if(!ras->MyRaster::contain(&cur->mbr, contained)){
+				level_nodes.push_back(cur);
+			}else if(contained){
+				cur->interior = true;
+			}else{
+				cur->exterior = true;
+			}
+		}
+
+
+		for(QTNode *n:level_nodes){
+			if(box_count<num_boxes){
+				n->split();
+				n->push(ws);
+				box_count += 3;
+			}else{
+				break;
+			}
+		}
+		cur_level++;
+		level_nodes.clear();
+	}
+	//assert(box_count>=num_boxes);
+
+	delete ras;
+	pthread_mutex_unlock(&qtree_partition_lock);
+
+	return qtree;
 }
 
 MyPolygon *MyPolygon::clone(){
@@ -86,6 +199,9 @@ void MyPolygon::triangulate(){
 	if(triangle_num > 0){
 		return;
 	}
+	assert(boundary->p);
+	assert(boundary->num_vertices>0);
+
 	vector<Vertex *> polyline = boundary->pack_to_polyline();
 	assert(polyline.size() > 0);
 	CDT *cdt = new CDT(polyline);
@@ -427,6 +543,10 @@ double MyPolygon::distance_rtree(Point &start, Point &end, query_context *ctx){
 }
 
 bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
+	// the MBB may not be checked for within query
+	if(!mbr->contain(p)){
+		return false;
+	}
 	// check the maximum enclosed rectangle (MER)
 	if(mer&&mer->contain(p)){
 		return true;
@@ -435,21 +555,21 @@ bool MyPolygon::contain(Point &p, query_context *ctx, bool profile){
 	if(convex_hull&&!convex_hull->contain(p)){
 		return false;
 	}
-
-	// refinement step
-	timeval start = get_cur_time();
-	bool contained = false;
-
-	// todo for test only, remove in released version
-	if(ctx->perform_refine)
-	{
-		if(rtree){
-			contained = contain_rtree(rtree,p,ctx);
-		}
-		else{
-			contained = contain(p);
-		}
+	
+	if(qtree){
+		QTNode *tnode = get_qtree()->retrieve(p);
+		assert(tnode->isleaf()&&tnode->mbr.contain(p));
+		if(tnode->exterior) return false;
+		else if(tnode->interior) return true;
 	}
+
+	bool contained = false;
+	// refinement step
+	if(ctx->perform_refine){
+		if(rtree) contained = contain_rtree(rtree,p,ctx);
+		else contained = contain(p);
+	}
+
 	return contained;
 }
 
@@ -457,6 +577,19 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 	if(!getMBB()->contain(*target->getMBB())){
 		//log("mbb do not contain");
 		return false;
+	}
+
+	if(qtree) {
+		// filtering with the mbr of the target against the qtree
+		bool isin = false;
+		if(get_qtree()->determine_contain(*(target->getMBB()), isin)){
+			return isin;
+		}
+		ctx->border_checked.counter++;
+		// otherwise, checking all the edges to make sure no intersection
+		if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
+			return false;
+		}
 	}
 
 	// filtering with mer, mbr, and convex hull
@@ -476,32 +609,33 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 				}
 			}
 		}
-	}
-
-	// further filtering with the mbr of the target
-	Point mbb_vertices[5];
-	target->mbr->to_array(mbb_vertices);
-	// no intersection between this polygon and the mbr of the target polygon
-	if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5, ctx->edge_checked.counter)){
-		// the target must be the one which is contained (not contain) as its mbr is contained
-		if(contain(mbb_vertices[0], ctx)){
-			return true;
+		// further filtering with the mbr of the target
+		Point mbb_vertices[5];
+		target->mbr->to_array(mbb_vertices);
+		// no intersection between this polygon and the mbr of the target polygon
+		if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5, ctx->edge_checked.counter)){
+			// the target must be the one which is contained (not contain) as its mbr is contained
+			if(contain(mbb_vertices[0], ctx)){
+				return true;
+			}
 		}
 	}
 
-	// use the internal rtree if it is created
-	if(rtree){
-		for(int i=0;i<target->get_num_vertices();i++){
-			if(!contain_rtree(rtree, *target->get_point(i), ctx)){
+	if(ctx->perform_refine){
+		// use the internal rtree if it is created	
+		if(rtree){
+			for(int i=0;i<target->get_num_vertices();i++){
+				if(!contain_rtree(rtree, *target->get_point(i), ctx)){
+					return false;
+				}
+			}
+			return true;
+		}else{
+			// otherwise, checking all the edges to make sure no intersection
+			if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
 				return false;
 			}
 		}
-		return true;
-	}
-
-	// otherwise, checking all the edges to make sure no intersection
-	if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
-		return false;
 	}
 
 	// this is the last step for all the cases, when no intersection segment is identified
@@ -515,6 +649,12 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 	double mindist = getMBB()->max_distance(p, ctx->geography);
 	bool contained = contain(p, ctx, profile);
 	if(contained) return 0;
+
+	if(qtree){
+		if(ctx->is_within_query()&&!qtree->within(p, ctx->within_distance)){
+			return DBL_MAX;
+		}
+	}
 
 	//checking convex
 	if(ctx->is_within_query()&&convex_hull){
@@ -542,6 +682,23 @@ double MyPolygon::distance(Point &p, query_context *ctx, bool profile){
 }
 
 double MyPolygon::distance(MyPolygon *target, query_context *ctx, bool profile){
+	if(qtree){
+		// checking the qtree for filtering
+		if(ctx->is_within_query()){
+			for(int i=0;i<target->boundary->num_vertices-1;i++){
+				// if any edge is within the distance after checking the QTree, get the exact distance from it to the source polygon
+				if(qtree->within(target->boundary->p[i], target->boundary->p[i+1], ctx->within_distance)){
+					double dist = segment_sequence_distance(boundary->p, target->boundary->p+i,
+							boundary->num_vertices, 1,ctx->geography);
+					if(dist <= ctx->within_distance){
+						return dist;
+					}
+				}
+			}
+		}
+	}
+
+
 	//checking convex for filtering
 	if(ctx->is_within_query() && convex_hull && target->convex_hull){
 		double dist = segment_sequence_distance(convex_hull->p, target->convex_hull->p,
@@ -555,22 +712,26 @@ double MyPolygon::distance(MyPolygon *target, query_context *ctx, bool profile){
 	}
 
 	//SIMPVEC return
-	if(rtree){
-		double mindist = DBL_MAX;
-		for(int i=0;i<target->boundary->num_vertices-1;i++){
-			double dist = distance_rtree(target->boundary->p[i], target->boundary->p[i+1], ctx);
-			mindist = min(mindist, dist);
-			//log("%f",mindist);
+	if(ctx->perform_refine){
+		if(rtree){
+			double mindist = DBL_MAX;
+			for(int i=0;i<target->boundary->num_vertices-1;i++){
+				double dist = distance_rtree(target->boundary->p[i], target->boundary->p[i+1], ctx);
+				mindist = min(mindist, dist);
+				//log("%f",mindist);
 
-			if(ctx->within(mindist)){
-				return mindist;
+				if(ctx->within(mindist)){
+					return mindist;
+				}
 			}
+			return mindist;
+		}else{
+			return segment_sequence_distance(boundary->p, target->boundary->p,
+									boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
 		}
-		return mindist;
-	}else{
-		return segment_sequence_distance(boundary->p, target->boundary->p,
-								boundary->num_vertices, target->boundary->num_vertices,ctx->geography);
 	}
+	assert(false);
+	return DBL_MAX;
 }
 
 void MyPolygon::print_without_head(bool print_hole, bool complete_ring){

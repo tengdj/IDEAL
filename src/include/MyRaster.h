@@ -20,17 +20,14 @@ protected:
 	double step_y = 0.0;
 	int dimx = 0;
 	int dimy = 0;
-
-    QTNode *qtree = NULL;
 public:
     MyRaster() {
         pthread_mutex_init(&raster_lock, NULL);
         pthread_mutex_init(&qtree_lock, NULL);
     }
+    ~MyRaster();
     void init_raster(int num_pixels);
-    // void init_raster(int dimx, int dimy);
-    void rasterization(VertexSequence *vs, int vpr);
-    void rasterization(VertexSequence *vs);
+    void init_raster(int dimx, int dimy);
 
     int get_id(int x, int y);
 	int get_x(int id);
@@ -41,7 +38,7 @@ public:
     void set_status(int id, PartitionStatus status);
     PartitionStatus show_status(int id);
 
-	// vector<int> get_intersect_pixels(box *pix);
+	vector<int> get_intersect_pixels(box *pix);
     vector<int> get_closest_pixels(box &target);
     int get_closest_pixel(Point &p);
     vector<int> get_pixels(PartitionStatus status);
@@ -49,7 +46,7 @@ public:
     int get_pixel_id(Point &p);
     vector<int> retrieve_pixels(box *);
 
-    // bool contain(box *b, bool &contained);
+    bool contain(box *b, bool &contained);
     vector<int> expand_radius(int lowx, int highx, int lowy, int highy, int step);
 	vector<int> expand_radius(int center, int step);
 

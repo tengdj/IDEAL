@@ -259,8 +259,8 @@ query_context get_parameters(int argc, char **argv){
 	global_ctx.use_raster = vm.count("raster_only");
 	global_ctx.use_qtree = vm.count("qtree");
 
-	assert(global_ctx.use_ideal+global_ctx.use_raster+global_ctx.use_vector+global_ctx.use_qtree<=1
-			&&"can only choose one from GEOS, IDEAL, VECTOR, QTree");
+	assert(global_ctx.use_ideal+global_ctx.use_vector+global_ctx.use_qtree<=1
+			&&"can only choose one from, IDEAL, VECTOR, QTree");
 
 	return global_ctx;
 }

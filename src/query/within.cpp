@@ -43,6 +43,7 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	log("thread %d is started",ctx->thread_id);
+	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
 	char point_buffer[200];
@@ -58,10 +59,10 @@ void *query(void *args){
 			ctx->target = (void *)&gctx->points[i];
 			if(gctx->use_ideal){
 				ideal_rtree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
-			}
-			if(gctx->use_vector){
+			}else{
 				poly_rtree.Search(buffer_low, buffer_high, PolygonSearchCallback, (void *)ctx);
 			}
+			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -111,7 +112,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-
+	cout << endl;
 	global_ctx.print_stats();
 	logt("total query",start);
 

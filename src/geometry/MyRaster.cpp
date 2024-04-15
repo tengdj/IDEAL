@@ -1,5 +1,9 @@
 #include "../include/MyRaster.h"
 
+MyRaster::~MyRaster(){
+	if(status) delete []status;
+}
+
 void MyRaster::init_raster(int num_pixels){
     assert(num_pixels >= 0);
 
@@ -30,165 +34,24 @@ void MyRaster::init_raster(int num_pixels){
     memset(status, 0, ((dimx+1)*(dimy+1) / 4 + 1) * sizeof(uint8_t));
 }
 
-void MyRaster::rasterization(VertexSequence *vs, int vpr){
-	pthread_mutex_lock(&raster_lock);
-	mbr = vs->getMBR();
-	init_raster(vs->num_vertices / vpr);
-	rasterization(vs);
-	pthread_mutex_unlock(&raster_lock);
-}
+void MyRaster::init_raster(int dx, int dy){
+	dimx = dx;
+	dimy = dy;
 
-void MyRaster::rasterization(VertexSequence *vs){
-	assert(mbr);
-	const double start_x = mbr->low[0];
-	const double start_y = mbr->low[1];
+	step_x = (mbr->high[0]-mbr->low[0])/dimx;
+	step_y = (mbr->high[1]-mbr->low[1])/dimy;
 
-	for(int i=0;i<vs->num_vertices-1;i++){
-		double x1 = vs->p[i].x;
-		double y1 = vs->p[i].y;
-		double x2 = vs->p[i+1].x;
-		double y2 = vs->p[i+1].y;
-
-		int cur_startx = (x1-start_x)/step_x;
-		int cur_endx = (x2-start_x)/step_x;
-		int cur_starty = (y1-start_y)/step_y;
-		int cur_endy = (y2-start_y)/step_y;
-
-		if(cur_startx==dimx+1){
-			cur_startx--;
-		}
-		if(cur_endx==dimx+1){
-			cur_endx--;
-		}
-
-		int minx = min(cur_startx,cur_endx);
-		int maxx = max(cur_startx,cur_endx);
-
-		if(cur_starty==dimy+1){
-			cur_starty--;
-		}
-		if(cur_endy==dimy+1){
-			cur_endy--;
-		}
-
-		assert(cur_startx<=dimx);
-		assert(cur_endx<=dimx);
-		assert(cur_starty<=dimy);
-		assert(cur_endy<=dimy);
-
-		//in the same pixel
-		if(cur_startx==cur_endx&&cur_starty==cur_endy){
-			continue;
-		}
-
-		if(y1==y2){
-			//left to right
-			if(cur_startx<cur_endx){
-				for(int x=cur_startx;x<cur_endx;x++){
-					set_status(get_id(x, cur_starty), BORDER);
-					set_status(get_id(x+1, cur_starty), BORDER);
-				}
-			}else { // right to left
-				for(int x=cur_startx;x>cur_endx;x--){
-					set_status(get_id(x, cur_starty), BORDER);
-					set_status(get_id(x-1, cur_starty), BORDER);
-				}
-			}
-		}else if(x1==x2){
-			//bottom up
-			if(cur_starty<cur_endy){
-				for(int y=cur_starty;y<cur_endy;y++){
-					set_status(get_id(cur_startx, y), BORDER);
-					set_status(get_id(cur_startx, y+1), BORDER);
-				}
-			}else { //border[bottom] down
-				for(int y=cur_starty;y>cur_endy;y--){
-					set_status(get_id(cur_startx, y), BORDER);
-					set_status(get_id(cur_startx, y-1), BORDER);
-				}
-			}
-		}else{
-			// solve the line function
-			double a = (y1-y2)/(x1-x2);
-			double b = (x1*y2-x2*y1)/(x1-x2);
-
-			int x = cur_startx;
-			int y = cur_starty;
-			while(x!=cur_endx||y!=cur_endy){
-				bool passed = false;
-				double yval = 0;
-				double xval = 0;
-				int cur_x = 0;
-				int cur_y = 0;
-				//check horizontally
-				if(x!=cur_endx){
-					if(cur_startx<cur_endx){
-						xval = ((double)x+1)*step_x+start_x;
-					}else{
-						xval = (double)x*step_x+start_x;
-					}
-					yval = xval*a+b;
-					cur_y = (yval-start_y)/step_y;
-					//printf("y %f %d\n",(yval-start_y)/step_y,cur_y);
-					if(cur_y>max(cur_endy, cur_starty)){
-						cur_y=max(cur_endy, cur_starty);
-					}
-					if(cur_y<min(cur_endy, cur_starty)){
-						cur_y=min(cur_endy, cur_starty);
-					}
-					if(cur_y==y){
-						passed = true;
-						// left to right
-						if(cur_startx<cur_endx){
-							set_status(get_id(x ++, y), BORDER);
-							set_status(get_id(x, y), BORDER);
-						}else{//right to left
-							set_status(get_id(x --, y), BORDER);
-							set_status(get_id(x, y), BORDER);
-						}
-					}
-				}
-				//check vertically
-				if(y!=cur_endy){
-					if(cur_starty<cur_endy){
-						yval = (y+1)*step_y+start_y;
-					}else{
-						yval = y*step_y+start_y;
-					}
-					xval = (yval-b)/a;
-					int cur_x = (xval-start_x)/step_x;
-					//printf("x %f %d\n",(xval-start_x)/step_x,cur_x);
-					if(cur_x>max(cur_endx, cur_startx)){
-						cur_x=max(cur_endx, cur_startx);
-					}
-					if(cur_x<min(cur_endx, cur_startx)){
-						cur_x=min(cur_endx, cur_startx);
-					}
-					if(cur_x==x){
-						passed = true;
-						if(cur_starty<cur_endy){// bottom up
-							set_status(get_id(x, y++), BORDER);
-							set_status(get_id(x, y), BORDER);
-						}else{// top down
-							set_status(get_id(x, y --), BORDER);
-							set_status(get_id(x, y), BORDER);
-						}
-					}
-				}
-			}
-		}
+	if(step_x<0.00001){
+		step_x = 0.00001;
+		dimx = (mbr->high[0]-mbr->low[0])/step_x+1;
+	}
+	if(step_y<0.00001){
+		step_y = 0.00001;
+		dimy = (mbr->high[1]-mbr->low[1])/step_y+1;
 	}
 
-
-
-	for(int i = 0; i < get_num_pixels(); i ++){
-		if(show_status(i) == BORDER) continue;
-		box bx = get_pixel_box(get_x(i), get_y(i));
-		Point point;
-		point.set(bx.low[0], bx.low[1]);
-		if(vs->contain(point)) set_status(i, IN);
-		else set_status(i, OUT);
-	}
+	status = new uint8_t[(dimx+1)*(dimy+1) / 4 + 1];
+    memset(status, 0, ((dimx+1)*(dimy+1) / 4 + 1) * sizeof(uint8_t));
 }
 
 void MyRaster::print(){
@@ -363,6 +226,27 @@ PartitionStatus MyRaster::show_status(int id){
 	return BORDER;
 }
 
+vector<int> MyRaster::get_intersect_pixels(box *b){
+
+	// test all the pixels
+	int txstart = get_offset_x(b->low[0]);
+	int tystart = get_offset_y(b->low[1]);
+
+	double width_d = (b->high[0]-b->low[0]+step_x*0.9999999)/step_x;
+	int width = double_to_int(width_d);
+
+	double height_d = (b->high[1]-b->low[1]+step_y*0.9999999)/step_y;
+	int height = double_to_int(height_d);
+
+	vector<int> ret;
+	for(int i=txstart;i<txstart+width;i++){
+		for(int j=tystart;j<tystart+height;j++){
+			ret.push_back(get_id(i, j));
+		}
+	}
+	return ret;
+}
+
 vector<int> MyRaster::get_closest_pixels(box &target){
 
 	// note that at 0 or dimx/dimy will be returned if
@@ -442,6 +326,39 @@ vector<int> MyRaster::retrieve_pixels(box *target){
 		}
 	}
 	return ret;
+}
+
+bool MyRaster::contain(box *b, bool &contained){
+	if(!mbr->contain(*b)){
+		contained = false;
+		return true;
+	}
+	// test all the pixels that intersects b
+	vector<int> covered = get_intersect_pixels(b);
+
+	int incount = 0;
+	int outcount = 0;
+	for(auto pix : covered){
+		if(show_status(pix) == OUT){
+			outcount++;
+		}
+		if(show_status(pix) == IN){
+			incount++;
+		}
+	}
+	int total = covered.size();
+	covered.clear();
+	// all in/out
+	if(incount==total){
+		contained = true;
+		return true;
+	}else if(outcount==total){
+		contained = false;
+		return true;
+	}
+
+	// not determined by checking pixels only
+	return false;
 }
 
 vector<int> MyRaster::expand_radius(int core_x_low, int core_x_high, int core_y_low, int core_y_high, int step){

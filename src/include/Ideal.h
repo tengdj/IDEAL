@@ -65,6 +65,7 @@ public:
     Ideal(){
         pthread_mutex_init(&ideal_partition_lock, NULL);
     }
+	~Ideal();
     void rasterization(int vertex_per_raster);
 	void rasterization();
 

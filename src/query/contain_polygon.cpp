@@ -32,6 +32,7 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	log("thread %d is started",ctx->thread_id);
+	ctx->query_count = 0;
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(gctx->use_ideal){
@@ -45,6 +46,7 @@ void *query(void *args){
 				box *px = poly->getMBB();
 				poly_rtree.Search(px->low, px->high, PolygonSearchCallback, (void *)ctx);
 			}
+			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -70,9 +72,7 @@ int main(int argc, char** argv) {
 		global_ctx.target_num = global_ctx.target_ideals.size();
 
 		global_ctx.reset_stats();
-	}
-
-	if(global_ctx.use_vector){
+	}else{
 		global_ctx.source_polygons = load_polygons_from_path(global_ctx.source_path.c_str(),global_ctx);
 		timeval start = get_cur_time();
 		for(auto p : global_ctx.source_polygons){
@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+	cout << endl;
 	global_ctx.print_stats();
 	logt("query",start);
 	return 0;

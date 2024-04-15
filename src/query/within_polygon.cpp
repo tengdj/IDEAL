@@ -59,7 +59,6 @@ bool PolygonSearchCallback(MyPolygon *poly, void* arg){
 		ctx->found++;
         return true;
 	}
-
 	ctx->distance = poly->distance(target,ctx);
 	ctx->found += ctx->distance <= ctx->within_distance;
 
@@ -70,21 +69,22 @@ void *query(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	log("thread %d is started",ctx->thread_id);
+	ctx->query_count = 0;
 	double buffer_low[2];
 	double buffer_high[2];
 
-	while(ctx->next_batch(1)){
+	while(ctx->next_batch(100)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			if(gctx->use_ideal){
 				ctx->target = (void *)(gctx->source_ideals[i]);
 				box qb = gctx->source_ideals[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
 				ideal_rtree.Search(qb.low, qb.high, MySearchCallback, (void *)ctx);
-			}
-			if(gctx->use_vector){
+			}else{
 				ctx->target = (void *)(gctx->source_polygons[i]);
 				box qb = gctx->source_polygons[i]->getMBB()->expand(gctx->within_distance, ctx->geography);
 				poly_rtree.Search(qb.low, qb.high, PolygonSearchCallback, (void *)ctx);
 			}
+			ctx->report_progress();
 		}
 	}
 	ctx->merge_global();
@@ -138,7 +138,7 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-
+	cout << endl;
 	global_ctx.print_stats();
 	logt("total query",start);
 

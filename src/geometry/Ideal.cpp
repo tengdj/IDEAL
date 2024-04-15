@@ -1,5 +1,12 @@
 #include "../include/Ideal.h"
 
+Ideal::~Ideal(){
+	if(offset) delete []offset;
+	if(edge_sequences) delete []edge_sequences;
+	if(vertical) delete vertical;
+	if(horizontal) delete horizontal;
+}
+
 void Ideal::add_edge(int idx, int start, int end){
 	edge_sequences[idx] = make_pair(start, end - start  + 1);
 }

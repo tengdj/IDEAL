@@ -83,11 +83,18 @@ private:
 	size_t triangle_num = 0;
 
 	RTNode *rtree = NULL;
+	QTNode *qtree = NULL;
+
+	pthread_mutex_t qtree_partition_lock;
 
 protected:
 	VertexSequence *boundary = NULL;
 public:
-	box* get_mer() {return mer;}
+	MyPolygon(){
+		pthread_mutex_init(&qtree_partition_lock, NULL);
+	}
+	~MyPolygon();
+
 	VertexSequence *get_boundary() {return boundary;}
 	VertexSequence *get_boundary(int num_vertices){
 		if(boundary) return boundary;
@@ -139,8 +146,11 @@ public:
 	box *getMBB();
 	box *getMER(query_context *ctx=NULL);
 	VertexSequence *get_convex_hull();
-	
-	inline int get_num_vertices(){
+	QTNode *partition_qtree(const int vpr);
+    box *get_mer() { return mer; }
+    QTNode *get_qtree() { return qtree; }
+
+    inline int get_num_vertices(){
 		if(!boundary){
 			return 0;
 		}
