@@ -8,7 +8,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
-#include "../include/Pixel.h"
+#include "../include/Box.h"
 using namespace std;
 
 #define ASSERT assert // RTree uses ASSERT( condition )
@@ -22,6 +22,42 @@ using namespace std;
 
 #define RTREE_DONT_USE_MEMPOOLS // This version does not contain a fixed memory allocator, fill in lines with EXAMPLE to implement one.
 #define RTREE_USE_SPHERICAL_VOLUME // Better split classification, may be slower on some systems
+
+class RTNode:public box{
+public:
+	vector<RTNode *> children;
+	void *node_element = NULL;
+
+	RTNode(){};
+	bool is_leaf(){
+		return children.size()==0;
+	}
+	int node_count(){
+		int count = 0;
+		node_count(count);
+		return count;
+	}
+	void node_count(int &count){
+		count++;
+		for(RTNode *px:children){
+			assert(px!=this);
+			px->node_count(count);
+		}
+	}
+	bool validate(){
+		if(is_leaf()){
+			return node_element != NULL;
+		}else{
+			for(RTNode *ch:children){
+				if(!ch->validate()){
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+};
+
 
 // Fwd decl
 class RTFileStream;  // File I/O helper class, look below for implementation and notes.

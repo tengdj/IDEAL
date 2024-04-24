@@ -13,11 +13,11 @@
 #include <boost/program_options.hpp>
 
 #include "Point.h"
-#include "Pixel.h"
 
 namespace po = boost::program_options;
 using namespace std;
 class MyPolygon;
+class Ideal;
 
 
 enum QueryType{
@@ -55,8 +55,7 @@ public:
 	int num_threads = 0;
 	int vpr = 10;
 	int vpr_end = 10;
-	bool use_grid = false;
-	bool use_qtree = false;
+	bool use_ideal = false;
 	bool use_convex_hull = false;
 	bool use_mer = false;
 	bool use_triangulate = false;
@@ -84,10 +83,10 @@ public:
 	int num_threads = 0;
 
 	int vpr = 10;
-	bool use_geos = false;
-	bool use_grid = false;
-	bool use_qtree = false;
+	bool use_ideal = false;
+	bool use_raster = false;
 	bool use_vector = false;
+	bool use_qtree = false;
 
 	int mer_sample_round = 20;
 	bool perform_refine = true;
@@ -136,6 +135,8 @@ public:
 	// temporary storage for query processing
 	vector<MyPolygon *> source_polygons;
 	vector<MyPolygon *> target_polygons;
+	vector<Ideal *> source_ideals;
+	vector<Ideal *> target_ideals;
 	Point *points = NULL;
 	void *target = NULL;
 	void *target2 = NULL;

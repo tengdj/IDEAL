@@ -6,7 +6,7 @@
  */
 
 
-#include "MyPolygon.h"
+#include "Ideal.h"
 
 
 void dump_to_file(const char *path, char *data, size_t size){
@@ -70,10 +70,10 @@ MyPolygon *read_polygon_binary_file(ifstream &infile){
 		return NULL;
 	}
 	MyPolygon *poly = new MyPolygon();
-	poly->boundary = new VertexSequence(num_vertices);
-	infile.read((char *)poly->boundary->p,num_vertices*sizeof(Point));
-	if(poly->boundary->clockwise()){
-		poly->boundary->reverse();
+	VertexSequence *boundary = poly->get_boundary(num_vertices);
+	infile.read((char *)boundary->p,num_vertices*sizeof(Point));
+	if(boundary->clockwise()){
+		boundary->reverse();
 	}
 
 	for(int i=0;i<num_holes;i++){
@@ -85,7 +85,7 @@ MyPolygon *read_polygon_binary_file(ifstream &infile){
 			vs->reverse();
 		}
 		vs->fix();
-		poly->holes.push_back(vs);
+		poly->get_holes().push_back(vs);
 	}
 	return poly;
 }
@@ -181,6 +181,117 @@ const size_t buffer_size = 10*1024*1024;
 void *load_unit(void *arg){
 	query_context *ctx = (query_context *)arg;
 	vector<load_holder *> *jobs = (vector<load_holder *> *)ctx->target;
+	vector<Ideal *> *global_polygons = (vector<Ideal *> *)ctx->target2;
+
+	char *buffer = new char[buffer_size];
+	vector<Ideal *> polygons;
+	while(ctx->next_batch(1)){
+		for(int i=ctx->index;i<ctx->index_end;i++){
+			load_holder *lh = (*jobs)[i];
+			ctx->global_ctx->lock();
+			size_t poly_size = lh->load(buffer);
+			ctx->global_ctx->unlock();
+			size_t off = 0;
+			while(off<poly_size){
+				Ideal *poly = new Ideal();
+				off += poly->decode(buffer+off);
+				if(poly->get_num_vertices() >= 3 && tryluck(ctx->sample_rate)){
+					polygons.push_back(poly);
+					poly->getMBB();
+				}else{
+					delete poly;
+				}
+			}
+		}
+	}
+
+	delete []buffer;
+	ctx->global_ctx->lock();
+	global_polygons->insert(global_polygons->end(), polygons.begin(), polygons.end());
+	ctx->global_ctx->unlock();
+	polygons.clear();
+	return NULL;
+}
+vector<Ideal *> load_binary_file(const char *path, query_context &global_ctx){
+	global_ctx.index = 0;
+	global_ctx.index_end = 0;
+	vector<Ideal *> polygons;
+	if(!file_exist(path)){
+		log("%s does not exist",path);
+		exit(0);
+	}
+	struct timeval start = get_cur_time();
+
+	ifstream infile;
+	infile.open(path, ios::in | ios::binary);
+	size_t num_polygons_infile = 0;
+	infile.seekg(0, infile.end);
+	//seek to the first polygon
+	infile.seekg(-sizeof(size_t), infile.end);
+	infile.read((char *)&num_polygons_infile, sizeof(size_t));
+	assert(num_polygons_infile>0 && "the file should contain at least one polygon");
+
+	PolygonMeta *pmeta = new PolygonMeta[num_polygons_infile];
+	infile.seekg(-sizeof(size_t)-sizeof(PolygonMeta)*num_polygons_infile, infile.end);
+	infile.read((char *)pmeta, sizeof(PolygonMeta)*num_polygons_infile);
+	// the last one is the end
+	size_t num_polygons = min(num_polygons_infile, global_ctx.max_num_polygons);
+
+	logt("loading %ld polygon from %s",start, num_polygons,path);
+	// organizing tasks
+	vector<load_holder *> tasks;
+	size_t cur = 0;
+	while(cur<num_polygons){
+		size_t end = cur+1;
+		while(end<num_polygons &&
+				pmeta[end].offset - pmeta[cur].offset + pmeta[end].size < buffer_size){
+			end++;
+		}
+		load_holder *lh = new load_holder();
+		lh->infile = &infile;
+		lh->offset = pmeta[cur].offset;
+		if(end<num_polygons){
+			lh->poly_size = pmeta[end].offset - pmeta[cur].offset;
+		}else{
+			lh->poly_size = pmeta[end-1].offset - pmeta[cur].offset + pmeta[end-1].size;
+		}
+		tasks.push_back(lh);
+		cur = end;
+	}
+
+	logt("packed %ld tasks", start, tasks.size());
+
+	global_ctx.target_num = tasks.size();
+	pthread_t threads[global_ctx.num_threads];
+	query_context myctx[global_ctx.num_threads];
+	for(int i=0;i<global_ctx.num_threads;i++){
+		myctx[i].index = 0;
+		myctx[i] = global_ctx;
+		myctx[i].thread_id = i;
+		myctx[i].global_ctx = &global_ctx;
+		myctx[i].target = (void *)&tasks;
+		myctx[i].target2 = (void *)&polygons;
+	}
+	for(int i=0;i<global_ctx.num_threads;i++){
+		pthread_create(&threads[i], NULL, load_unit, (void *)&myctx[i]);
+	}
+
+	for(int i = 0; i < global_ctx.num_threads; i++ ){
+		void *status;
+		pthread_join(threads[i], &status);
+	}
+	infile.close();
+	delete []pmeta;
+	for(load_holder *lh:tasks){
+		delete lh;
+	}
+	logt("loaded %ld polygons", start, polygons.size());
+	return polygons;
+}
+
+void *load_polygons_unit(void *arg){
+	query_context *ctx = (query_context *)arg;
+	vector<load_holder *> *jobs = (vector<load_holder *> *)ctx->target;
 	vector<MyPolygon *> *global_polygons = (vector<MyPolygon *> *)ctx->target2;
 
 	char *buffer = new char[buffer_size];
@@ -202,7 +313,6 @@ void *load_unit(void *arg){
 					delete poly;
 				}
 			}
-			ctx->report_progress(1);
 		}
 	}
 
@@ -213,7 +323,8 @@ void *load_unit(void *arg){
 	polygons.clear();
 	return NULL;
 }
-vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx){
+
+vector<MyPolygon *> load_polygons_from_path(const char *path, query_context &global_ctx){
 	global_ctx.index = 0;
 	global_ctx.index_end = 0;
 	vector<MyPolygon *> polygons;
@@ -274,7 +385,7 @@ vector<MyPolygon *> load_binary_file(const char *path, query_context &global_ctx
 		myctx[i].target2 = (void *)&polygons;
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
-		pthread_create(&threads[i], NULL, load_unit, (void *)&myctx[i]);
+		pthread_create(&threads[i], NULL, load_polygons_unit, (void *)&myctx[i]);
 	}
 
 	for(int i = 0; i < global_ctx.num_threads; i++ ){

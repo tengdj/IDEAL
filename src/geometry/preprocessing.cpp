@@ -1,41 +1,32 @@
-/*
- * preprocessing.cpp
- *
- *  Created on: May 6, 2022
- *      Author: teng
- */
+#include "../include/Ideal.h"
 
-#include "MyPolygon.h"
-
-/**
- *
- * the multi-thread functions for preprocessing the data
- *
- *
- * */
-
-void *geos_unit(void *args){
+void *rasterization_unit(void *args){
 	query_context *ctx = (query_context *)args;
-	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)ctx->target;
-	geos::geom::GeometryFactory::Ptr factory = geos::geom::GeometryFactory::create();
-	geos::io::WKTReader *wkt_reader = new geos::io::WKTReader(*factory);
+	query_context *gctx = ctx->global_ctx;
+
+	vector<Ideal *> &ideals = *(vector<Ideal *> *)gctx->target;
+
+	// log("thread %d is started",ctx->thread_id);
+
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
-			polygons[i]->convert_to_geos(wkt_reader);
+			struct timeval start = get_cur_time();
+			ideals[i]->rasterization(ctx->vpr);
 			ctx->report_progress();
 		}
 	}
-	delete wkt_reader;
+	ctx->merge_global();
 	return NULL;
 }
 
+void process_rasterization(query_context *gctx){
 
-void process_geos(query_context *gctx){
-	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
-	assert(polygons.size()>0);
+	log("start rasterizing the referred polygons");
+	vector<Ideal *> &ideals = *(vector<Ideal *> *)gctx->target;
+	assert(ideals.size()>0);
 	gctx->index = 0;
 	size_t former = gctx->target_num;
-	gctx->target_num = polygons.size();
+	gctx->target_num = ideals.size();
 
 	struct timeval start = get_cur_time();
 	pthread_t threads[gctx->num_threads];
@@ -47,7 +38,7 @@ void process_geos(query_context *gctx){
 	}
 
 	for(int i=0;i<gctx->num_threads;i++){
-		pthread_create(&threads[i], NULL, geos_unit, (void *)&ctx[i]);
+		pthread_create(&threads[i], NULL, rasterization_unit, (void *)&ctx[i]);
 	}
 
 	for(int i = 0; i < gctx->num_threads; i++ ){
@@ -55,13 +46,28 @@ void process_geos(query_context *gctx){
 		pthread_join(threads[i], &status);
 	}
 
-	//collect convex hull status
-	logt("loaded %ld GEOS objects", start, polygons.size());
+	//collect partitioning status
+	size_t num_partitions = 0;
+	size_t num_crosses = 0;
+	size_t num_border_partitions = 0;
+	size_t num_edges = 0;
+	for(auto ideal : ideals){
+		num_partitions += ideal->get_num_pixels();
+		num_crosses += ideal->get_num_crosses();
+		num_border_partitions += ideal->get_num_pixels(BORDER);
+		num_edges += ideal->get_num_border_edge();
+	}
+	logt("IDEALized %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
+			ideals.size(),
+			num_border_partitions/ideals.size(),
+			num_partitions/ideals.size(),
+			1.0*num_crosses/num_border_partitions,
+			1.0*num_edges/num_border_partitions);
+
 	gctx->index = 0;
 	gctx->query_count = 0;
 	gctx->target_num = former;
 }
-
 
 void *convex_hull_unit(void *args){
 
@@ -69,7 +75,6 @@ void *convex_hull_unit(void *args){
 	query_context *gctx = ctx->global_ctx;
 	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
 	//log("thread %d is started",ctx->thread_id);
-	int local_count = 0;
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->get_convex_hull();
@@ -134,7 +139,6 @@ void *mer_unit(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
-	int local_count = 0;
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->getMER(ctx);
@@ -200,8 +204,7 @@ void *internal_rtree_unit(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
-
-	int local_count = 0;
+	
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			polygons[i]->build_rtree();
@@ -254,25 +257,16 @@ void process_internal_rtree(query_context *gctx){
 	gctx->target_num = former;
 }
 
-
 void *qtree_unit(void *args){
 	query_context *ctx = (query_context *)args;
 	query_context *gctx = ctx->global_ctx;
 	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
 
 	//log("thread %d is started",ctx->thread_id);
-	int local_count = 0;
 	while(ctx->next_batch(10)){
 		for(int i=ctx->index;i<ctx->index_end;i++){
 			struct timeval start = get_cur_time();
-
 			polygons[i]->partition_qtree(ctx->vpr);
-			double latency = get_time_elapsed(start);
-			int num_vertices = polygons[i]->get_num_vertices();
-			//ctx->report_latency(num_vertices, latency);
-//			if(latency>10000||num_vertices>200000){
-//				logt("partition %d vertices (source)",start,num_vertices);
-//			}
 			ctx->report_progress();
 		}
 	}
@@ -327,110 +321,46 @@ void process_qtree(query_context *gctx){
 	gctx->target_num = former;
 }
 
-void *rasterization_unit(void *args){
-	query_context *ctx = (query_context *)args;
-	query_context *gctx = ctx->global_ctx;
 
-	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
-
-	//log("thread %d is started",ctx->thread_id);
-	int local_count = 0;
-	while(ctx->next_batch(10)){
-		for(int i=ctx->index;i<ctx->index_end;i++){
-			struct timeval start = get_cur_time();
-			polygons[i]->rasterization(ctx->vpr);
-			double latency = get_time_elapsed(start);
-			int num_vertices = polygons[i]->get_num_vertices();
-			//ctx->report_latency(num_vertices, latency);
-//			if(latency>10000||num_vertices>200000){
-//				logt("partition %d vertices (source)",start,num_vertices);
-//			}
-			ctx->report_progress();
-		}
-	}
-	ctx->merge_global();
-	return NULL;
-}
-
-void process_rasterization(query_context *gctx){
-
-	log("start rasterizing the referred polygons");
-	vector<MyPolygon *> &polygons = *(vector<MyPolygon *> *)gctx->target;
-	assert(polygons.size()>0);
-	gctx->index = 0;
-	size_t former = gctx->target_num;
-	gctx->target_num = polygons.size();
-
-	struct timeval start = get_cur_time();
-	pthread_t threads[gctx->num_threads];
-	query_context ctx[gctx->num_threads];
-	for(int i=0;i<gctx->num_threads;i++){
-		ctx[i] = *gctx;
-		ctx[i].thread_id = i;
-		ctx[i].global_ctx = gctx;
-	}
-
-	for(int i=0;i<gctx->num_threads;i++){
-		pthread_create(&threads[i], NULL, rasterization_unit, (void *)&ctx[i]);
-	}
-
-	for(int i = 0; i < gctx->num_threads; i++ ){
-		void *status;
-		pthread_join(threads[i], &status);
-	}
-
-	//collect partitioning status
-	size_t num_partitions = 0;
-	size_t num_crosses = 0;
-	size_t num_border_partitions = 0;
-	size_t num_edges = 0;
-	for(MyPolygon *poly:polygons){
-		num_partitions += poly->get_rastor()->get_num_pixels();
-		num_crosses += poly->get_rastor()->get_num_crosses();
-		num_border_partitions += poly->get_rastor()->get_num_pixels(BORDER);
-		num_edges += poly->get_rastor()->get_num_border_edge();
-	}
-	logt("IDEALized %d polygons with (%ld)%ld average pixels %.2f average crosses per pixel %.2f edges per pixel", start,
-			polygons.size(),
-			num_border_partitions/polygons.size(),
-			num_partitions/polygons.size(),
-			1.0*num_crosses/num_border_partitions,
-			1.0*num_edges/num_border_partitions);
-
-	gctx->index = 0;
-	gctx->query_count = 0;
-	gctx->target_num = former;
-}
-
-// the entry function
 void preprocess(query_context *gctx){
 
-	vector<MyPolygon *> target_polygons;
-	target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
-	target_polygons.insert(target_polygons.end(), gctx->target_polygons.begin(), gctx->target_polygons.end());
-	gctx->target = (void *)&target_polygons;
-	if(gctx->use_grid){
+	if(gctx->use_ideal){
+		vector<Ideal *> target_ideals;
+		target_ideals.insert(target_ideals.end(), gctx->source_ideals.begin(), gctx->source_ideals.end());
+		target_ideals.insert(target_ideals.end(), gctx->target_ideals.begin(), gctx->target_ideals.end());
+		gctx->target = (void *)&target_ideals;
+
 		process_rasterization(gctx);
+		
+		target_ideals.clear();
 	}
-
-	if(gctx->use_qtree){
-		process_qtree(gctx);
-	}
-
+	
 	if(gctx->use_vector){
+		vector<MyPolygon *> target_polygons;
+		target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
+		target_polygons.insert(target_polygons.end(), gctx->target_polygons.begin(), gctx->target_polygons.end());
+		gctx->target = (void *)&target_polygons;
+
 		process_convex_hull(gctx);
 		process_mer(gctx);
 		target_polygons.clear();
 		target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
+		// gctx->target = (void *)&target_polygons;
 		process_internal_rtree(gctx);
+	
+		target_polygons.clear();
 	}
 
-	if(gctx->use_geos){
-		process_geos(gctx);
+	if(gctx->use_qtree){
+		vector<MyPolygon *> target_polygons;
+		target_polygons.insert(target_polygons.end(), gctx->source_polygons.begin(), gctx->source_polygons.end());
+		target_polygons.insert(target_polygons.end(), gctx->target_polygons.begin(), gctx->target_polygons.end());
+		gctx->target = (void *)&target_polygons;
+
+		process_qtree(gctx);
+
+		target_polygons.clear();
 	}
 
-	target_polygons.clear();
 	gctx->target = NULL;
 }
-
-

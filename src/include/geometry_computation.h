@@ -9,8 +9,9 @@
 #define SRC_GEOMETRY_GEOMETRY_COMPUTATION_H_
 
 #include <math.h>
-#include "Pixel.h"
 #include "util.h"
+#include "Point.h"
+#include <float.h>
 
 /*
  *

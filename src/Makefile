@@ -8,7 +8,7 @@ OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 INCLUDES	= -I /usr/include -I include -I /usr/local/include
 #-lgeos_c  
 LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -fopenmp -lgeos  
-CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
+CPPFLAGS	= -g -O3 -std=c++14 -Wno-cpp -fopenmp
 NVCCFLAGS	= -g -std=c++14 -DUSE_GPU
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
@@ -42,16 +42,16 @@ all:	contain_polygon within_polygon
 # for macro queries
 
 contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
 	
 within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
 	
 within:	query/within.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
 	
 contain:	query/contain.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
 	
 print_raster:	test/print_raster.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 
