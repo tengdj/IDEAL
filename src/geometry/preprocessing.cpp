@@ -331,6 +331,11 @@ void preprocess(query_context *gctx){
 		gctx->target = (void *)&target_ideals;
 
 		process_rasterization(gctx);
+
+#ifdef USE_GPU
+		void cuda_create_buffer(gctx);	
+		void cuda_transfer_data()	
+#endif
 		
 		target_ideals.clear();
 	}

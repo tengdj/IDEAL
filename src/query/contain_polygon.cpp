@@ -17,6 +17,7 @@ int ct = 0;
 bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
 	Ideal *target = (Ideal *)ctx->target;
+	
 	ctx->found += ideal->contain(target, ctx);
 	return true;
 }

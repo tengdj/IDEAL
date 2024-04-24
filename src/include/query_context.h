@@ -147,6 +147,10 @@ public:
 	map<int, int> vertex_number;
 	map<int, double> latency;
 
+	// for gpu
+	vector<pair<ideal_offset, ideal_offset>> st_pairs;
+	uint8_t* h_status = nullptr;
+	uint8_t* d_status = nullptr;
 public:
 
 	// functions

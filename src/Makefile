@@ -5,11 +5,13 @@ NVCC = nvcc
 SRCS := $(wildcard */*.cpp)
 OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
-INCLUDES	= -I /usr/include -I include -I /usr/local/include
+INCLUDES	= -I /usr/include -I ./include -I /usr/local/include
 #-lgeos_c  
-LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -fopenmp -lgeos  
-CPPFLAGS	= -g -O3 -std=c++14 -Wno-cpp -fopenmp
-NVCCFLAGS	= -g -std=c++14 -DUSE_GPU
+LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -lgeos  
+CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
+
+NVCCFLAGS   = -c -g -std=c++14 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT
+CUDALIBS    = -L/usr/local/cuda/lib64 -lcuda -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_SRCS += $(wildcard geometry/triangulate/*.cpp)
@@ -25,7 +27,7 @@ CU_OBJS := $(patsubst %.cu,%_cu.o,$(CU_SRCS))
 
 ifdef USE_GPU
 	CPPFLAGS += -DUSE_GPU
-	LIBS  += -L/usr/local/cuda/lib64 -lcuda -lcudart
+	LIBS  += ${CUDALIBS}
 	GEOMETRY_OBJS += ${CU_OBJS}
 endif
 
@@ -42,16 +44,16 @@ all:	contain_polygon within_polygon
 # for macro queries
 
 contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 within:	query/within.o $(GEOMETRY_OBJS)
-	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 contain:	query/contain.o $(GEOMETRY_OBJS)
-	$(CXX) -O3 -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS) 
 	
 print_raster:	test/print_raster.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 

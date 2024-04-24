@@ -1,6 +1,25 @@
 
-#include "cuda_util.cuh"
-#include "MyPolygon.h"
+#include "cuda_util.h"
+#include "Ideal.h"
+#include "mygpu.h"
+
+#define BUFFER_SIZE 1024 * 1024 * 1024
+
+void cuda_create_buffer(query_context *gctx, gpu_info *gpu){
+	size_t size = BUFFER_SIZE;
+	log("CPU momory:");
+	gctx->h_status = new uint8_t[size];
+	log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024);
+
+	log("GPU memory:");
+	gpu->clear();
+	gctx->d_status = (uint8_t *)gpu->allocate(size);
+	log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024);
+}
+
+void cuda_transfer_data(query_context *gctx){
+	在完成MBR过滤以后才需要把需要用到的status传进buffer
+}
 
 __device__
 bool check_contain(const double *polygon1, const double *polygon2, int num_vertices_1, int num_vertices_2){
@@ -148,20 +167,20 @@ void cuda_distance(double *dist, const Point p, const Point *vs, size_t vs_lengt
 	}
 }
 
-double point_to_segment_sequence_distance_gpu(Point &p, Point *vs, size_t seq_len, bool geography){
-	assert(gpus.size()>0);
-	gpu_info *gpu = gpus[0];
-	Point *vs_d = (Point *)gpu->allocate(seq_len* sizeof(Point));
-	double *dist_d = (double *)gpu->allocate(sizeof(double));
-	double dist = DBL_MAX;
-	CUDA_SAFE_CALL(cudaMemcpy((char *)dist_d, (char *)&dist, sizeof(double),cudaMemcpyHostToDevice));
-	CUDA_SAFE_CALL(cudaMemcpy((char *)vs_d, (char *)vs, seq_len*sizeof(Point),cudaMemcpyHostToDevice));
-	cuda_distance<<<seq_len/1024+1, 1024>>>(dist_d, p, vs_d, seq_len,gpu->degree_per_kilometer);
-	CUDA_SAFE_CALL(cudaMemcpy(&dist, dist_d, sizeof(double), cudaMemcpyDeviceToHost));
-	gpu->free((char *)dist_d, sizeof(double));
-	gpu->free((char *)vs_d, seq_len* sizeof(Point));
-	return dist;
-}
+// double point_to_segment_sequence_distance_gpu(Point &p, Point *vs, size_t seq_len, bool geography){
+// 	assert(gpus.size()>0);
+// 	gpu_info *gpu = gpus[0];
+// 	Point *vs_d = (Point *)gpu->allocate(seq_len* sizeof(Point));
+// 	double *dist_d = (double *)gpu->allocate(sizeof(double));
+// 	double dist = DBL_MAX;
+// 	CUDA_SAFE_CALL(cudaMemcpy((char *)dist_d, (char *)&dist, sizeof(double),cudaMemcpyHostToDevice));
+// 	CUDA_SAFE_CALL(cudaMemcpy((char *)vs_d, (char *)vs, seq_len*sizeof(Point),cudaMemcpyHostToDevice));
+// 	cuda_distance<<<seq_len/1024+1, 1024>>>(dist_d, p, vs_d, seq_len,gpu->degree_per_kilometer);
+// 	CUDA_SAFE_CALL(cudaMemcpy(&dist, dist_d, sizeof(double), cudaMemcpyDeviceToHost));
+// 	gpu->free((char *)dist_d, sizeof(double));
+// 	gpu->free((char *)vs_d, seq_len* sizeof(Point));
+// 	return dist;
+// }
 
 
 
