@@ -1,65 +1,79 @@
-
 #include "cuda_util.h"
 #include "Ideal.h"
 #include "mygpu.h"
 
-#define BUFFER_SIZE 1024 * 1024 * 1024
 
-void cuda_create_buffer(query_context *gctx, gpu_info *gpu){
-	size_t size = BUFFER_SIZE;
-	log("CPU momory:");
-	gctx->h_status = new uint8_t[size];
-	log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024);
-
-	log("GPU memory:");
-	gpu->clear();
-	gctx->d_status = (uint8_t *)gpu->allocate(size);
-	log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024);
-}
-
-void cuda_transfer_data(query_context *gctx){
-	在完成MBR过滤以后才需要把需要用到的status传进buffer
-}
-
-__device__
-bool check_contain(const double *polygon1, const double *polygon2, int num_vertices_1, int num_vertices_2){
-	bool val = false;
-	for(int p = 0;p<num_vertices_2-1;p++){
-		double px = polygon2[p];
-		double py = polygon2[num_vertices_2+p];
-		for (int i = 0, j = 1; i < num_vertices_1-1; i++,j++) {
-			// segment i->j intersect with line y=p.y
-			double pyi = polygon1[num_vertices_1+i];
-			double pyj = polygon1[num_vertices_1+j];
-			if ((pyj>py) != (pyi>py))
-			{
-				double pxi = polygon1[i];
-				double pxj = polygon1[j];
-				double a = (pxj-pxi) / (pyj-pyi);
-				if(px-pxi<a*(py-pyi)){
-					val = !val;
-				}
-			}
+__global__ void kernel_contain_polygon(uint *d_status_offset, uint8_t *d_status, uint size, uint* result){
+	const int x = blockIdx.x * blockDim.x + threadIdx.x;
+	if(x < size){
+		uint itn = 0, etn = 0; 
+		uint status_start = d_status_offset[x], status_end = d_status_offset[x + 1];
+		for(int i = status_start; i < status_end; i ++){
+			if(d_status[i] == 0) itn ++;
+			else if(d_status[i] == 2) etn ++;
+		}
+		if(itn == (status_end - status_start)){
+			atomicAdd(result, 1);
 		}
 	}
-	return val;
 }
 
-__global__
-void contain_cuda(const double *poly1, const double *poly2, const uint *offset_size, int *ret, size_t num_pairs){
+uint cuda_contain(query_context *gctx){
+	uint size = gctx->temp_pair.size();
+	uint *d_result = nullptr;
+	CUDA_SAFE_CALL(cudaMalloc((void**) &d_result, sizeof(uint)));
 
-	// which polygon-polygon pair
-	int pair_id = blockIdx.x*blockDim.x+threadIdx.x;
-	if(pair_id>=num_pairs){
-		return;
-	}
+	const int grid_size_x = ceil(size / static_cast<float>(1024));
+	const dim3 block_size(1024, 1, 1);
+	const dim3 grid_size(grid_size_x, 1, 1);
+	kernel_contain_polygon<<<grid_size, block_size>>>(gctx->d_status_offset, gctx->d_status, size, d_result);
+	cudaDeviceSynchronize();
 
-	uint off1 = offset_size[pair_id*4];
-	uint size1 = offset_size[pair_id*4+1];
-	uint off2 = offset_size[pair_id*4+2];
-	uint size2 = offset_size[pair_id*4+3];
-	ret[pair_id] = (int)check_contain(poly1+off1,poly2+off2,size1,size2);
+	uint h_result;
+	CUDA_SAFE_CALL(cudaMemcpy(&h_result, d_result, sizeof(uint), cudaMemcpyDeviceToHost));
+
+	return h_result;
 }
+
+// __device__
+// bool check_contain(const double *polygon1, const double *polygon2, int num_vertices_1, int num_vertices_2){
+// 	bool val = false;
+// 	for(int p = 0;p<num_vertices_2-1;p++){
+// 		double px = polygon2[p];
+// 		double py = polygon2[num_vertices_2+p];
+// 		for (int i = 0, j = 1; i < num_vertices_1-1; i++,j++) {
+// 			// segment i->j intersect with line y=p.y
+// 			double pyi = polygon1[num_vertices_1+i];
+// 			double pyj = polygon1[num_vertices_1+j];
+// 			if ((pyj>py) != (pyi>py))
+// 			{
+// 				double pxi = polygon1[i];
+// 				double pxj = polygon1[j];
+// 				double a = (pxj-pxi) / (pyj-pyi);
+// 				if(px-pxi<a*(py-pyi)){
+// 					val = !val;
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return val;
+// }
+
+// __global__
+// void contain_cuda(const double *poly1, const double *poly2, const uint *offset_size, int *ret, size_t num_pairs){
+
+// 	// which polygon-polygon pair
+// 	int pair_id = blockIdx.x*blockDim.x+threadIdx.x;
+// 	if(pair_id>=num_pairs){
+// 		return;
+// 	}
+
+// 	uint off1 = offset_size[pair_id*4];
+// 	uint size1 = offset_size[pair_id*4+1];
+// 	uint off2 = offset_size[pair_id*4+2];
+// 	uint size2 = offset_size[pair_id*4+3];
+// 	ret[pair_id] = (int)check_contain(poly1+off1,poly2+off2,size1,size2);
+// }
 
 ///*
 // * data: contains the segments of the meshes mentioned in this join.
@@ -94,78 +108,78 @@ void contain_cuda(const double *poly1, const double *poly2, const uint *offset_s
 //	//logt("copy data out", start);
 //}
 
-__device__
-double cuda_degree_per_kilometer_longitude(double latitude, double *degree_per_kilometer){
-	double absla = abs(latitude);
-	assert(absla<=90);
-	if(absla==90){
-		absla = 89.9;
-	}
-	return degree_per_kilometer[(int)(absla*10)];
-}
+// __device__
+// double cuda_degree_per_kilometer_longitude(double latitude, double *degree_per_kilometer){
+// 	double absla = abs(latitude);
+// 	assert(absla<=90);
+// 	if(absla==90){
+// 		absla = 89.9;
+// 	}
+// 	return degree_per_kilometer[(int)(absla*10)];
+// }
 
 
-__device__
-double cuda_point_to_segment_distance(const Point &p, const Point &p1, const Point &p2, double *degree_per_kilometer) {
+// __device__
+// double cuda_point_to_segment_distance(const Point &p, const Point &p1, const Point &p2, double *degree_per_kilometer) {
 
-  double A = p.x - p1.x;
-  double B = p.y - p1.y;
-  double C = p2.x - p1.x;
-  double D = p2.y - p1.y;
+//   double A = p.x - p1.x;
+//   double B = p.y - p1.y;
+//   double C = p2.x - p1.x;
+//   double D = p2.y - p1.y;
 
-  double dot = A * C + B * D;
-  double len_sq = C * C + D * D;
-  double param = -1;
-  if (len_sq != 0) //in case of 0 length line
-      param = dot / len_sq;
+//   double dot = A * C + B * D;
+//   double len_sq = C * C + D * D;
+//   double param = -1;
+//   if (len_sq != 0) //in case of 0 length line
+//       param = dot / len_sq;
 
-  double xx, yy;
+//   double xx, yy;
 
-  if (param < 0) {
-    xx = p1.x;
-    yy = p1.y;
-  } else if (param > 1) {
-    xx = p2.x;
-    yy = p2.y;
-  } else {
-    xx = p1.x + param * C;
-    yy = p1.y + param * D;
-  }
+//   if (param < 0) {
+//     xx = p1.x;
+//     yy = p1.y;
+//   } else if (param > 1) {
+//     xx = p2.x;
+//     yy = p2.y;
+//   } else {
+//     xx = p1.x + param * C;
+//     yy = p1.y + param * D;
+//   }
 
-  double dx = p.x - xx;
-  double dy = p.y - yy;
-  dx = dx/cuda_degree_per_kilometer_longitude(p.y, degree_per_kilometer);
-  dy = dy/degree_per_kilometer_latitude;
+//   double dx = p.x - xx;
+//   double dy = p.y - yy;
+//   dx = dx/cuda_degree_per_kilometer_longitude(p.y, degree_per_kilometer);
+//   dy = dy/degree_per_kilometer_latitude;
 
-  return sqrt(dx * dx + dy * dy);
-}
+//   return sqrt(dx * dx + dy * dy);
+// }
 
-__device__
-void atomicMin_double(double* address, double val)
-{
-    unsigned long long int* address_as_ull = (unsigned long long int*) address;
-    unsigned long long int old = *address_as_ull, assumed;
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed,
-            __double_as_longlong(fmin(val, __longlong_as_double(assumed))));
-    } while (assumed != old);
-}
+// __device__
+// void atomicMin_double(double* address, double val)
+// {
+//     unsigned long long int* address_as_ull = (unsigned long long int*) address;
+//     unsigned long long int old = *address_as_ull, assumed;
+//     do {
+//         assumed = old;
+//         old = atomicCAS(address_as_ull, assumed,
+//             __double_as_longlong(fmin(val, __longlong_as_double(assumed))));
+//     } while (assumed != old);
+// }
 
-__global__
-void cuda_distance(double *dist, const Point p, const Point *vs, size_t vs_length,double *degree_per_kilometer){
+// __global__
+// void cuda_distance(double *dist, const Point p, const Point *vs, size_t vs_length,double *degree_per_kilometer){
 
-	// which polygon-polygon pair
-	int pair_id = blockIdx.x*blockDim.x+threadIdx.x;
-	if(pair_id>=vs_length){
-		return;
-	}
-	double d = cuda_point_to_segment_distance(p, vs[pair_id], vs[pair_id+1],degree_per_kilometer);
-	//if(d>0.00001)
-	{
-		atomicMin_double(dist, d);
-	}
-}
+// 	// which polygon-polygon pair
+// 	int pair_id = blockIdx.x*blockDim.x+threadIdx.x;
+// 	if(pair_id>=vs_length){
+// 		return;
+// 	}
+// 	double d = cuda_point_to_segment_distance(p, vs[pair_id], vs[pair_id+1],degree_per_kilometer);
+// 	//if(d>0.00001)
+// 	{
+// 		atomicMin_double(dist, d);
+// 	}
+// }
 
 // double point_to_segment_sequence_distance_gpu(Point &p, Point *vs, size_t seq_len, bool geography){
 // 	assert(gpus.size()>0);

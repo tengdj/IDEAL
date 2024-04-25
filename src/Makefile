@@ -10,8 +10,8 @@ INCLUDES	= -I /usr/include -I ./include -I /usr/local/include
 LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -lgeos  
 CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
 
-NVCCFLAGS   = -c -g -std=c++14 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT
-CUDALIBS    = -L/usr/local/cuda/lib64 -lcuda -lcudart
+NVCCFLAGS   = -g -std=c++14 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT
+CUDALIBS    = -L/usr/local/cuda-12.2/lib64/stubs -lcuda -L/usr/local/cuda-12.2/lib64/ -lcudart
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_SRCS += $(wildcard geometry/triangulate/*.cpp)

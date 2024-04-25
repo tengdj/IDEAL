@@ -512,7 +512,6 @@ bool Ideal::contain(Ideal *target, query_context *ctx, bool profile){
 		//log("mbb do not contain");
 		return false;
 	}
-
 	vector<int> pxs = retrieve_pixels(target->getMBB());
 	int etn = 0;
 	int itn = 0;

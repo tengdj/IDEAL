@@ -333,10 +333,8 @@ void preprocess(query_context *gctx){
 		process_rasterization(gctx);
 
 #ifdef USE_GPU
-		void cuda_create_buffer(gctx);	
-		void cuda_transfer_data()	
+		cuda_create_buffer(gctx);		
 #endif
-		
 		target_ideals.clear();
 	}
 	

@@ -16,9 +16,16 @@ int ct = 0;
 
 bool MySearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
+	query_context *gctx = ctx->global_ctx;
 	Ideal *target = (Ideal *)ctx->target;
-	
-	ctx->found += ideal->contain(target, ctx);
+	if(!ctx->use_gpu){
+		ctx->found += ideal->contain(target, ctx);
+	}
+#ifdef USE_GPU
+	else{
+		ctx->temp_pair.push_back(make_pair(ideal, target));
+	}
+#endif
 	return true;
 }
 
@@ -95,6 +102,7 @@ int main(int argc, char** argv) {
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = query_context(global_ctx);
 		ctx[i].thread_id = i;
+		ctx[i].global_ctx = &global_ctx;
 	}
 	for(int i=0;i<global_ctx.num_threads;i++){
 		pthread_create(&threads[i], NULL, query, (void *)&ctx[i]);
@@ -104,8 +112,14 @@ int main(int argc, char** argv) {
 		pthread_join(threads[i], &status);
 	}
 	cout << endl;
+#ifdef USE_GPU
+	preprocess_for_gpu(&global_ctx);
+	global_ctx.found = cuda_contain(&global_ctx);
+#endif
 	global_ctx.print_stats();
 	logt("query",start);
+	cout << global_ctx.temp_pair.size() << endl;
+	global_ctx.temp_pair.clear();
 	return 0;
 }
 

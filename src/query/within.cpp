@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
 	for(int i=0;i<global_ctx.num_threads;i++){
 		ctx[i] = query_context(global_ctx);
 		ctx[i].thread_id = i;
+		ctx[i].global_ctx = &global_ctx;
 	}
 
 	for(int i=0;i<global_ctx.num_threads;i++){

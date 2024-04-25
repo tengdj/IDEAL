@@ -7,10 +7,14 @@
 
 #ifndef SRC_GEOMETRY_QUERY_CONTEXT_H_
 #define SRC_GEOMETRY_QUERY_CONTEXT_H_
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <map>
 #include <boost/program_options.hpp>
+#ifdef USE_GPU
+#include <../cuda/mygpu.h>
+#endif
 
 #include "Point.h"
 
@@ -22,7 +26,7 @@ class Ideal;
 
 enum QueryType{
     contain = 0,
-    distance = 1,
+    // distance = 1,
     within = 2
 };
 
@@ -88,9 +92,10 @@ public:
 	bool use_vector = false;
 	bool use_qtree = false;
 
+	bool use_gpu = true;
+
 	int mer_sample_round = 20;
 	bool perform_refine = true;
-	bool gpu = false;
 	bool collect_latency = false;
 	float sample_rate = 1.0;
 
@@ -143,14 +148,16 @@ public:
 	void *target3 = NULL;
 	query_context *global_ctx = NULL;
 	size_t target_num = 0;
+	vector<pair<Ideal*, Ideal*>> temp_pair;
 
 	map<int, int> vertex_number;
 	map<int, double> latency;
 
 	// for gpu
-	vector<pair<ideal_offset, ideal_offset>> st_pairs;
 	uint8_t* h_status = nullptr;
 	uint8_t* d_status = nullptr;
+	uint *h_status_offset = nullptr;
+	uint*d_status_offset = nullptr;
 public:
 
 	// functions

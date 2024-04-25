@@ -8,6 +8,8 @@
 #include "../cuda/mygpu.h"
 #endif
 
+#define BUFFER_SIZE 1024 * 1024 * 1024
+
 enum Direction{
 	HORIZONTAL = 0,
 	VERTICAL = 1
@@ -29,7 +31,7 @@ public:
 };
 
 struct ideal_offset{
-	uint status;
+	uint *status = nullptr;
 };
 
 
@@ -68,10 +70,6 @@ class Ideal : public MyPolygon, public MyRaster{
 	void init_pixels();
 	void evaluate_edges();
 	void scanline_reandering();
-
-#ifdef USE_GPU
-	gpu_info *gpu = nullptr;
-#endif
 
 public:
     Ideal(){
@@ -121,8 +119,9 @@ vector<Ideal *> load_binary_file(const char *path, query_context &ctx);
 
 // gpu functions
 #ifdef USE_GPU
-void cuda_create_buffer(query_context *gctx, gpu_info *gpu);
-void cuda_transfer_data(query_context *gctx);
+void cuda_create_buffer(query_context *gctx);
+void preprocess_for_gpu(query_context *gctx);
+uint cuda_contain(query_context *gctx);
 #endif
 
 #endif // IDEAL_H

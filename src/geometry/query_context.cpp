@@ -5,7 +5,7 @@
  *      Author: teng
  */
 #include "query_context.h"
-#include "../include/MyPolygon.h"
+#include "../include/Ideal.h"
 
 query_context::query_context(){
 	num_threads = get_num_threads();
@@ -132,6 +132,11 @@ void query_context::merge_global(){
 			global_ctx->latency[it.first] = lt;
 		}
 	}
+
+	for(auto &tp : temp_pair){
+		global_ctx->temp_pair.push_back(tp);
+	}
+
 	global_ctx->unlock();
 }
 
