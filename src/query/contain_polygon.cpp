@@ -23,7 +23,9 @@ bool MySearchCallback(Ideal *ideal, void* arg){
 	}
 #ifdef USE_GPU
 	else{
-		ctx->temp_pair.push_back(make_pair(ideal, target));
+		if(ideal->getMBB()->contain(*target->getMBB())){
+			ctx->temp_pair.push_back(make_pair(ideal, target));
+		}
 	}
 #endif
 	return true;
@@ -111,15 +113,13 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
-	cout << endl;
 #ifdef USE_GPU
 	preprocess_for_gpu(&global_ctx);
 	global_ctx.found = cuda_contain(&global_ctx);
 #endif
+	cout << endl;
 	global_ctx.print_stats();
 	logt("query",start);
-	cout << global_ctx.temp_pair.size() << endl;
-	global_ctx.temp_pair.clear();
 	return 0;
 }
 

@@ -2,15 +2,24 @@
 #include "Ideal.h"
 #include "mygpu.h"
 
+__device__ int mylock = 0;
+
+__device__ void lock_acquire(int *mutex) {
+    while (atomicCAS(mutex, 0, 1) != 0);
+}
+
+__device__ void lock_release(int *mutex) {
+    atomicExch(mutex, 0);
+}
 
 __global__ void kernel_contain_polygon(uint *d_status_offset, uint8_t *d_status, uint size, uint* result){
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < size){
 		uint itn = 0, etn = 0; 
 		uint status_start = d_status_offset[x], status_end = d_status_offset[x + 1];
-		for(int i = status_start; i < status_end; i ++){
-			if(d_status[i] == 0) itn ++;
-			else if(d_status[i] == 2) etn ++;
+		for(int i = status_start; i < status_end; ++ i){
+			if(d_status[i] == IN) itn ++;
+			else if(d_status[i] == OUT) etn ++;
 		}
 		if(itn == (status_end - status_start)){
 			atomicAdd(result, 1);
@@ -22,6 +31,7 @@ uint cuda_contain(query_context *gctx){
 	uint size = gctx->temp_pair.size();
 	uint *d_result = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void**) &d_result, sizeof(uint)));
+	CUDA_SAFE_CALL(cudaMemset(d_result, 0, sizeof(uint)));
 
 	const int grid_size_x = ceil(size / static_cast<float>(1024));
 	const dim3 block_size(1024, 1, 1);
