@@ -154,10 +154,24 @@ public:
 	map<int, double> latency;
 
 	// for gpu
-	uint8_t* h_status = nullptr;
-	uint8_t* d_status = nullptr;
+	uint8_t *h_status = nullptr;
+	uint8_t *d_status = nullptr;
 	uint *h_status_offset = nullptr;
-	uint*d_status_offset = nullptr;
+	uint *d_status_offset = nullptr;
+	uint8_t *h_target_status = nullptr;
+	uint8_t *d_target_status = nullptr;
+	uint *h_target_status_offset = nullptr;
+	uint *d_target_status_offset = nullptr;
+	pair<double, double> *h_edges = nullptr;
+	pair<double, double> *d_edges = nullptr;
+	uint *h_edges_offset = nullptr;
+	uint *d_edges_offset = nullptr;
+	pair<double, double> *h_target_edges = nullptr;
+	pair<double, double> *d_target_edges = nullptr;
+	uint *h_target_edges_offset = nullptr;
+	uint *d_target_edges_offset = nullptr;
+	
+
 public:
 
 	// functions

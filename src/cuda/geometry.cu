@@ -2,17 +2,61 @@
 #include "Ideal.h"
 #include "mygpu.h"
 
-__device__ int mylock = 0;
-
-__device__ void lock_acquire(int *mutex) {
-    while (atomicCAS(mutex, 0, 1) != 0);
+__device__ int g_sgn(const double& x) {
+	return x >= 0 ? x ? 1 : 0 : -1;
 }
 
-__device__ void lock_release(int *mutex) {
-    atomicExch(mutex, 0);
+__device__ bool g_inter1(double a, double b, double c, double d) {
+
+	double tmp;
+    if (a > b){
+    	tmp = a;
+    	a = b;
+    	b = tmp;
+    }
+    if (c > d){
+    	tmp = c;
+    	c = d;
+    	d = tmp;
+    }
+    return max(a, c) <= min(b, d);
 }
 
-__global__ void kernel_contain_polygon(uint *d_status_offset, uint8_t *d_status, uint size, uint* result){
+__device__ double g_cross(pair<double,double> p, pair<double,double> q) {
+	return q.first * p.second - q.second * p.first;
+}
+
+
+__device__ double g_cross(pair<double,double> a, pair<double,double> b, pair<double,double> c){
+	a.first = b.first - c.first;
+	a.second = b.second - c.second;
+	b.first = a.first - c.first;
+	b.second = a.second - c.second;
+	return g_cross(a, b);
+}
+
+__device__ bool g_segment_intersect(pair<double,double>& a, pair<double,double>& b, pair<double,double>& c, pair<double,double>& d) {
+    if (g_cross(a, d, c) == 0 && g_cross(b, d, c) == 0)
+        return g_inter1(a.first, b.first, c.first, d.first) && g_inter1(a.second, b.second, c.second, d.second);
+    return g_sgn(g_cross(b, c, a)) != g_sgn(g_cross(b, d, a)) &&
+           g_sgn(g_cross(d, a, c)) != g_sgn(g_cross(d, b, c));
+}
+
+__device__ bool segment_intersect_batch(pair<double,double> *d_edges, pair<double,double> *d_target_edges, int edge_start, int edge_end, int target_edge_start, int target_edge_end){
+	int size1 = edge_end - edge_start;
+	int size2 = target_edge_end - target_edge_start;
+	for(int i=edge_start;i<edge_end;i++){
+		for(int j=target_edge_start;j<target_edge_end;j++){
+			if(g_segment_intersect(d_edges[i],d_edges[(i+1)%size1],d_target_edges[j],d_target_edges[(j+1)%size2])){
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+__global__ void kernel_contain_polygon(uint *d_status_offset, uint8_t *d_status, uint *d_target_status_offset, uint8_t *d_target_status, uint *d_edges_offset, pair<double, double> *d_edges, uint *d_target_edges_offset, pair<double, double> *d_target_edges, uint size, uint *result)
+{
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < size){
 		uint itn = 0, etn = 0; 
@@ -23,8 +67,29 @@ __global__ void kernel_contain_polygon(uint *d_status_offset, uint8_t *d_status,
 		}
 		if(itn == (status_end - status_start)){
 			atomicAdd(result, 1);
+			return;
+		}
+		if(etn == (status_end - status_start)){
+			return;
+		}
+
+		for(int i = status_start; i < status_end; ++ i){
+			int t_start = d_target_status_offset[i], t_end = d_target_status_offset[i + 1];
+			for(int j = t_start; j < t_end; ++ j){
+				if(d_status[i] == IN) continue;
+				if(d_status[i] == OUT && d_target_status[j] == IN) return;
+				if(d_status[i] == BORDER && d_target_status[j] == BORDER){
+					int edge_start = d_edges_offset[i], edge_end = d_edges_offset[i + 1];
+					int target_edge_start = d_target_edges_offset[j], target_edge_end = d_target_edges_offset[j + 1];
+					if(segment_intersect_batch(d_edges, d_target_edges, edge_start, edge_end, target_edge_start, target_edge_end)){
+						return;
+					}
+				}
+			}
 		}
 	}
+	atomicAdd(result, 1);
+	return;
 }
 
 uint cuda_contain(query_context *gctx){
@@ -36,7 +101,7 @@ uint cuda_contain(query_context *gctx){
 	const int grid_size_x = ceil(size / static_cast<float>(1024));
 	const dim3 block_size(1024, 1, 1);
 	const dim3 grid_size(grid_size_x, 1, 1);
-	kernel_contain_polygon<<<grid_size, block_size>>>(gctx->d_status_offset, gctx->d_status, size, d_result);
+	kernel_contain_polygon<<<grid_size, block_size>>>(gctx->d_status_offset, gctx->d_status, gctx->d_target_status_offset, gctx->d_target_status, gctx->d_edges_offset, gctx->d_edges, gctx->d_target_edges_offset, gctx->d_target_edges, size, d_result);
 	cudaDeviceSynchronize();
 
 	uint h_result;

@@ -69,6 +69,7 @@ int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
+	timeval start;
 
 	if(global_ctx.use_ideal){
 		global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
@@ -97,7 +98,6 @@ int main(int argc, char** argv) {
 	}
 
 	preprocess(&global_ctx);
-	timeval start = get_cur_time();
 
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
@@ -115,6 +115,7 @@ int main(int argc, char** argv) {
 	}
 #ifdef USE_GPU
 	preprocess_for_gpu(&global_ctx);
+	start = get_cur_time();
 	global_ctx.found = cuda_contain(&global_ctx);
 #endif
 	cout << endl;
