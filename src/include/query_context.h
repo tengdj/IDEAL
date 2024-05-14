@@ -22,7 +22,9 @@ namespace po = boost::program_options;
 using namespace std;
 class MyPolygon;
 class Ideal;
-
+struct EdgeSeq;
+struct Idealinfo;
+struct IdealOffset;
 
 enum QueryType{
     contain = 0,
@@ -148,29 +150,26 @@ public:
 	void *target3 = NULL;
 	query_context *global_ctx = NULL;
 	size_t target_num = 0;
-	vector<pair<Ideal*, Ideal*>> temp_pair;
+	vector<pair<Ideal*, Ideal*>> ideal_pairs;
+	
 
 	map<int, int> vertex_number;
 	map<int, double> latency;
 
-	// for gpu
+	// for gpu 
+	// workbench
+	Idealinfo *h_info = nullptr;
+	Idealinfo *d_info = nullptr;
 	uint8_t *h_status = nullptr;
 	uint8_t *d_status = nullptr;
-	uint *h_status_offset = nullptr;
-	uint *d_status_offset = nullptr;
-	uint8_t *h_target_status = nullptr;
-	uint8_t *d_target_status = nullptr;
-	uint *h_target_status_offset = nullptr;
-	uint *d_target_status_offset = nullptr;
-	pair<double, double> *h_edges = nullptr;
-	pair<double, double> *d_edges = nullptr;
-	uint *h_edges_offset = nullptr;
-	uint *d_edges_offset = nullptr;
-	pair<double, double> *h_target_edges = nullptr;
-	pair<double, double> *d_target_edges = nullptr;
-	uint *h_target_edges_offset = nullptr;
-	uint *d_target_edges_offset = nullptr;
-	
+	uint16_t *h_offset = nullptr;
+	uint16_t *d_offset = nullptr;
+	EdgeSeq *h_edge_sequences = nullptr;
+	EdgeSeq *d_edge_sequences = nullptr;
+	Point *h_vertices = nullptr;
+	Point *d_vertices = nullptr;
+	pair<IdealOffset, IdealOffset> *h_pairs = nullptr;
+	pair<IdealOffset, IdealOffset> *d_pairs = nullptr;
 
 public:
 

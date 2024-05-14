@@ -133,8 +133,8 @@ void query_context::merge_global(){
 		}
 	}
 
-	for(auto &tp : temp_pair){
-		global_ctx->temp_pair.push_back(tp);
+	for(auto &tp : ideal_pairs){
+		global_ctx->ideal_pairs.push_back(tp);
 	}
 
 	global_ctx->unlock();

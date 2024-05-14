@@ -30,8 +30,30 @@ public:
 	}
 };
 
-struct ideal_offset{
-	uint *status = nullptr;
+struct IdealOffset{
+	uint info_start = 0;
+	uint info_end = 0;
+	uint status_start = 0;
+	uint status_end = 0;
+	uint offset_start = 0;
+	uint offset_end = 0;
+	uint edge_sequences_start = 0;
+	uint edge_sequences_end = 0;
+	uint vertices_start = 0;
+	uint vertices_end = 0;
+};
+
+struct EdgeSeq{
+	uint start;
+	uint length;
+};
+
+struct Idealinfo{
+	box mbr;
+	int dimx = 0;
+	int dimy = 0;
+	double step_x = 0.0;
+	double step_y = 0.0;
 };
 
 
@@ -64,7 +86,9 @@ class Ideal : public MyPolygon, public MyRaster{
 	Grid_line *horizontal = nullptr;
 	Grid_line *vertical = nullptr;
 
-	int len_edge_sequences = 0;
+	uint len_edge_sequences = 0;
+
+	
 
     pthread_mutex_t ideal_partition_lock;
 	void init_pixels();
@@ -72,6 +96,8 @@ class Ideal : public MyPolygon, public MyRaster{
 	void scanline_reandering();
 
 public:
+	IdealOffset *idealoffset = nullptr;
+
     Ideal(){
         pthread_mutex_init(&ideal_partition_lock, NULL);
     }
@@ -81,16 +107,18 @@ public:
 
 	void set_offset(int id, int idx){offset[id] = idx;}
 	uint16_t get_offset(int id) {return offset[id];}
+	uint16_t *get_offset() {return offset; }
 	void process_pixels_null(int x, int y);
 	void init_edge_sequences(int num_edge_seqs);
 	void add_edge(int idx, int start, int end);
 	pair<uint32_t, uint32_t> get_edge_sequence(int idx){return edge_sequences[idx];}
+	pair<uint32_t, uint32_t> *get_edge_sequence(){return edge_sequences;}
+	uint get_len_edge_sequences() {return len_edge_sequences;}
 	uint16_t get_num_sequences(int id);
 	double get_possible_min(Point &p, int center, int step, bool geography = true);
 	void process_crosses(map<int, vector<cross_info>> edge_info);
 	void process_intersection(map<int, vector<double>> edge_intersection, Direction direction);
 	int count_intersection_nodes(Point &p);
-
 
 
 	// statistic collection

@@ -37,6 +37,7 @@ public:
 
     void set_status(int id, PartitionStatus status);
     PartitionStatus show_status(int id);
+    uint8_t* get_status() {return status;}
 
 	vector<int> get_intersect_pixels(box *pix);
     vector<int> get_closest_pixels(box &target);

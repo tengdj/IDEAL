@@ -24,7 +24,7 @@ bool MySearchCallback(Ideal *ideal, void* arg){
 #ifdef USE_GPU
 	else{
 		if(ideal->getMBB()->contain(*target->getMBB())){
-			ctx->temp_pair.push_back(make_pair(ideal, target));
+			ctx->ideal_pairs.push_back(make_pair(ideal, target));
 		}
 	}
 #endif
@@ -69,7 +69,6 @@ int main(int argc, char** argv) {
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
-	timeval start;
 
 	if(global_ctx.use_ideal){
 		global_ctx.source_ideals = load_binary_file(global_ctx.source_path.c_str(),global_ctx);
@@ -115,7 +114,42 @@ int main(int argc, char** argv) {
 	}
 #ifdef USE_GPU
 	preprocess_for_gpu(&global_ctx);
-	start = get_cur_time();
+	// cout << "Prepare Finished!" << endl;
+	// for(auto pair : global_ctx.ideal_pairs){
+	// 	Ideal *source = pair.first;
+	// 	Ideal *target = pair.second;
+
+	// 	cout << "source polygon : " << endl;
+	// 	cout << source->idealoffset->offset_start << " " << source->idealoffset->offset_end << endl;
+	// 	int start = source->idealoffset->offset_start, end = source->idealoffset->offset_end;
+	// 	for(int i = start; i < end; ++ i ){
+	// 		cout << global_ctx.h_offset[i] << " ";
+	// 	}
+	// 	cout << endl;
+	// 	int dimx = source->get_dimx(), dimy = source->get_dimy();
+	// 	uint16_t *offset = source->get_offset();
+	// 	for(int i = 0; i < (dimx+1)*(dimy+1)+1; i ++){
+	// 		cout << offset[i] << " ";
+	// 	}
+	// 	cout << endl;
+
+	// 	cout << "target polygon : " << endl;
+	// 	cout << target->idealoffset->offset_start << " " << target->idealoffset->offset_end << endl;
+	// 	start = target->idealoffset->offset_start, end = target->idealoffset->offset_end;
+	// 	for(int i = start; i < end; ++ i ){
+	// 		cout << global_ctx.h_offset[i] << " ";
+	// 	}
+	// 	cout << endl;
+	// 	dimx = target->get_dimx(), dimy = target->get_dimy();
+	// 	offset = target->get_offset();
+	// 	for(int i = 0; i < (dimx+1)*(dimy+1)+1; i ++){
+	// 		cout << offset[i] << " ";
+	// 	}
+	// 	cout << endl;
+
+	// }
+	// return 0;
+	timeval start = get_cur_time();
 	global_ctx.found = cuda_contain(&global_ctx);
 #endif
 	cout << endl;
