@@ -92,7 +92,7 @@ __device__ PartitionStatus gpu_show_status(uint8_t *status, uint start, int id){
 
 // }
 
-__global__ void kernel_contain_polygon(pair<IdealOffset, IdealOffset> *d_pairs,Idealinfo *d_info, uint8_t *d_status, uint size, uint8_t *resultmap){
+__global__ void kernel_filter(pair<IdealOffset, IdealOffset> *d_pairs,Idealinfo *d_info, uint8_t *d_status, uint size, uint8_t *resultmap){
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < size){
 		pair<IdealOffset, IdealOffset> temp_pair = d_pairs[x];
@@ -169,29 +169,13 @@ __device__ double gpu_cross(const Point &a, const Point &b, const Point& c){
 __device__ bool gpu_segment_intersect(const Point& a, const Point& b, const Point& c, const Point& d) {
     if (gpu_cross(a, d, c) == 0 && gpu_cross(b, d, c) == 0)
         return gpu_inter1(a.x, b.x, c.x, d.x) && gpu_inter1(a.y, b.y, c.y, d.y);
-	
-	double cross1 = gpu_cross(b, c, a); 
-	double cross2 = gpu_cross(b, d, a); 
-	double cross3 = gpu_cross(d, a, c); 
-	double cross4 = gpu_cross(d, b, c);
-
-	int sgn1 = gpu_sgn(cross1); 
-	int sgn2 = gpu_sgn(cross2); 
-	int sgn3 = gpu_sgn(cross3); 
-	int sgn4 = gpu_sgn(cross4);
-
-	bool flag1 = sgn1 != sgn2;
-	bool flag2 = sgn3 != sgn4;
-	bool flag3 = flag1 && flag2;
-
-	return true;
-	// return false;
 
     return gpu_sgn(gpu_cross(b, c, a)) != gpu_sgn(gpu_cross(b, d, a)) &&
           gpu_sgn(gpu_cross(d, a, c)) != gpu_sgn(gpu_cross(d, b, c));
-	// return gpu_cross(b, c, a) != gpu_cross(b, d, a) &&
-    //         gpu_cross(d, a, c) != gpu_cross(d, b, c);
+
 }
+
+
 
 __device__ bool gpu_segment_intersect_batch(Point *p1, Point *p2, int s1, int s2){
 	for(int i=0;i<s1;i++){
@@ -210,6 +194,7 @@ __global__ void kernel_refinement(Threadwork *d_threadwork, pair<IdealOffset, Id
 		int p = d_threadwork[x].source_pixid;
 		int p2 = d_threadwork[x].target_pixid;
 		int pair_id = d_threadwork[x].pair_id;
+		if(resultmap[pair_id] != 0) return;
 
 		pair<IdealOffset, IdealOffset> temp_pair = d_pairs[pair_id];
 		IdealOffset source = temp_pair.first;
@@ -220,8 +205,9 @@ __global__ void kernel_refinement(Threadwork *d_threadwork, pair<IdealOffset, Id
 		int s_num_sequence = (d_offset+s_offset_start)[p + 1] - (d_offset+s_offset_start)[p];
 		int t_num_sequence = (d_offset+t_offset_start)[p2 + 1] - (d_offset+t_offset_start)[p2];
 		uint s_vertices_start = source.vertices_start, t_vertices_start = target.vertices_start;
+		// int idx = atomicAdd(d_segment_size, 1U*s_num_sequence*t_num_sequence);
 		for(int i = 0; i < s_num_sequence; ++ i){
-			EdgeSeq r = (d_edge_sequences+s_edge_sequences_start)[(d_offset+s_offset_start)[p] + i];
+			EdgeSeq r = (d_edge_sequences+s_edge_sequences_start)[(d_offset+s_offset_start)[p] + i]; 
 			for(int j = 0; j < t_num_sequence; ++ j){
 				EdgeSeq r2 = (d_edge_sequences+t_edge_sequences_start)[(d_offset+t_offset_start)[p2] + j];
 				if(gpu_segment_intersect_batch((d_vertices+s_vertices_start+r.start), (d_vertices+t_vertices_start+r2.start), r.length, r2.length)){
@@ -233,17 +219,53 @@ __global__ void kernel_refinement(Threadwork *d_threadwork, pair<IdealOffset, Id
 	}
 }
 
+void initialize_pairs(query_context *gctx, pair<IdealOffset, IdealOffset> *h_pairs, uint size, std::atomic<int> &atomic_i) {
+    while (true) {
+        int i = atomic_i.fetch_add(1);
+        if (i >= size) break;
+        
+        Ideal *source = gctx->ideal_pairs[i].first;
+        Ideal *target = gctx->ideal_pairs[i].second;
+        h_pairs[i] = {*source->idealoffset, *target->idealoffset};
+    }
+}
+
+void process_pixels(query_context *gctx, uint8_t *h_resultmap, Threadwork *h_threadwork, std::atomic<int> &atomic_id, int start, int end) {
+    for (int i = start; i < end; ++i) {
+        if (h_resultmap[i] == 0) {
+            Ideal *source = gctx->ideal_pairs[i].first;
+            Ideal *target = gctx->ideal_pairs[i].second;
+            vector<int> pxs = source->retrieve_pixels(target->getMBB());
+            for (auto p : pxs) {
+                box bx = source->get_pixel_box(source->get_x(p), source->get_y(p));
+                vector<int> tpxs = target->retrieve_pixels(&bx);
+                for (auto p2 : tpxs) {
+                    if (source->show_status(p) == BORDER && target->show_status(p2) == BORDER) {
+                        int id = atomic_id.fetch_add(1);
+                        h_threadwork[id] = {p, p2, i};
+                    }
+                }
+            }
+        }
+    }
+}
+
 uint cuda_contain(query_context *gctx){
 	uint size = gctx->ideal_pairs.size();
 	
-	gctx->h_pairs = new pair<IdealOffset, IdealOffset>[size];
+	pair<IdealOffset, IdealOffset> *h_pairs = nullptr;
+	pair<IdealOffset, IdealOffset> *d_pairs = nullptr;
+
+	h_pairs = new pair<IdealOffset, IdealOffset>[size];
+	
 	for(int i = 0; i < size; ++ i){
 		Ideal *source = gctx->ideal_pairs[i].first;
 		Ideal *target = gctx->ideal_pairs[i].second;
-		gctx->h_pairs[i] = {*source->idealoffset, *target->idealoffset};
+		h_pairs[i] = {*source->idealoffset, *target->idealoffset};
 	}
-	CUDA_SAFE_CALL(cudaMalloc((void**) &gctx->d_pairs, size * sizeof(pair<IdealOffset, IdealOffset>)));
-	CUDA_SAFE_CALL(cudaMemcpy(gctx->d_pairs, gctx->h_pairs, size *  sizeof(pair<IdealOffset, IdealOffset>), cudaMemcpyHostToDevice));
+
+	CUDA_SAFE_CALL(cudaMalloc((void**) &d_pairs, size * sizeof(pair<IdealOffset, IdealOffset>)));
+	CUDA_SAFE_CALL(cudaMemcpy(d_pairs, h_pairs, size *  sizeof(pair<IdealOffset, IdealOffset>), cudaMemcpyHostToDevice));
 
 	uint8_t *d_resultmap = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_resultmap, size * sizeof(uint8_t)));
@@ -252,17 +274,13 @@ uint cuda_contain(query_context *gctx){
 	int grid_size_x = (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 	dim3 block_size(BLOCK_SIZE, 1, 1);
 	dim3 grid_size(grid_size_x, 1, 1);
-	kernel_contain_polygon<<<grid_size, block_size>>>(gctx->d_pairs, gctx->d_info, gctx->d_status, size, d_resultmap);
+	kernel_filter<<<grid_size, block_size>>>(d_pairs, gctx->d_info, gctx->d_status, size, d_resultmap);
 	cudaError_t error = cudaGetLastError();
     if (error != cudaSuccess) {
-        printf("CUDA error: %s\n", cudaGetErrorString(error));
+        printf("FILTER CUDA error: %s\n", cudaGetErrorString(error));
     }
 
 	cudaDeviceSynchronize();
-
-	CUDA_SAFE_CALL(cudaFree(gctx->d_info));
-	CUDA_SAFE_CALL(cudaFree(gctx->d_status));
-	
 
 	uint8_t *h_resultmap = new uint8_t[size];
 	CUDA_SAFE_CALL(cudaMemcpy(h_resultmap, d_resultmap, size * sizeof(uint8_t), cudaMemcpyDeviceToHost));
@@ -271,48 +289,33 @@ uint cuda_contain(query_context *gctx){
 	Threadwork *d_threadwork = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_threadwork, 8*1024*1024*sizeof(Threadwork)));
 
-	int id = 0;
-	for(int i = 0; i < size; ++ i ){
-		if(h_resultmap[i] == 0){
-			Ideal *source = gctx->ideal_pairs[i].first;
-			Ideal *target = gctx->ideal_pairs[i].second;
-			vector<int> pxs = source->retrieve_pixels(target->getMBB());
-			for(auto p : pxs){
-				box bx = source->get_pixel_box(source->get_x(p), source->get_y(p));
-				vector<int> tpxs = target->retrieve_pixels(&bx);
-				for(auto p2 : tpxs){
-					if(source->show_status(p) == BORDER && target->show_status(p2) == BORDER){
-						h_threadwork[id ++] = {p, p2, i}; 
-					}
-				}
-			}
-		}
-	}
+	std::atomic<int> atomic_id(0);
+
+	int num_threads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads;
+    int chunk_size = (size + num_threads - 1) / num_threads;
+    for (int i = 0; i < num_threads; ++i) {
+        int start = i * chunk_size;
+        int end = std::min((i + 1) * chunk_size, static_cast<int>(size));
+        threads.emplace_back(process_pixels, gctx, h_resultmap, h_threadwork, std::ref(atomic_id), start, end);
+    }
+
+    for (auto &thread : threads) {
+        thread.join();
+    }
+
+	int id = atomic_id.load();
+
 	CUDA_SAFE_CALL(cudaMemcpy(d_threadwork, h_threadwork, 8*1024*1024*sizeof(Threadwork), cudaMemcpyHostToDevice));
-
-	struct Segment{
-		uint off1;
-		uint off2;
-		uint size1;
-		uint size2;
-	};
-
-	Segment *d_segment = nullptr;
-	CUDA_SAFE_CALL(cudaMalloc((void**) &d_segment, 1024*1024*sizeof(Segment)));
-	uint *d_segment_size = nullptr;
-	CUDA_SAFE_CALL(cudaMalloc((void**) &d_segment_size, sizeof(uint)));
 
 	grid_size_x = (id + BLOCK_SIZE - 1) / BLOCK_SIZE;
 	grid_size.x = grid_size_x;
 	
-	// kernel_
-	
-	
-	kernel_refinement<<<grid_size, block_size>>>(d_threadwork, gctx->d_pairs, gctx->d_offset, gctx->d_edge_sequences, gctx->d_vertices, id, d_resultmap);
+	kernel_refinement<<<grid_size, block_size>>>(d_threadwork, d_pairs, gctx->d_offset, gctx->d_edge_sequences, gctx->d_vertices, id, d_resultmap);
 
 	error = cudaGetLastError();
     if (error != cudaSuccess) {
-        printf("CUDA error: %s\n", cudaGetErrorString(error));
+        printf("REFINEMENT CUDA error: %s\n", cudaGetErrorString(error));
     }
 
 	cudaDeviceSynchronize();
@@ -323,6 +326,15 @@ uint cuda_contain(query_context *gctx){
 	for(int i = 0; i < size; ++ i ){
 		if(h_resultmap[i] == 1 || h_resultmap[i] == 0) found ++;
 	}
+
+	delete []h_pairs;
+	delete []h_resultmap;
+	delete []h_threadwork;
+
+	CUDA_SAFE_CALL(cudaFree(d_pairs));
+	CUDA_SAFE_CALL(cudaFree(d_resultmap));
+	CUDA_SAFE_CALL(cudaFree(d_threadwork));
+
 	return found;
 }
 

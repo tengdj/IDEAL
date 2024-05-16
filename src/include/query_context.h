@@ -168,8 +168,6 @@ public:
 	EdgeSeq *d_edge_sequences = nullptr;
 	Point *h_vertices = nullptr;
 	Point *d_vertices = nullptr;
-	pair<IdealOffset, IdealOffset> *h_pairs = nullptr;
-	pair<IdealOffset, IdealOffset> *d_pairs = nullptr;
 
 public:
 
