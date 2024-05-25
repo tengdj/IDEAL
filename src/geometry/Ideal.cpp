@@ -20,6 +20,7 @@ uint16_t Ideal::get_num_sequences(int id){
 void Ideal::init_edge_sequences(int num_edge_seqs){
 	len_edge_sequences = num_edge_seqs;
 	edge_sequences = new pair<uint32_t, uint32_t>[num_edge_seqs];
+	assert(len_edge_sequences < 65536);
 }
 
 void Ideal::process_pixels_null(int x, int y){

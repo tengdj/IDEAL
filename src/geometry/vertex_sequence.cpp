@@ -155,11 +155,16 @@ box *VertexSequence::getMBR(){
 	box *mbr = new box();
 	double bias = 0.00001;
 	for(int i=0;i<num_vertices;i++){
-		mbr->low[0] = min(mbr->low[0], p[i].x) - bias;
-		mbr->high[0] = max(mbr->high[0], p[i].x) + bias;
-		mbr->low[1] = min(mbr->low[1], p[i].y) - bias;
-		mbr->high[1] = max(mbr->high[1], p[i].y) + bias;
+		mbr->low[0] = min(mbr->low[0], p[i].x);
+		mbr->high[0] = max(mbr->high[0], p[i].x);
+		mbr->low[1] = min(mbr->low[1], p[i].y);
+		mbr->high[1] = max(mbr->high[1], p[i].y);
 	}
+	mbr->low[0] -= bias;
+	mbr->high[0] += bias;
+	mbr->low[1] -= bias;
+	mbr->high[1] += bias;
+
 	return mbr;
 }
 
@@ -204,10 +209,13 @@ size_t VertexSequence::decode(char *source){
 	size_t decoded = 0;
 	num_vertices = ((size_t *)source)[0];
 	assert(num_vertices>0);
-	p = new Point[num_vertices];
+	p = new Point[num_vertices + 1];
 	decoded += sizeof(size_t);
 	memcpy((char *)p,source+decoded,num_vertices*sizeof(Point));
 	decoded += num_vertices*sizeof(Point);
+	num_vertices ++;
+	p[num_vertices - 1] = p[0]; 
+	assert(p[0] == p[num_vertices - 1]);
 	return decoded;
 }
 

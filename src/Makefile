@@ -7,11 +7,14 @@ OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 
 INCLUDES	= -I /usr/include -I ./include -I /usr/local/include
 #-lgeos_c  
-LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lpthread -lgeos  
+LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lgeos -lpthread
 CPPFLAGS	= -g -std=c++14 -Wno-cpp -fopenmp
 
 NVCCFLAGS   = -g -std=c++14 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT
+# NVCCFLAGS   = -rdc=true -Xcompiler="-lpthread" -DCUDA_FORCE_CDP1_IF_SUPPORTED
 CUDALIBS    = -L/usr/local/cuda-12.2/lib64/stubs -lcuda -L/usr/local/cuda-12.2/lib64/ -lcudart
+# CUDALIBS    = -L/usr/local/cuda-12.2/lib64/stubs -lcuda -L/usr/local/cuda-12.2/lib64/ -lcudart -L/usr/local/cuda-12.2/lib64/ -lcudadevrt 
+
 
 GEOMETRY_SRCS := $(wildcard geometry/*.cpp)
 GEOMETRY_SRCS += $(wildcard geometry/triangulate/*.cpp)
@@ -44,7 +47,7 @@ all:	contain_polygon within_polygon
 # for macro queries
 
 contain_polygon:	query/contain_polygon.o $(GEOMETRY_OBJS)
-	$(CXX) -o ../build/$@ $^ $(LIBS) 
+	$(CXX) -o ../build/$@ $^ $(LIBS)
 	
 within_polygon:	query/within_polygon.o $(GEOMETRY_OBJS)
 	$(CXX) -o ../build/$@ $^ $(LIBS) 

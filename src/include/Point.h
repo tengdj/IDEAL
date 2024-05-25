@@ -83,6 +83,10 @@ public:
 //	    return r;
 //	  }
 
+	bool operator==(const Point& p) const {
+        return x == p.x && y == p.y;
+    }
+
 	  /// Negate this point.
 	  Point operator -() const
 	  {
