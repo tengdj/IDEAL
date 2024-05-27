@@ -3,6 +3,8 @@
 #include "mygpu.h"
 
 void cuda_create_buffer(query_context *gctx){
+    cudaSetDevice(1);
+
 	unsigned long long size = BUFFER_SIZE;
     log("CPU momory:");
 
@@ -40,6 +42,7 @@ void cuda_create_buffer(query_context *gctx){
 }
 
 void preprocess_for_gpu(query_context *gctx){
+    cudaSetDevice(1);
     // compact data
     uint iidx = 0, sidx = 0, oidx = 0, eidx = 0, vidx = 0;
     for(auto &tp : gctx->ideal_pairs){

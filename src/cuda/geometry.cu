@@ -13,8 +13,8 @@ struct Threadwork{
 struct Batch{
 	uint s_start = 0;
 	uint t_start = 0;
-	uint8_t s_length = 0;
-	uint8_t t_length = 0;
+	uint s_length = 0;
+	uint t_length = 0;
 	int pair_id = 0;
 };
 
@@ -85,11 +85,8 @@ __global__ void kernel_filter(pair<IdealOffset, IdealOffset> *d_pairs,Idealinfo 
 }
 
 __device__ int gpu_sgn(const double& x) {
-    return (x > 0) - (x < 0);
+	return x >= 0 ? x ? 1 : 0 : -1;
 }
-
-
-
 
 __device__ bool gpu_inter1(double a, double b, double c, double d) {
 
@@ -131,7 +128,7 @@ __device__ bool gpu_segment_intersect(const Point& a, const Point& b, const Poin
 __device__ bool gpu_segment_intersect_batch(Point *p1, Point *p2, int s1, int s2){
 	for(int i=0;i<s1;i++){
 		for(int j=0;j<s2;j++){
-			if(gpu_segment_intersect(p1[i],p1[(i+1)%s1],p2[j],p2[(j+1)%s2])){
+			if(gpu_segment_intersect(p1[i],p1[i+1],p2[j],p2[j+1])){
 				return true;
 			}
 		}
@@ -142,9 +139,9 @@ __device__ bool gpu_segment_intersect_batch(Point *p1, Point *p2, int s1, int s2
 __global__ void process_heavy_workload(Point *p1, Point *p2, uint s1, uint s2, int pair_id, uint8_t* resultmap){
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
     const int y = blockIdx.y * blockDim.y + threadIdx.y;
-	if(x < s1 && y < s2){
+	if(x + 1 < s1 && y + 1 < s2){
 		if(resultmap[pair_id] != 0) return;
-		if(gpu_segment_intersect(p1[x],p1[(x+1)%s1],p2[y],p2[(y+1)%s2])){
+		if(gpu_segment_intersect(p1[x],p1[x+1],p2[y],p2[y+1])){
 			resultmap[pair_id] = 3;
 			return;
 		}
@@ -157,7 +154,6 @@ __global__ void kernel_unroll(Threadwork *d_threadwork, pair<IdealOffset, IdealO
 		int p = d_threadwork[x].source_pixid;
 		int p2 = d_threadwork[x].target_pixid;
 		int pair_id = d_threadwork[x].pair_id;
-		// if(resultmap[pair_id] != 0) return;
 
 		pair<IdealOffset, IdealOffset> temp_pair = d_pairs[pair_id];
 		IdealOffset source = temp_pair.first;
@@ -168,30 +164,33 @@ __global__ void kernel_unroll(Threadwork *d_threadwork, pair<IdealOffset, IdealO
 		int s_num_sequence = (d_offset+s_offset_start)[p + 1] - (d_offset+s_offset_start)[p];
 		int t_num_sequence = (d_offset+t_offset_start)[p2 + 1] - (d_offset+t_offset_start)[p2];
 		uint s_vertices_start = source.vertices_start, t_vertices_start = target.vertices_start;
-		// int idx = atomicAdd(batch_size, 1U*s_num_sequence*t_num_sequence);
 		for(int i = 0; i < s_num_sequence; ++ i){
 			EdgeSeq r = (d_edge_sequences+s_edge_sequences_start)[(d_offset+s_offset_start)[p] + i]; 
 			for(int j = 0; j < t_num_sequence; ++ j){
 				EdgeSeq r2 = (d_edge_sequences+t_edge_sequences_start)[(d_offset+t_offset_start)[p2] + j];
-				if(r.length <= 32 && r2.length <= 32){
-					if(gpu_segment_intersect_batch((d_vertices+s_vertices_start+r.start), (d_vertices+t_vertices_start+r2.start), r.length, r2.length)){
-						resultmap[pair_id] = 3;
-						return;
+				int max_size = 32;
+				for(uint s = 0; s < r.length; s += max_size){
+					uint end_s = min(s + max_size, r.length);
+					for(uint t = 0; t < r2.length; t += max_size){
+						uint end_t = min(t + max_size, r2.length);
+						uint idx = atomicAdd(batch_size, 1U);
+						batches[idx].s_start = s_vertices_start+r.start + s;
+						batches[idx].t_start = t_vertices_start+r2.start + t;
+						batches[idx].s_length = end_s - s;
+						batches[idx].t_length = end_t - t;
+						batches[idx].pair_id = pair_id;
 					}
-				}else{
-					for(int s = 0; s < r.length; s += 32){
-						for(int t = 0; t < r2.length; t += 32){
-							int end_s = min(s + 32, r.length);
-							int end_t = min(t + 32, r2.length);
-							uint idx = atomicAdd(batch_size, 1U);
-							batches[idx].s_start = s_vertices_start+r.start + s;
-							batches[idx].t_start = t_vertices_start+r2.start + t;
-							batches[idx].s_length = end_s - s;
-							batches[idx].t_length = end_t - t;
-							batches[idx].pair_id = pair_id;
-						}
-					}	
 				}
+
+				// uint idx = atomicAdd(batch_size, 1U);
+				// batches[idx].s_start = s_vertices_start+r.start;
+				// batches[idx].t_start = t_vertices_start+r2.start;
+				// batches[idx].s_length = r.length;
+				// batches[idx].t_length = r2.length;
+				// batches[idx].pair_id = pair_id;
+
+
+
 			}
 		}
 	}
@@ -205,7 +204,7 @@ __global__ void kernel_refinement(Batch* batches, Point *d_vertices, uint *size,
 		uint len1 = batches[x].s_length;
 		uint len2 = batches[x].t_length;
 		int pair_id = batches[x].pair_id;
-		if(resultmap[pair_id] != 0) return;
+		// if(resultmap[pair_id] != 0) return;
 
 		// if(len1 * len2 > 10000) {
 		// 	const int grid_size_x = (len1 + 32 - 1) / 32;
@@ -257,6 +256,8 @@ uint cuda_contain(query_context *gctx){
 	// 定义事件变量
     cudaEvent_t start, stop;
     float elapsedTime;
+
+	cudaSetDevice(1);
 	
 	uint size = gctx->ideal_pairs.size();
 	
@@ -270,6 +271,14 @@ uint cuda_contain(query_context *gctx){
 		Ideal *target = gctx->ideal_pairs[i].second;
 		h_pairs[i] = {*source->idealoffset, *target->idealoffset};
 	}
+
+	// gctx->ideal_pairs[1935].first->MyPolygon::print();
+	// gctx->ideal_pairs[1935].first->MyRaster::print();
+
+	// gctx->ideal_pairs[1935].second->MyPolygon::print();
+	// gctx->ideal_pairs[1935].second->MyRaster::print();
+
+	// return 0;
 
 	CUDA_SAFE_CALL(cudaMalloc((void**) &d_pairs, size * sizeof(pair<IdealOffset, IdealOffset>)));
 	CUDA_SAFE_CALL(cudaMemcpy(d_pairs, h_pairs, size *  sizeof(pair<IdealOffset, IdealOffset>), cudaMemcpyHostToDevice));
@@ -307,6 +316,12 @@ uint cuda_contain(query_context *gctx){
 	uint8_t *h_resultmap = new uint8_t[size];
 	CUDA_SAFE_CALL(cudaMemcpy(h_resultmap, d_resultmap, size * sizeof(uint8_t), cudaMemcpyDeviceToHost));
 
+	// for(int i = 0; i < size; ++ i ){
+	// 	printf("%d\n", h_resultmap[i]);
+	// }
+
+	// return 0;
+
 	Threadwork *h_threadwork = new Threadwork[8*1024*1024];
 	Threadwork *d_threadwork = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_threadwork, 8*1024*1024*sizeof(Threadwork)));
@@ -327,7 +342,7 @@ uint cuda_contain(query_context *gctx){
     }
 
 	Batch *d_batch = nullptr;
-	CUDA_SAFE_CALL(cudaMalloc((void **) &d_batch, 1024 * 1024 * 1024 * sizeof(Batch)));
+	CUDA_SAFE_CALL(cudaMalloc((void **) &d_batch, 64 * 1024 * 1024 * sizeof(Batch)));
 	uint *d_batch_size = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_batch_size, sizeof(uint)));
 	CUDA_SAFE_CALL(cudaMemset(d_batch_size, 0, sizeof(uint)));
@@ -359,7 +374,7 @@ uint cuda_contain(query_context *gctx){
 	uint h_batch_size;
 	CUDA_SAFE_CALL(cudaMemcpy(&h_batch_size, d_batch_size, sizeof(uint), cudaMemcpyDeviceToHost));
 
-	cout << "Batch Size = " << h_batch_size << endl;
+	// cout << "Batch Size = " << h_batch_size << endl;
 
 	grid_size_x = (h_batch_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 	grid_size.x = grid_size_x;
@@ -386,6 +401,7 @@ uint cuda_contain(query_context *gctx){
 
 	int found = 0;
 	for(int i = 0; i < size; ++ i ){
+		// printf("%d\n", h_resultmap[i]);
 		if(h_resultmap[i] == 1 || h_resultmap[i] == 0) found ++;
 	}
 

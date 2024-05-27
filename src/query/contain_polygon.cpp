@@ -66,6 +66,7 @@ void *query(void *args){
 
 
 int main(int argc, char** argv) {
+
 	query_context global_ctx;
 	global_ctx = get_parameters(argc, argv);
 	global_ctx.query_type = QueryType::contain;
