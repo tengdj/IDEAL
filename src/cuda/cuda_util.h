@@ -23,6 +23,36 @@
 		}																  \
 	} while (0);
 
+class CudaTimer {
+public:
+    CudaTimer() {
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+    }
+
+    ~CudaTimer() {
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
+    }
+
+    void startTimer() {
+        cudaEventRecord(start, 0);
+    }
+
+    void stopTimer() {
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+    }
+
+    float getElapsedTime() {
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        return milliseconds;
+    }
+
+private:
+    cudaEvent_t start, stop;
+};
 
 inline void check_execution(){
 	cudaError_t err = cudaGetLastError();

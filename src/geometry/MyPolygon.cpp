@@ -587,7 +587,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		}
 		ctx->border_checked.counter++;
 		// otherwise, checking all the edges to make sure no intersection
-		if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
+		if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices)){
 			return false;
 		}
 	}
@@ -603,7 +603,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		if(target->convex_hull){
 			Point mer_vertices[5];
 			mer->to_array(mer_vertices);
-			if(!segment_intersect_batch(mer_vertices, target->convex_hull->p, 5, target->convex_hull->num_vertices, ctx->edge_checked.counter)){
+			if(!segment_intersect_batch(mer_vertices, target->convex_hull->p, 5, target->convex_hull->num_vertices)){
 				if(mer->contain(convex_hull->p[0])){
 					return true;
 				}
@@ -613,7 +613,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 		Point mbb_vertices[5];
 		target->mbr->to_array(mbb_vertices);
 		// no intersection between this polygon and the mbr of the target polygon
-		if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5, ctx->edge_checked.counter)){
+		if(!segment_intersect_batch(boundary->p, mbb_vertices, boundary->num_vertices, 5)){
 			// the target must be the one which is contained (not contain) as its mbr is contained
 			if(contain(mbb_vertices[0], ctx)){
 				return true;
@@ -632,7 +632,7 @@ bool MyPolygon::contain(MyPolygon *target, query_context *ctx){
 			return true;
 		}else{
 			// otherwise, checking all the edges to make sure no intersection
-			if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices, ctx->edge_checked.counter)){
+			if(segment_intersect_batch(boundary->p, target->boundary->p, boundary->num_vertices, target->boundary->num_vertices)){
 				return false;
 			}
 		}

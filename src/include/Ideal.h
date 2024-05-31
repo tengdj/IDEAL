@@ -4,10 +4,6 @@
 #include "MyPolygon.h"
 #include "MyRaster.h"
 
-#ifdef USE_GPU
-#include "../cuda/mygpu.h"
-#endif
-
 #define BUFFER_SIZE 1024 * 1024 * 1024
 
 enum Direction{

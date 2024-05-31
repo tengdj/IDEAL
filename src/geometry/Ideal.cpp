@@ -554,7 +554,7 @@ bool Ideal::contain(Ideal *target, query_context *ctx, bool profile){
 					auto edges = target->get_edge_sequence(target->get_offset(p2) + e);
 					auto pos = edges.first;
 					auto size = edges.second;
-					if (segment_intersect_batch(target->boundary->p + pos, pix_border, size, 4, ctx->edge_checked.counter)){
+					if (segment_intersect_batch(target->boundary->p + pos, pix_border, size, 4)){
 						return false;
 					}
 				}
@@ -565,7 +565,7 @@ bool Ideal::contain(Ideal *target, query_context *ctx, bool profile){
 					auto r = get_edge_sequence(get_offset(p) + i);
 					for(int j = 0; j < target->get_num_sequences(p2); j ++){
 						auto r2 = target->get_edge_sequence(target->get_offset(p2) + j);
-						if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second, ctx->edge_checked.counter)){
+						if(segment_intersect_batch(boundary->p+r.first, target->boundary->p+r2.first, r.second, r2.second)){
 							return false;
 						}
 					}

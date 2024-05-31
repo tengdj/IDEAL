@@ -27,6 +27,13 @@
 #include <future>
 #include <cstddef>
 
+#ifdef __CUDACC__
+#include <cuda_runtime.h>
+#define CUDA_HOSTDEV __host__ __device__
+#else
+#define CUDA_HOSTDEV
+#endif
+
 using namespace std;
 
 namespace{
