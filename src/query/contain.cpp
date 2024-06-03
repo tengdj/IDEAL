@@ -21,7 +21,16 @@ RTree<MyPolygon *, double, 2, double> poly_rtree;
 
 bool IdealSearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
-	ctx->found += ideal->contain(*(Point *)ctx->target, ctx);
+	if(!ctx->use_gpu){
+		ctx->found += ideal->contain(*(Point *)ctx->target, ctx);
+	}
+#ifdef USE_GPU
+	else{
+		if(ideal->getMBB()->contain(*(Point *)ctx->target)){
+			ctx->point_polygon_pairs.push_back(make_pair((Point *)ctx->target, ideal));
+		}
+	}
+#endif
 	return true;
 }
 
@@ -82,8 +91,6 @@ int main(int argc, char** argv) {
 	// read all the points
 	global_ctx.load_points();
 
-
-	timeval start = get_cur_time();
 	pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
@@ -99,6 +106,11 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+#ifdef USE_GPU
+	preprocess_for_gpu(&global_ctx);
+	timeval start = get_cur_time();
+	global_ctx.found = cuda_contain(&global_ctx);
+#endif
 	cout << endl;
 	global_ctx.print_stats();
 	logt("total query",start);

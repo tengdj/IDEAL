@@ -150,7 +150,8 @@ public:
 	void *target3 = NULL;
 	query_context *global_ctx = NULL;
 	size_t target_num = 0;
-	vector<pair<Ideal*, Ideal*>> ideal_pairs;
+	vector<pair<Ideal*, Ideal*>> polygon_pairs;
+	vector<pair<Point*, Ideal*>> point_polygon_pairs;
 	
 
 	map<int, int> vertex_number;
@@ -168,6 +169,10 @@ public:
 	EdgeSeq *d_edge_sequences = nullptr;
 	Point *h_vertices = nullptr;
 	Point *d_vertices = nullptr;
+	uint16_t *h_gridline_offset = nullptr;
+	uint16_t *d_gridline_offset = nullptr;
+	double *h_gridline_nodes = nullptr;
+	double *d_gridline_nodes = nullptr;
 
 public:
 

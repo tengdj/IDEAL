@@ -394,33 +394,33 @@ protected:
   ELEMTYPEREAL m_unitSphereVolume;                 ///< Unit sphere constant for required number of dimensions
 
 public:
-  void PrintTree() const { PrintNode(m_root, 0); }
-  void PrintNode(const Node *a_node, int depth) const {
-      if (!a_node)
-          return;
+  // void PrintTree() const { PrintNode(m_root, 0); }
+  // void PrintNode(const Node *a_node, int depth) const {
+  //     if (!a_node)
+  //         return;
 
-      std::cout << std::setw(depth * 2) << ""
-                << "Node level: " << a_node->m_level
-                << " count: " << a_node->m_count << "\n";
-      for (int i = 0; i < a_node->m_count; ++i) {
-          const Branch &branch = a_node->m_branch[i];
-          std::cout << std::setw(depth * 2) << "" << "Branch " << i << ": [";
-          for (int dim = 0; dim < NUMDIMS; ++dim) {
-              std::cout << "(" << branch.m_rect.m_min[dim] << ", "
-                        << branch.m_rect.m_max[dim] << ")";
-              if (dim < NUMDIMS - 1)
-                  std::cout << ", ";
-          }
-          std::cout << "]\n";
+  //     std::cout << std::setw(depth * 2) << ""
+  //               << "Node level: " << a_node->m_level
+  //               << " count: " << a_node->m_count << "\n";
+  //     for (int i = 0; i < a_node->m_count; ++i) {
+  //         const Branch &branch = a_node->m_branch[i];
+  //         std::cout << std::setw(depth * 2) << "" << "Branch " << i << ": [";
+  //         for (int dim = 0; dim < NUMDIMS; ++dim) {
+  //             std::cout << "(" << branch.m_rect.m_min[dim] << ", "
+  //                       << branch.m_rect.m_max[dim] << ")";
+  //             if (dim < NUMDIMS - 1)
+  //                 std::cout << ", ";
+  //         }
+  //         std::cout << "]\n";
 
-          if (a_node->IsInternalNode()) {
-              PrintNode(branch.m_child, depth + 1);
-          } else {
-              std::cout << std::setw((depth + 1) * 2) << ""
-                        << "Data: " << branch.m_data << "\n";
-          }
-      }
-  }
+  //         if (a_node->IsInternalNode()) {
+  //             PrintNode(branch.m_child, depth + 1);
+  //         } else {
+  //             std::cout << std::setw((depth + 1) * 2) << ""
+  //                       << "Data: " << branch.m_data << "\n";
+  //         }
+  //     }
+  // }
 };
 
 

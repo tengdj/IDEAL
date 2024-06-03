@@ -133,8 +133,12 @@ void query_context::merge_global(){
 		}
 	}
 
-	for(auto &tp : ideal_pairs){
-		global_ctx->ideal_pairs.push_back(tp);
+	for(auto &tp : polygon_pairs){
+		global_ctx->polygon_pairs.push_back(tp);
+	}
+
+	for(auto &tp : point_polygon_pairs){
+		global_ctx->point_polygon_pairs.push_back(tp);
 	}
 
 	global_ctx->unlock();

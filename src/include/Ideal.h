@@ -37,6 +37,10 @@ struct IdealOffset{
 	uint edge_sequences_end = 0;
 	uint vertices_start = 0;
 	uint vertices_end = 0;
+	uint gridline_offset_start = 0;
+	uint gridline_offset_end = 0;
+	uint gridline_nodes_start = 0;
+	uint gridline_nodes_end = 0;
 };
 
 struct EdgeSeq{
@@ -68,11 +72,14 @@ public:
 	int get_num_nodes(int y) {return offset[y + 1] - offset[y];}
 	void add_node(int idx, double x) {intersection_nodes[idx] = x;}
 
+	size_t get_num_grid_lines() {return num_grid_lines; }
 	void set_num_crosses(size_t x) {num_crosses = x;}
 	size_t get_num_crosses() {return num_crosses;}
 	void set_offset(int id, int idx) {offset[id] = idx;}
 	uint16_t get_offset(int id) {return offset[id];}
 	double get_intersection_nodes(int id) {return intersection_nodes[id];}
+	uint16_t *get_offset() {return offset;}
+	double *get_intersection_nodes() {return intersection_nodes;}
 };
 
 
@@ -115,6 +122,7 @@ public:
 	void process_crosses(map<int, vector<cross_info>> edge_info);
 	void process_intersection(map<int, vector<double>> edge_intersection, Direction direction);
 	int count_intersection_nodes(Point &p);
+	Grid_line *get_vertical() {return vertical;}
 
 
 	// statistic collection
@@ -146,6 +154,7 @@ vector<Ideal *> load_binary_file(const char *path, query_context &ctx);
 void cuda_create_buffer(query_context *gctx);
 void preprocess_for_gpu(query_context *gctx);
 uint cuda_contain(query_context *gctx);
+uint cuda_contain_polygon(query_context *gctx);
 #endif
 
 #endif // IDEAL_H

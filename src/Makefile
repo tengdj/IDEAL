@@ -8,9 +8,9 @@ OBJS := $(patsubst %.cpp,%.o,$(SRCS))
 INCLUDES	= -I /usr/include -I ./include -I /usr/local/include -I /usr/local/cuda-12.2/targets/x86_64-linux/include
 #-lgeos_c  
 LIBS		= -L/usr/lib/x86_64-linux-gnu -L/usr/local/lib -lboost_program_options -lgeos -lpthread
-CPPFLAGS	= -g -std=c++17 -Wno-cpp -fopenmp
+CPPFLAGS	= -g -std=c++17 -Wno-cpp
 
-NVCCFLAGS   = -g -std=c++17 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT -Xptxas -v
+NVCCFLAGS   = -g -std=c++17 -DCUB_IGNORE_DEPRECATED_CPP_DIALECT
 CUDALIBS    = -L/usr/local/cuda-12.2/lib64/stubs -lcuda -L/usr/local/cuda-12.2/lib64/ -lcudart
 
 

@@ -78,6 +78,7 @@ class Point {
     //	  }
 
     CUDA_HOSTDEV bool operator==(const Point &p) const { return x == p.x && y == p.y; }
+    
 
     /// Negate this point.
     CUDA_HOSTDEV Point operator-() const {
@@ -105,6 +106,8 @@ class Point {
         x *= a;
         y *= a;
     }
+
+
 
     /// Get the length of this point (the norm).
     double Length() const { return sqrt(x * x + y * y); }
