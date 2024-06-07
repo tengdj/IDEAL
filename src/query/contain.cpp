@@ -12,8 +12,6 @@
 #include <fstream>
 #include "../include/Ideal.h"
 
-
-
 // some shared parameters
 
 RTree<Ideal *, double, 2, double> ideal_rtree;

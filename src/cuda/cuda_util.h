@@ -61,6 +61,13 @@ inline void check_execution(){
 	}
 }
 
+inline void check_execution(string name){
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess){
+		printf("%s launch failed: %s\n", name.c_str(), cudaGetErrorString(err));
+	}
+}
+
 // return the distance of two segments
 
 const static double degree_per_meter_latitude_cuda = 360.0/(40076.0*1000);

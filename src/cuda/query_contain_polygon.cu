@@ -1,6 +1,14 @@
 #include "geometry.cuh"
 #include "Ideal.h"
 
+struct Batch{
+	uint s_start = 0;
+	uint t_start = 0;
+	uint s_length = 0;
+	uint t_length = 0;
+	int pair_id = 0;
+};
+
 __global__ void kernel_filter(pair<IdealOffset, IdealOffset> *d_pairs, Idealinfo *d_info, uint8_t *d_status, uint size, uint8_t *resultmap, PixPair *d_pixpairs, uint *pp_size){
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < size){

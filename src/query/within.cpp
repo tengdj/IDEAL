@@ -9,22 +9,31 @@
 #include <fstream>
 #include "../index/RTree.h"
 #include <queue>
-#include <boost/program_options.hpp>
 
-namespace po = boost::program_options;
 using namespace std;
 
 RTree<Ideal *, double, 2, double> ideal_rtree;
 RTree<MyPolygon *, double, 2, double> poly_rtree;
 
-bool MySearchCallback(Ideal *ideal, void* arg){
+bool IdealSearchCallback(Ideal *ideal, void* arg){
 	query_context *ctx = (query_context *)arg;
 	Point *p = (Point *)ctx->target;
 	if(ideal->getMBB()->distance(*p, ctx->geography)>ctx->within_distance){
         return true;
 	}
-	ctx->distance = ideal->distance(*p,ctx);
-	ctx->found += ctx->distance <= ctx->within_distance;
+	if(!ctx->use_gpu){
+		ctx->distance = ideal->distance(*p,ctx);
+		ctx->found += ctx->distance <= ctx->within_distance;
+	}
+#ifdef USE_GPU
+	else{
+		if(ideal->contain(*p, ctx)){
+			ctx->found ++;
+		}else{
+			ctx->point_polygon_pairs.push_back(make_pair(p, ideal));
+		}
+	}
+#endif
 	return true;
 }
 
@@ -58,7 +67,7 @@ void *query(void *args){
 
 			ctx->target = (void *)&gctx->points[i];
 			if(gctx->use_ideal){
-				ideal_rtree.Search(buffer_low, buffer_high, MySearchCallback, (void *)ctx);
+				ideal_rtree.Search(buffer_low, buffer_high, IdealSearchCallback, (void *)ctx);
 			}else{
 				poly_rtree.Search(buffer_low, buffer_high, PolygonSearchCallback, (void *)ctx);
 			}
@@ -95,12 +104,10 @@ int main(int argc, char** argv) {
 	// read all the points
 	global_ctx.load_points();
 
-	timeval start = get_cur_time();
-
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
-		ctx[i] = query_context(global_ctx);
+		ctx[i] = global_ctx;
 		ctx[i].thread_id = i;
 		ctx[i].global_ctx = &global_ctx;
 	}
@@ -113,6 +120,11 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+#ifdef USE_GPU
+	preprocess_for_gpu(&global_ctx);
+	timeval start = get_cur_time();
+	global_ctx.found += cuda_within(&global_ctx);
+#endif
 	cout << endl;
 	global_ctx.print_stats();
 	logt("total query",start);

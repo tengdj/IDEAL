@@ -5,6 +5,8 @@
 
 #define BLOCK_SIZE 1024
 
+const double EARTH_RADIUS_KM = 6371.0;
+
 struct PointPixPair{
 	int pair_id = 0;
 	int pix_id = 0;
@@ -13,14 +15,6 @@ struct PointPixPair{
 struct PixPair{
 	int source_pixid = 0;
 	int target_pixid = 0;
-	int pair_id = 0;
-};
-
-struct Batch{
-	uint s_start = 0;
-	uint t_start = 0;
-	uint s_length = 0;
-	uint t_length = 0;
 	int pair_id = 0;
 };
 
@@ -85,4 +79,86 @@ __device__ __forceinline__ int gpu_get_pixel_id(Point &p, box &s_mbr, double ste
 	assert(xoff <= dimx);
 	assert(yoff <= dimy);
 	return gpu_get_id(xoff, yoff, dimx);
+}
+
+__device__ __forceinline__ int gpu_get_closest_pixel(Point &p, int pixx, int pixy, int dimx, int dimy){
+	if(pixx < 0){
+		pixx = 0;
+	}
+	if(pixx > dimx){
+		pixx = dimx;
+	}
+	if(pixy < 0){
+		pixy = 0;
+	}
+	if(pixy > dimy){
+		pixy = dimy;
+	}
+	return gpu_get_id(pixx, pixy, dimx);	
+}
+
+__device__ __forceinline__ double degreesToRadians(double degrees) {
+    return degrees * M_PI / 180.0;
+}
+
+__device__ __forceinline__ double haversine(double lon1, double lat1, double lon2, double lat2) {
+    // 将经纬度从度转换为弧度
+    lon1 = degreesToRadians(lon1);
+    lat1 = degreesToRadians(lat1);
+    lon2 = degreesToRadians(lon2);
+    lat2 = degreesToRadians(lat2);
+
+    // 差值
+    double dlon = lon2 - lon1;
+    double dlat = lat2 - lat1;
+
+    // 哈弗赛因公式
+    double a = std::sin(dlat / 2) * std::sin(dlat / 2) +
+               std::cos(lat1) * std::cos(lat2) *
+               std::sin(dlon / 2) * std::sin(dlon / 2);
+    double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1 - a));
+
+    // 计算距离
+    double distance = EARTH_RADIUS_KM * c;
+
+    return distance;
+}
+
+
+__device__ __forceinline__ double gpu_max_distance(Point &p, box &bx){
+	Point q;
+	q.x = (abs(p.x-bx.low[0]) < abs(p.x-bx.high[0])) ? bx.high[0] : bx.low[0];
+	q.y = (abs(p.y-bx.low[1]) < abs(p.y-bx.high[1])) ? bx.high[1] : bx.low[1];
+
+	// printf("%lf %lf %lf %lf %lf\n", p.x, p.y, q.x, q.y, haversine(p.x, p.y, q.x, q.y));
+
+	return haversine(p.x, p.y, q.x, q.y);
+}
+
+__device__ __forceinline__ double gpu_point_to_segment_distance(const Point &p, const Point &p1, const Point &p2){
+    double A = p.x - p1.x;
+    double B = p.y - p1.y;
+    double C = p2.x - p1.x;
+    double D = p2.y - p1.y;
+
+    double dot = A * C + B * D;
+    double len_sq = C * C + D * D;
+    double param = -1;
+    if (len_sq != 0) // in case of 0 length line
+        param = dot / len_sq;
+
+    double xx, yy;
+
+    if (param < 0) {
+        xx = p1.x;
+        yy = p1.y;
+    } else if (param > 1) {
+        xx = p2.x;
+        yy = p2.y;
+    } else {
+        xx = p1.x + param * C;
+        yy = p1.y + param * D;
+    }
+
+	return haversine(p.x, p.y, xx, yy);
 }
