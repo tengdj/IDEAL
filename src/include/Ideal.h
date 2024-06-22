@@ -156,6 +156,7 @@ void preprocess_for_gpu(query_context *gctx);
 uint cuda_contain(query_context *gctx);
 uint cuda_contain_polygon(query_context *gctx);
 uint cuda_within(query_context *gctx);
+uint cuda_within_polygon(query_context *gctx);
 #endif
 
 #endif // IDEAL_H

@@ -7,7 +7,7 @@
 
 const double EARTH_RADIUS_KM = 6371.0;
 
-struct PointPixPair{
+struct PixMapping{
 	int pair_id = 0;
 	int pix_id = 0;
 };
@@ -81,7 +81,7 @@ __device__ __forceinline__ int gpu_get_pixel_id(Point &p, box &s_mbr, double ste
 	return gpu_get_id(xoff, yoff, dimx);
 }
 
-__device__ __forceinline__ int gpu_get_closest_pixel(Point &p, int pixx, int pixy, int dimx, int dimy){
+__device__ __forceinline__ int gpu_get_closest_pixel(int pixx, int pixy, int dimx, int dimy){
 	if(pixx < 0){
 		pixx = 0;
 	}
@@ -124,13 +124,55 @@ __device__ __forceinline__ double haversine(double lon1, double lat1, double lon
     return distance;
 }
 
-
 __device__ __forceinline__ double gpu_max_distance(Point &p, box &bx){
 	Point q;
 	q.x = (abs(p.x-bx.low[0]) < abs(p.x-bx.high[0])) ? bx.high[0] : bx.low[0];
 	q.y = (abs(p.y-bx.low[1]) < abs(p.y-bx.high[1])) ? bx.high[1] : bx.low[1];
 
-	// printf("%lf %lf %lf %lf %lf\n", p.x, p.y, q.x, q.y, haversine(p.x, p.y, q.x, q.y));
+	return haversine(p.x, p.y, q.x, q.y);
+}
+
+__device__ __forceinline__ double gpu_max_distance(box &s_box, box &t_box){
+	Point p, q;
+	p.x = min(s_box.low[0], t_box.low[0]);
+	p.y = min(s_box.low[1], t_box.low[1]);
+	q.x = max(s_box.high[0], t_box.high[0]);
+	q.y = max(s_box.high[1], t_box.high[1]);
+
+	return haversine(p.x, p.y, q.x, q.y);
+}
+
+// box to box
+__device__ __forceinline__ double distance(box &s, box &t){
+	// s intersect t
+    if (!(t.low[0] > s.high[0] || t.high[0] < s.low[0] ||
+          t.low[1] > s.high[1] || t.high[1] < s.low[1])) {
+        return 0;
+    }
+
+	Point p, q;
+
+	if(t.low[1] > s.high[1]){
+		q.y = t.low[1];
+		p.y = s.high[1];
+	}else if(s.low[1] > t.high[1]){
+		q.y = s.low[1];
+		p.y = t.high[1];
+	}else{
+		q.y = s.low[1];
+		p.y = s.low[1];
+	}
+
+	if(t.low[0] > s.high[0]){
+		q.x = t.low[0];
+		p.x = s.high[0];
+	}else if(s.low[0] > t.high[0]){
+		q.x = s.low[0];
+		p.x = t.high[0];
+	}else{
+		q.x = s.low[0];
+		p.x = s.low[0];
+	}
 
 	return haversine(p.x, p.y, q.x, q.y);
 }
@@ -161,4 +203,12 @@ __device__ __forceinline__ double gpu_point_to_segment_distance(const Point &p, 
     }
 
 	return haversine(p.x, p.y, xx, yy);
+}
+
+__device__ __forceinline__ double gpu_get_step(box &bx, int dimx, int dimy){
+	Point a(bx.low[0], bx.low[1]);
+	Point b(bx.high[0], bx.low[1]);
+	Point c(bx.low[0], bx.high[1]);
+
+	return min(haversine(a.x, a.y, b.x, b.y) / dimx, haversine(a.x, a.y, c.x, c.y) / dimy);
 }

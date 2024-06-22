@@ -1,6 +1,6 @@
 #include "geometry.cuh"
 
-__global__ void kernel_filter_contain(pair<Point, IdealOffset> *d_pairs, Idealinfo *d_info, uint8_t *d_status, uint size, uint8_t *resultmap, PointPixPair *d_ptpixpairs, uint *d_pp_size){
+__global__ void kernel_filter_contain(pair<Point, IdealOffset> *d_pairs, Idealinfo *d_info, uint8_t *d_status, uint size, uint8_t *resultmap, PixMapping *d_ptpixpairs, uint *d_pp_size){
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < size){
         pair<Point, IdealOffset> &pair = d_pairs[x];
@@ -27,7 +27,7 @@ __global__ void kernel_filter_contain(pair<Point, IdealOffset> *d_pairs, Idealin
     }
 }
 
-__global__ void kernel_refinement_contain(pair<Point, IdealOffset> *d_pairs, PointPixPair *d_ptpixpairs, Idealinfo *d_info, uint16_t *d_offset, EdgeSeq *d_edge_sequences, Point *d_vertices, uint16_t *d_gridline_offset, double *d_gridline_nodes, uint *size, uint8_t *resultmap){
+__global__ void kernel_refinement_contain(pair<Point, IdealOffset> *d_pairs, PixMapping *d_ptpixpairs, Idealinfo *d_info, uint16_t *d_offset, EdgeSeq *d_edge_sequences, Point *d_vertices, uint16_t *d_gridline_offset, double *d_gridline_nodes, uint *size, uint8_t *resultmap){
     const int x = blockIdx.x * blockDim.x + threadIdx.x;
 	if(x < *size){
 		int pair_id = d_ptpixpairs[x].pair_id;
@@ -115,9 +115,9 @@ uint cuda_contain(query_context *gctx){
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_resultmap, size * sizeof(uint8_t)));
 	CUDA_SAFE_CALL(cudaMemset(d_resultmap, 0, size * sizeof(uint8_t)));
 
-	PointPixPair *h_ptpixpairs = new PointPixPair[1024*1024];
-	PointPixPair *d_ptpixpairs = nullptr;
-	CUDA_SAFE_CALL(cudaMalloc((void **) &d_ptpixpairs, 1024*1024*sizeof(PointPixPair)));
+	PixMapping *h_ptpixpairs = new PixMapping[1024*1024];
+	PixMapping *d_ptpixpairs = nullptr;
+	CUDA_SAFE_CALL(cudaMalloc((void **) &d_ptpixpairs, 1024*1024*sizeof(PixMapping)));
 	
 	uint *d_pp_size = nullptr;
 	CUDA_SAFE_CALL(cudaMalloc((void **) &d_pp_size, sizeof(uint)));

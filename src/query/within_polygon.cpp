@@ -34,9 +34,23 @@ bool MySearchCallback(Ideal *ideal, void* arg){
 		ctx->found++;
         return true;
 	}
-
-	ctx->distance = ideal->distance(target,ctx);
-	ctx->found += ctx->distance <= ctx->within_distance;
+	if(!ctx->use_gpu){
+		ctx->distance = ideal->distance(target,ctx);
+		ctx->found += ctx->distance <= ctx->within_distance;
+	}
+#ifdef USE_GPU
+	else{
+		if(ideal->contain(target, ctx)){
+			ctx->found ++;
+		}else{
+			if(target->get_step(false) > ideal->get_step(false)){
+				ctx->polygon_pairs.push_back(make_pair(target, ideal));
+			}else{
+				ctx->polygon_pairs.push_back(make_pair(ideal, target));
+			}
+		}
+	}
+#endif
 
 	return true;
 }
@@ -121,7 +135,6 @@ int main(int argc, char** argv) {
 
 	preprocess(&global_ctx);
 
-	timeval start = get_cur_time();
     pthread_t threads[global_ctx.num_threads];
 	query_context ctx[global_ctx.num_threads];
 	for(int i=0;i<global_ctx.num_threads;i++){
@@ -138,6 +151,11 @@ int main(int argc, char** argv) {
 		void *status;
 		pthread_join(threads[i], &status);
 	}
+#ifdef USE_GPU
+	preprocess_for_gpu(&global_ctx);
+	timeval start = get_cur_time();
+	global_ctx.found += cuda_within_polygon(&global_ctx);
+#endif	
 	cout << endl;
 	global_ctx.print_stats();
 	logt("total query",start);

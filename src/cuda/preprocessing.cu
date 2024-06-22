@@ -5,51 +5,83 @@
 void cuda_create_buffer(query_context *gctx){
     cudaSetDevice(1);
 
-	unsigned long long size = BUFFER_SIZE;
+	size_t num_polygons = gctx->source_ideals.size() + gctx->target_ideals.size();
+    size_t num_status = 0;
+    size_t num_offset = 0;
+    size_t num_edge_sequences = 0;
+    size_t num_vertices = 0;
+    size_t num_gridline_offset = 0;
+    size_t num_gridline_nodes = 0;
+
+    for(auto &ideal : gctx->source_ideals){
+        num_status += ideal->get_num_pixels() / 4 + 1;
+        num_offset += ideal->get_num_pixels() + 1;
+        num_edge_sequences += ideal->get_len_edge_sequences();
+        num_vertices += ideal->get_num_vertices();
+        num_gridline_offset += ideal->get_vertical()->get_num_grid_lines();
+        num_gridline_nodes += ideal->get_vertical()->get_num_crosses();
+    }
+    for(auto &ideal : gctx->target_ideals){
+        num_status += ideal->get_num_pixels() / 4 + 1;
+        num_offset += ideal->get_num_pixels() + 1;
+        num_edge_sequences += ideal->get_len_edge_sequences();
+        num_vertices += ideal->get_num_vertices();
+        num_gridline_offset += ideal->get_vertical()->get_num_grid_lines();
+        num_gridline_nodes += ideal->get_vertical()->get_num_crosses();
+    }
+
     log("CPU momory:");
 
-    gctx->h_info = (Idealinfo*)new char[size / 4ULL];
-    log("\t%.2f MB\tideal info buffer",1.0*size/1024/1024/4);
+    gctx->h_info = new Idealinfo[num_polygons];
+    log("\t%.2f MB\tideal info buffer",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
      
-	gctx->h_status = new uint8_t[size / 4ULL];
-    log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024/4);
+	gctx->h_status = new uint8_t[num_status];
+    log("\t%.2f MB\tstatus buffer",1.0*sizeof(uint8_t)*num_status/1024/1024);
 
-    gctx->h_offset = (uint16_t*)new char[size / 2ULL];
-    log("\t%.2f MB\toffset buffer",1.0*size/1024/1024/2);
+    gctx->h_offset = new uint16_t[num_offset];
+    log("\t%.2f MB\toffset buffer",1.0*sizeof(uint16_t)*num_offset/1024/1024);
 
-    gctx->h_edge_sequences = (EdgeSeq *)new char[size];
-    log("\t%.2f MB\tedge sequences buffer",1.0*size/1024/1024);
+    gctx->h_edge_sequences = new EdgeSeq[num_edge_sequences];
+    log("\t%.2f MB\tedge sequences buffer",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
 
-    gctx->h_vertices = (Point *)new char[4ULL * size];
-    log("\t%.2f MB\tvertices buffer",4.0*size/1024/1024);
+    gctx->h_vertices = new Point[num_vertices];
+    log("\t%.2f MB\tvertices buffer",1.0*sizeof(Point)*num_vertices/1024/1024);
 
-    gctx->h_gridline_offset = (uint16_t *)new char[size / 4ULL];
-    log("\t%.2f MB\tgrid line offset buffer",1.0*size/1024/1024/4);
+    gctx->h_gridline_offset = new uint16_t[num_gridline_offset];
+    log("\t%.2f MB\tgrid line offset buffer",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
 
-    gctx->h_gridline_nodes = (double *)new char[size / 4ULL];
-    log("\t%.2f MB\tgrid line nodes buffer",1.0*size/1024/1024/4);
+    gctx->h_gridline_nodes = new double[num_gridline_nodes];
+    log("\t%.2f MB\tgrid line nodes buffer",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
 
 	log("GPU memory:");
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_info, size/4ULL));
-	log("\t%.2f MB\tideal info buffer",1.0*size/1024/1024/4);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_info, sizeof(Idealinfo)*num_polygons));
+	log("\t%.2f MB\tideal info buffer",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
 
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_status, size/4ULL));
-	log("\t%.2f MB\tstatus buffer",1.0*size/1024/1024/4);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_status, sizeof(uint8_t)*num_status));
+	log("\t%.2f MB\tstatus buffer",1.0*sizeof(uint8_t)*num_status/1024/1024);
 
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_offset, size/2ULL));
-	log("\t%.2f MB\toffset buffer",1.0*size/1024/1024/2);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_offset, sizeof(uint16_t)*num_offset));
+	log("\t%.2f MB\toffset buffer",1.0*sizeof(uint16_t)*num_offset/1024/1024);
     
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_edge_sequences, size));
-	log("\t%.2f MB\tedge sequences buffer",1.0*size/1024/1024);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_edge_sequences, sizeof(EdgeSeq)*num_edge_sequences));
+	log("\t%.2f MB\tedge sequences buffer",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
 
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_vertices, size * 4ULL));
-	log("\t%.2f MB\tvertices buffer",4.0*size/1024/1024);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_vertices, sizeof(Point)*num_vertices));
+	log("\t%.2f MB\tvertices buffer",1.0*sizeof(Point)*num_vertices/1024/1024);
 
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_offset, size/4ULL));    
-    log("\t%.2f MB\tgrid line offset buffer",1.0*size/1024/1024/4);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_offset, sizeof(uint16_t)*num_gridline_offset));    
+    log("\t%.2f MB\tgrid line offset buffer",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
 
-    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_nodes, size/4ULL));    
-    log("\t%.2f MB\tgrid line nodes buffer",1.0*size/1024/1024/4);
+    CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_nodes, sizeof(double)*num_gridline_nodes));    
+    log("\t%.2f MB\tgrid line nodes buffer",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
+
+	gctx->num_polygons = num_polygons;
+    gctx->num_status = num_status;
+    gctx->num_offset = num_offset;
+    gctx->num_edge_sequences = num_edge_sequences;
+    gctx->num_vertices = num_vertices;
+    gctx->num_gridline_offset = num_gridline_offset;
+    gctx->num_gridline_nodes = num_gridline_nodes;
 
 }
 
@@ -175,7 +207,6 @@ void preprocess_for_gpu(query_context *gctx){
             target->idealoffset->info_end = iidx;
 
             uint status_size = (dimx+1)*(dimy+1) / 4 + 1;
-            assert((status_size+sidx) < 1U * BUFFER_SIZE);
             memcpy(gctx->h_status+sidx, target->get_status(), status_size);
             target->idealoffset->status_start = sidx;
             sidx += status_size;
@@ -188,14 +219,12 @@ void preprocess_for_gpu(query_context *gctx){
             target->idealoffset->offset_end = oidx;
 
             uint edge_sequences_size = target->get_len_edge_sequences();
-            assert((edge_sequences_size+eidx)*sizeof(EdgeSeq) < 1U * BUFFER_SIZE);
             memcpy(gctx->h_edge_sequences+eidx, target->get_edge_sequence(), edge_sequences_size * sizeof(EdgeSeq));
             target->idealoffset->edge_sequences_start = eidx;
             eidx += edge_sequences_size;
             target->idealoffset->edge_sequences_end = eidx;
 
             uint vertices_size = target->get_num_vertices();
-            assert((vertices_size+vidx)*sizeof(Point) < (4ULL * BUFFER_SIZE));
             memcpy(gctx->h_vertices+vidx, target->get_boundary()->p, vertices_size * sizeof(Point));
             target->idealoffset->vertices_start = vidx;
             vidx += vertices_size;
@@ -217,12 +246,12 @@ void preprocess_for_gpu(query_context *gctx){
 
     assert(flag1 ^ flag2);
 
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_info, gctx->h_info, BUFFER_SIZE / 4UL * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_status, gctx->h_status, BUFFER_SIZE / 4UL * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_offset, gctx->h_offset, BUFFER_SIZE / 2UL * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_edge_sequences, gctx->h_edge_sequences, BUFFER_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_vertices, gctx->h_vertices, 4UL * BUFFER_SIZE * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_gridline_offset, gctx->h_gridline_offset, BUFFER_SIZE / 4UL * sizeof(uint8_t), cudaMemcpyHostToDevice));
-    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_gridline_nodes, gctx->h_gridline_nodes, BUFFER_SIZE / 4UL * sizeof(uint8_t), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_info, gctx->h_info, gctx->num_polygons * sizeof(Idealinfo), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_status, gctx->h_status, gctx->num_status * sizeof(uint8_t), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_offset, gctx->h_offset, gctx->num_offset * sizeof(uint16_t), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_edge_sequences, gctx->h_edge_sequences, gctx->num_edge_sequences * sizeof(EdgeSeq), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_vertices, gctx->h_vertices, gctx->num_vertices * sizeof(Point), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_gridline_offset, gctx->h_gridline_offset, gctx->num_gridline_offset * sizeof(uint16_t), cudaMemcpyHostToDevice));
+    CUDA_SAFE_CALL(cudaMemcpy(gctx->d_gridline_nodes, gctx->h_gridline_nodes, gctx->num_gridline_nodes * sizeof(double), cudaMemcpyHostToDevice));
 
 }

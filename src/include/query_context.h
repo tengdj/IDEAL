@@ -158,7 +158,7 @@ public:
 	map<int, double> latency;
 
 	// for gpu 
-	// workbench
+
 	Idealinfo *h_info = nullptr;
 	Idealinfo *d_info = nullptr;
 	uint8_t *h_status = nullptr;
@@ -173,6 +173,14 @@ public:
 	uint16_t *d_gridline_offset = nullptr;
 	double *h_gridline_nodes = nullptr;
 	double *d_gridline_nodes = nullptr;
+
+	size_t num_polygons = 0;
+    size_t num_status = 0;
+    size_t num_offset = 0;
+    size_t num_edge_sequences = 0;
+    size_t num_vertices = 0;
+    size_t num_gridline_offset = 0;
+    size_t num_gridline_nodes = 0;
 
 public:
 
