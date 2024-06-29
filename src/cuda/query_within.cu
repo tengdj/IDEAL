@@ -1,6 +1,6 @@
 #include "geometry.cuh"
 
-#define WItHIN_DISTANCE 10
+#define WITHIN_DISTANCE 10
 
 struct Batch{
 	uint start = 0;
@@ -13,21 +13,6 @@ struct test{
 	unsigned short pix_id1;
 	unsigned short pix_id2;
 };
-
-int s = sizeof(test);
-
-__device__ double atomicMinDouble(double* address, double val) {
-    unsigned long long int* address_as_ull = (unsigned long long int*)address;
-    unsigned long long int old = *address_as_ull, assumed;
-
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_ull, assumed,
-                        __double_as_longlong(min(val, __longlong_as_double(assumed))));
-    } while (assumed != old);
-
-    return __longlong_as_double(old);
-}
 
 __global__ void kernel_init(pair<Point, IdealOffset> *d_pairs, Idealinfo *d_info, uint size, double *distance){
 	const int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -160,7 +145,7 @@ __global__ void kernel_refinement(Batch *d_batch, pair<Point, IdealOffset> *d_pa
 		for(int i = 0; i < len; i ++){
 			double dist = gpu_point_to_segment_distance(p, (d_vertices + source.vertices_start)[s + i], (d_vertices + source.vertices_start)[s + i + 1]);
 			atomicMinDouble(distance+pair_id, dist);
-			if(distance[pair_id] <= WItHIN_DISTANCE){
+			if(distance[pair_id] <= WITHIN_DISTANCE){
 				resultmap[pair_id] = true;
 				return;
 			}
@@ -386,7 +371,7 @@ uint cuda_within(query_context *gctx){
 	CUDA_SAFE_CALL(cudaMemcpy(h_distance, d_distance, size * sizeof(double), cudaMemcpyDeviceToHost));
 	int found = 0;
 	for(int i = 0 ;i < size; i ++){
-		if(h_distance[i] <= WItHIN_DISTANCE) found ++;
+		if(h_distance[i] <= WITHIN_DISTANCE) found ++;
 	}
 
 	return found;

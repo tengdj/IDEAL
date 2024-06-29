@@ -4,6 +4,7 @@
 #include "Ideal.h"
 
 #define BLOCK_SIZE 1024
+#define WITHIN_DISTANCE 10
 
 const double EARTH_RADIUS_KM = 6371.0;
 
@@ -17,6 +18,19 @@ struct PixPair{
 	int target_pixid = 0;
 	int pair_id = 0;
 };
+
+__device__ __forceinline__ double atomicMinDouble(double* address, double val) {
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(min(val, __longlong_as_double(assumed))));
+    } while (assumed != old);
+
+    return __longlong_as_double(old);
+}
 
 __device__ __forceinline__ int gpu_get_id(int x, int y, int dimx){
 	return y * (dimx+1) + x;
@@ -143,7 +157,7 @@ __device__ __forceinline__ double gpu_max_distance(box &s_box, box &t_box){
 }
 
 // box to box
-__device__ __forceinline__ double distance(box &s, box &t){
+__device__ __forceinline__ double gpu_distance(box &s, box &t){
 	// s intersect t
     if (!(t.low[0] > s.high[0] || t.high[0] < s.low[0] ||
           t.low[1] > s.high[1] || t.high[1] < s.low[1])) {
@@ -211,4 +225,41 @@ __device__ __forceinline__ double gpu_get_step(box &bx, int dimx, int dimy){
 	Point c(bx.low[0], bx.high[1]);
 
 	return min(haversine(a.x, a.y, b.x, b.y) / dimx, haversine(a.x, a.y, c.x, c.y) / dimy);
+}
+
+__device__ __forceinline__ double gpu_point_to_segment_within_batch(Point &p, Point *vs, size_t seq_len){
+    double mindist = DBL_MAX;
+    for (int i = 0; i < seq_len-1; i++) {
+        double dist = gpu_point_to_segment_distance(p, vs[i], vs[i+1]);
+        if(dist<mindist){
+            mindist = dist;
+        }
+		if(mindist <= WITHIN_DISTANCE){
+			return mindist;
+		}
+    }
+    return mindist;
+}
+
+__device__ __forceinline__ double gpu_segment_to_segment_within_batch(Point *vs1, Point *vs2, size_t s1, size_t s2){
+    double mindist = DBL_MAX;
+	for(int i=0;i<s1;i++){
+		double dist = gpu_point_to_segment_within_batch(vs1[i], vs2, s2);
+		if(dist<mindist){
+			mindist = dist;
+		}
+		if(mindist <= WITHIN_DISTANCE){
+			return mindist;
+		}
+	}
+	for(int i=0;i<s2;i++){
+		double dist = gpu_point_to_segment_within_batch(vs2[i], vs1, s1);
+		if(dist<mindist){
+			mindist = dist;
+		}
+		if(mindist <= WITHIN_DISTANCE){
+			return mindist;
+		}
+	}
+	return mindist;
 }

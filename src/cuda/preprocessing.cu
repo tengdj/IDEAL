@@ -33,47 +33,47 @@ void cuda_create_buffer(query_context *gctx){
     log("CPU momory:");
 
     gctx->h_info = new Idealinfo[num_polygons];
-    log("\t%.2f MB\tideal info buffer",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
+    log("\t%.2f MB\t\tideal info",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
      
 	gctx->h_status = new uint8_t[num_status];
-    log("\t%.2f MB\tstatus buffer",1.0*sizeof(uint8_t)*num_status/1024/1024);
+    log("\t%.2f MB\t\tstatus",1.0*sizeof(uint8_t)*num_status/1024/1024);
 
     gctx->h_offset = new uint16_t[num_offset];
-    log("\t%.2f MB\toffset buffer",1.0*sizeof(uint16_t)*num_offset/1024/1024);
+    log("\t%.2f MB\toffset",1.0*sizeof(uint16_t)*num_offset/1024/1024);
 
     gctx->h_edge_sequences = new EdgeSeq[num_edge_sequences];
-    log("\t%.2f MB\tedge sequences buffer",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
+    log("\t%.2f MB\tedge sequences",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
 
     gctx->h_vertices = new Point[num_vertices];
-    log("\t%.2f MB\tvertices buffer",1.0*sizeof(Point)*num_vertices/1024/1024);
+    log("\t%.2f MB\tvertices",1.0*sizeof(Point)*num_vertices/1024/1024);
 
     gctx->h_gridline_offset = new uint16_t[num_gridline_offset];
-    log("\t%.2f MB\tgrid line offset buffer",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
+    log("\t%.2f MB\t\tgrid line offset",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
 
     gctx->h_gridline_nodes = new double[num_gridline_nodes];
-    log("\t%.2f MB\tgrid line nodes buffer",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
+    log("\t%.2f MB\tgrid line nodes",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
 
 	log("GPU memory:");
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_info, sizeof(Idealinfo)*num_polygons));
-	log("\t%.2f MB\tideal info buffer",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
+	log("\t%.2f MB\t\tideal info",1.0*sizeof(Idealinfo)*num_polygons/1024/1024);
 
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_status, sizeof(uint8_t)*num_status));
-	log("\t%.2f MB\tstatus buffer",1.0*sizeof(uint8_t)*num_status/1024/1024);
+	log("\t%.2f MB\t\tstatus",1.0*sizeof(uint8_t)*num_status/1024/1024);
 
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_offset, sizeof(uint16_t)*num_offset));
-	log("\t%.2f MB\toffset buffer",1.0*sizeof(uint16_t)*num_offset/1024/1024);
+	log("\t%.2f MB\toffset",1.0*sizeof(uint16_t)*num_offset/1024/1024);
     
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_edge_sequences, sizeof(EdgeSeq)*num_edge_sequences));
-	log("\t%.2f MB\tedge sequences buffer",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
+	log("\t%.2f MB\tedge sequences",1.0*sizeof(EdgeSeq)*num_edge_sequences/1024/1024);
 
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_vertices, sizeof(Point)*num_vertices));
-	log("\t%.2f MB\tvertices buffer",1.0*sizeof(Point)*num_vertices/1024/1024);
+	log("\t%.2f MB\tvertices",1.0*sizeof(Point)*num_vertices/1024/1024);
 
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_offset, sizeof(uint16_t)*num_gridline_offset));    
-    log("\t%.2f MB\tgrid line offset buffer",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
+    log("\t%.2f MB\t\tgrid line offset",1.0*sizeof(uint16_t)*num_gridline_offset/1024/1024);
 
     CUDA_SAFE_CALL(cudaMalloc((void **) &gctx->d_gridline_nodes, sizeof(double)*num_gridline_nodes));    
-    log("\t%.2f MB\tgrid line nodes buffer",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
+    log("\t%.2f MB\tgrid line nodes",1.0*sizeof(double)*num_gridline_nodes/1024/1024);
 
 	gctx->num_polygons = num_polygons;
     gctx->num_status = num_status;
